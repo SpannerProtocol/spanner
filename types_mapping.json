@@ -1,0 +1,379 @@
+{
+  "AssetId": "u32",
+  "Weight": "u64",
+  "Amount": "i128",
+  "AmountOf": "Amount",
+  "TokenSymbol": {
+    "type": "enum",
+    "value_list": [
+      "BOLT",
+      "WUSD",
+      "WBTC",
+      "BBOT",
+      "DOGE",
+      "NCAT",
+      "PLKT",
+      "ZERO"
+    ]
+  },
+  "CurrencyId": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "Token",
+        "TokenSymbol"
+      ],
+      [
+        "DexShare",
+        "(TokenSymbol, TokenSymbol)"
+      ]
+    ]
+  },
+  "CurrencyIdOf": "CurrencyId",
+  "TravelCabinIndex": "u32",
+  "TravelCabinInventoryIndex": "u16",
+  "DpoIndex": "u32",
+  "TravelCabinInfo": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "creator",
+        "AccountId"
+      ],
+      [
+        "token_id",
+        "CurrencyId"
+      ],
+      [
+        "index",
+        "TravelCabinIndex"
+      ],
+      [
+        "deposit_amount",
+        "Balance"
+      ],
+      [
+        "bonus_total",
+        "Balance"
+      ],
+      [
+        "yield_total",
+        "Balance"
+      ],
+      [
+        "maturity",
+        "BlockNumber"
+      ]
+    ]
+  },
+  "TravelCabinBuyerInfo": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "buyer",
+        "Buyer"
+      ],
+      [
+        "purchase_blk",
+        "BlockNumber"
+      ],
+      [
+        "yield_withdrawn",
+        "Balance"
+      ],
+      [
+        "fare_withdrawn",
+        "bool"
+      ],
+      [
+        "blk_of_last_withdraw",
+        "BlockNumber"
+      ]
+    ]
+  },
+  "MilestoneRewardInfo": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "token_id",
+        "CurrencyId"
+      ],
+      [
+        "deposited",
+        "Balance"
+      ],
+      [
+        "milestones",
+        "Vec<(Balance, Balance)>"
+      ]
+    ]
+  },
+  "DpoState": {
+    "type": "enum",
+    "value_list": [
+      "CREATED",
+      "ACTIVE",
+      "RUNNING",
+      "FAILED",
+      "COMPLETED"
+    ]
+  },
+  "Target": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "Dpo",
+        "(DpoIndex, u8)"
+      ],
+      [
+        "TravelCabin",
+        "TravelCabinIndex"
+      ]
+    ]
+  },
+  "Buyer": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "Dpo",
+        "DpoIndex"
+      ],
+      [
+        "Passenger",
+        "AccountId"
+      ],
+      [
+        "InvalidBuyer",
+        "null"
+      ]
+    ]
+  },
+  "DpoInfo": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "index",
+        "DpoIndex"
+      ],
+      [
+        "name",
+        "Text"
+      ],
+      [
+        "token_id",
+        "CurrencyId"
+      ],
+      [
+        "manager",
+        "AccountId"
+      ],
+      [
+        "target",
+        "Target"
+      ],
+      [
+        "target_maturity",
+        "BlockNumber"
+      ],
+      [
+        "target_amount",
+        "Balance"
+      ],
+      [
+        "target_yield_estimate",
+        "Balance"
+      ],
+      [
+        "target_bonus_estimate",
+        "Balance"
+      ],
+      [
+        "amount_per_seat",
+        "Balance"
+      ],
+      [
+        "commission_rate",
+        "u32"
+      ],
+      [
+        "commission_rate_slashed",
+        "bool"
+      ],
+      [
+        "empty_seats",
+        "u8"
+      ],
+      [
+        "fifo",
+        "Vec<Buyer>"
+      ],
+      [
+        "vault_deposit",
+        "Balance"
+      ],
+      [
+        "vault_withdraw",
+        "Balance"
+      ],
+      [
+        "vault_yield",
+        "Balance"
+      ],
+      [
+        "vault_bonus",
+        "Balance"
+      ],
+      [
+        "total_yield_received",
+        "Balance"
+      ],
+      [
+        "total_bonus_received",
+        "Balance"
+      ],
+      [
+        "total_milestone_received",
+        "Balance"
+      ],
+      [
+        "blk_of_last_yield",
+        "Option<BlockNumber>"
+      ],
+      [
+        "blk_of_dpo_filled",
+        "Option<BlockNumber>"
+      ],
+      [
+        "expiry_blk",
+        "BlockNumber"
+      ],
+      [
+        "state",
+        "DpoState"
+      ],
+      [
+        "referrer",
+        "Option<AccountId>"
+      ],
+      [
+        "fare_withdrawn",
+        "bool"
+      ]
+    ]
+  },
+  "DpoMemberInfo": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "buyer",
+        "Buyer"
+      ],
+      [
+        "number_of_seats",
+        "u8"
+      ],
+      [
+        "referrer",
+        "Referrer"
+      ]
+    ]
+  },
+  "Referrer": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "None",
+        "null"
+      ],
+      [
+        "MemberOfDpo",
+        "Buyer"
+      ],
+      [
+        "External",
+        "(AccountId, Buyer)"
+      ]
+    ]
+  },
+  "PaymentType": {
+    "type": "enum",
+    "value_list": [
+      "Deposit",
+      "Bonus",
+      "MilestoneReward",
+      "Yield",
+      "UnusedFund",
+      "WithdrawOnCompletion",
+      "WithdrawOnFailure"
+    ]
+  },
+  "PoolId": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "DexYieldFarming",
+        "CurrencyId"
+      ]
+    ]
+  },
+  "PoolInfo": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "total_shares",
+        "Balance"
+      ],
+      [
+        "total_rewards",
+        "Balance"
+      ],
+      [
+        "total_withdrawn_rewards",
+        "Balance"
+      ]
+    ]
+  },
+  "Price": "FixedU128",
+  "ExchangeRate": "FixedU128",
+  "Ratio": "FixedU128",
+  "Rate": "FixedU128",
+  "TradingPair": "(CurrencyId, CurrencyId)",
+  "TradingPairStatus": {
+    "type": "enum",
+    "type_mapping": [
+      [
+        "NotEnabled",
+        "null"
+      ],
+      [
+        "Provisioning",
+        "TradingPairProvisionParameters"
+      ],
+      [
+        "Enabled",
+        "null"
+      ]
+    ]
+  },
+  "TradingPairProvisionParameters": {
+    "type": "struct",
+    "type_mapping": [
+      [
+        "min_contribution",
+        "(Balance, Balance)"
+      ],
+      [
+        "target_provision",
+        "(Balance, Balance)"
+      ],
+      [
+        "accumulated_provision",
+        "(Balance, Balance)"
+      ],
+      [
+        "not_before",
+        "BlockNumber"
+      ]
+    ]
+  }
+}

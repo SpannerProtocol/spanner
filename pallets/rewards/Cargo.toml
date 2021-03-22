@@ -1,0 +1,52 @@
+[package]
+authors = ['Spanner Developers']
+description = 'Yield Farming Pallet'
+edition = '2018'
+homepage = 'https://www.spanner.network/'
+license = 'Unlicense'
+name = 'pallet-rewards'
+repository = ''
+version = '2.0.0'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+# alias "parity-scale-code" to "codec"
+[dependencies.codec]
+default-features = false
+features = ['derive']
+package = 'parity-scale-codec'
+version = '2.0.0'
+
+[dependencies]
+serde = { version = "1.0.101", optional = true }
+frame-support = { version = "3.0.0", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
+common = { package = "pallet-common", path = "../common", default-features = false }
+primitives = { package = "node-primitives", path = "../../primitives", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
+orml-traits = { path = "../../orml/traits", default-features = false }
+pallet-scheduler = { version = "3.0.0", default-features = false }
+
+[dev-dependencies]
+sp-core = { version = "3.0.0", default-features = false }
+sp-io = { version = "3.0.0", default-features = false }
+pallet-balances = { version = "3.0.0", default-features = false }
+orml-tokens = { path = "../../orml/tokens", default-features = false }
+orml-currencies = { path = "../../orml/currencies", default-features = false }
+
+[features]
+default = ['std']
+std = [
+    'serde',
+    'codec/std',
+    'frame-support/std',
+    'frame-system/std',
+    'common/std',
+    'primitives/std',
+    'sp-runtime/std',
+    'sp-std/std',
+    'orml-traits/std',
+    'pallet-scheduler/std',
+]

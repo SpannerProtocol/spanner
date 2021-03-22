@@ -1,0 +1,63 @@
+[package]
+authors = ['Spanner Developers']
+description = 'POC FRAME pallet'
+edition = '2018'
+homepage = 'https://www.spanner.network/'
+license = 'Unlicense'
+name = 'pallet-bullet-train'
+repository = ''
+version = '2.0.0'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+parity-scale-codec = { version = "2.0.0", features = ["derive"], default-features = false }
+
+# Substrate packages
+serde = { version = "1.0.101", optional = true }
+pallet-scheduler = { version = "3.0.0", default-features = false }
+pallet-balances = { version = '3.0.0', default-features = false }
+frame-support = { version = '3.0.0', default-features = false }
+frame-system = { version = '3.0.0', default-features = false }
+frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
+sp-core = { version = '3.0.0', default-features = false }
+sp-runtime = { version = '3.0.0', default-features = false }
+sp-std = { version = '3.0.0', default-features = false }
+sp-storage = { version = '3.0.0', default-features = false }
+sp-arithmetic = { version = '3.0.0', default-features = false }
+orml-traits = { path = "../../orml/traits", default-features = false }
+orml-currencies = { path = "../../orml/currencies", default-features = false }
+orml-tokens = { path = "../../orml/tokens", default-features = false }
+primitives = { package = "node-primitives", path = "../../primitives", default-features = false }
+pallet-bullet-train-primitives = { version = "2.0.0", default-features = false, path = "common" }
+
+[dev-dependencies]
+sp-core = { version = '3.0.0', default-features = false }
+sp-io = { version = '3.0.0', default-features = false }
+
+[features]
+default = ['std']
+std = [
+    'serde',
+    'pallet-balances/std',
+    'pallet-scheduler/std',
+    'frame-support/std',
+    'frame-system/std',
+    'parity-scale-codec/std',
+    'sp-core/std',
+    'sp-runtime/std',
+    'sp-std/std',
+    'sp-storage/std',
+    'sp-arithmetic/std',
+    'orml-traits/std',
+    'orml-currencies/std',
+    'orml-tokens/std',
+    'primitives/std',
+    "pallet-bullet-train-primitives/std",
+]
+
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "frame-system/runtime-benchmarks",
+]

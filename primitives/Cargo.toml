@@ -1,0 +1,34 @@
+[package]
+name = "node-primitives"
+version = "2.0.0"
+authors = ["Spanner Developers"]
+edition = "2018"
+license = "Apache-2.0"
+homepage = "https://www.spanner.network/"
+repository = ""
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+serde = { version = "1.0.101", optional = true }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+frame-system = { version = "3.0.0", default-features = false }
+sp-application-crypto = { version = "3.0.0", default-features = false }
+sp-core = { version = "3.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+
+[dev-dependencies]
+sp-serializer ="3.0.0"
+pretty_assertions = "0.6.1"
+
+[features]
+default = ["std"]
+std = [
+    "serde",
+	"codec/std",
+	"frame-system/std",
+	"sp-application-crypto/std",
+	"sp-core/std",
+	"sp-runtime/std",
+]

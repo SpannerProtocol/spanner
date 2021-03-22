@@ -1,0 +1,49 @@
+[package]
+authors = ['Spanner Developers']
+description = 'Dex pallet'
+edition = '2018'
+homepage = 'https://www.spanner.network/'
+license = 'Unlicense'
+name = 'pallet-dex'
+repository = ''
+version = '2.0.0'
+
+[dependencies]
+serde = { version = "1.0.101", optional = true }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+sp-core = { default-features = false, version = '3.0.0' }
+frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
+frame-support = { version = "3.0.0", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
+orml-traits = { path = "../../orml/traits", default-features = false }
+orml-tokens = { path = "../../orml/tokens", default-features = false }
+primitives = { package = "node-primitives", path = "../../primitives", default-features = false }
+common = { package = "pallet-common", path = "../common", default-features = false }
+
+[dev-dependencies]
+sp-io = { default-features = false, version = '3.0.0' }
+pallet-balances = { version = "3.0.0", default-features = false }
+orml-currencies = { path = "../../orml/currencies", default-features = false }
+
+[features]
+default = ['std']
+std = [
+    "serde",
+    "codec/std",
+    "sp-runtime/std",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-std/std",
+    "sp-core/std",
+    "orml-traits/std",
+    "orml-tokens/std",
+    "primitives/std",
+    "common/std",
+    "frame-benchmarking/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "frame-system/runtime-benchmarks"
+]

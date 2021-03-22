@@ -1,0 +1,29 @@
+[package]
+authors = ['Spanner Developers']
+description = 'Node-specific RPC methods for interaction with bullet-train.'
+edition = '2018'
+homepage = 'https://www.spanner.network/'
+license = 'Unlicense'
+name = 'pallet-bullet-train-rpc-runtime-api'
+readme = "README.md"
+repository = ''
+version = '2.0.0'
+
+[dependencies]
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+sp-api = { version = "3.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
+pallet-bullet-train-primitives = { version = "2.0.0", default-features = false, path = "../../common" }
+
+[features]
+default = ["std"]
+std = [
+    "serde",
+    "codec/std",
+    "sp-api/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "pallet-bullet-train-primitives/std",
+]
