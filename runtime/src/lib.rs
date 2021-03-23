@@ -225,6 +225,7 @@ impl Filter<Call> for BaseFilter {
         !matches!(
             call,
             Call::Staking(..)
+                | Call::Recovery(..)
                 | Call::Democracy(..)
                 | Call::Elections(..)
                 | Call::Offences(..)

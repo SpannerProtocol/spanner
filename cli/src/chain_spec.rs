@@ -498,8 +498,8 @@ pub fn local_testnet_config() -> ChainSpec {
     properties.insert("tokenDecimals".into(), 10.into());
 
     ChainSpec::from_genesis(
-        "Hammer",
-        "hammer",
+        "Local Testnet",
+        "local_testnet",
         ChainType::Local,
         local_testnet_genesis,
         vec![],
