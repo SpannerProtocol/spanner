@@ -898,6 +898,110 @@ fn dpo_buy_dpo_seats_test() {
 }
 
 #[test]
+fn nested_dpo_bonus_test() {
+    ExtBuilder::default().build().execute_with(|| {
+        for i in ALICE..JILL {
+            assert_ok!(Currencies::deposit(BOLT, &i, 100000000));
+        }
+        //set up travel_cabin and dpo (filled)
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            10000000,
+            1000000, //10% bonus
+            100,
+            10,
+            1
+        ));
+
+        //create lead_dpo
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::TravelCabin(0),
+            10,
+            10,
+            None
+        ));
+
+        //multiple layers of nested dpo. 10s each. and whose manager takes 10 seats.
+        //6 dpos in total
+        for l in 0..5 {
+            //create the next dpo to buy the other 10. dpo id = l + 1
+            assert_ok!(BulletTrain::create_dpo(
+                Origin::signed(ALICE),
+                String::from("test").into_bytes(),
+                Target::Dpo(l, 10),
+                10,
+                (9 - l).into(),
+                None
+            ));
+        }
+
+        //buys all the seat from bottom up
+        for l in 0..5 {
+            let dpo_id = 5 - l;
+            //8 more people filling the seats
+            for i in BOB..JILL {
+                assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                    Origin::signed(i),
+                    dpo_id,
+                    10,
+                    None
+                ));
+            }
+            //for the last dpo, jill needs to buy it as well
+            if l == 0 {
+                assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                    Origin::signed(JILL),
+                    dpo_id,
+                    10,
+                    None
+                ));
+            }
+            //then the dpo should be fully filled. now commits to the target
+            //manager buy
+            assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+                Origin::signed(ALICE),
+                dpo_id,
+                dpo_id - 1,
+                10
+            ));
+        }
+
+        // for dpo 0, buy the seats and commit to the cabin
+        for i in BOB..JILL {
+            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                Origin::signed(i),
+                0,
+                10,
+                None
+            ));
+        }
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            0
+        ));
+
+        // release bonus layer by layer and assert the balance
+        assert_ok!(BulletTrain::release_bonus_from_dpo(
+            Origin::signed(ALICE),
+            0
+        ));
+        let mut bonus_exp = 90000;     // 90000 = 1000k - 10k - 1k
+        for i in 1..6 {
+            assert_eq!(BulletTrain::dpos(i).unwrap().vault_bonus, bonus_exp);
+            bonus_exp /= 10;
+            assert_ok!(BulletTrain::release_bonus_from_dpo(
+                Origin::signed(ALICE),
+                i
+            ));
+        }
+    });
+}
+
+#[test]
 fn dpo_buy_travel_cabin() {
     ExtBuilder::default().build().execute_with(|| {
         //set up travel_cabin and dpo (filled)
@@ -1517,7 +1621,7 @@ fn dpo_referral() {
             None
         ));
 
-        //manager
+        //lead dpo manager, having no referrer
         assert_eq!(
             BulletTrain::dpo_members(0, Buyer::Passenger(ALICE)).unwrap(),
             DpoMemberInfo {
@@ -1791,8 +1895,12 @@ fn do_release_bonus_from_dpo() {
         );
 
         //referral chain of dpo0 Alice <- Bob <- Carol <- Dylan <- Elsa <- Fred -< DPO1(JILL)/
-        assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000 + 105 + 100 + 20); // 150 * 70% (30% to ADAM as external referrer)
-                                                                        // + 100 from bob + 20 from Carol
+        assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000 + 105 + 100 + 20);
+        assert_eq!(
+            Balances::free_balance(ALICE),
+            1000000 - 15000 + 105 + 100 + 20
+        ); // 150 * 70% (30% to ADAM as external referrer)
+        // + 100 from bob + 20 from Carol
         assert_eq!(Balances::free_balance(ADAM), 500000 + 45); // 150 * 30%
         // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
         assert_eq!(Balances::free_balance(BOB), 487000 + 80 + 20); // Carol 80 + Dylan 20
@@ -1875,7 +1983,10 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_bonus, 0);
 
         assert_eq!(Balances::free_balance(110), 30); //Alice 30
-        assert_eq!(Balances::free_balance(ALICE), 1000000 - 10000 + 70 + 100 + 20); //self 70, bob 100, carol 20
+        assert_eq!(
+            Balances::free_balance(ALICE),
+            1000000 - 10000 + 70 + 100 + 20
+        ); //self 70, bob 100, carol 20
     });
 }
 

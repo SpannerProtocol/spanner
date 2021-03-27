@@ -1808,13 +1808,16 @@ impl<T: Config> Pallet<T> {
                 }
             }
             None => {
-                // assign to queue / manager
-                if dpo.fifo.len() > 0 {
+                if Self::is_buyer_manager(dpo, &buyer){
+                    // then no referrer for the dpo manager
+                    Referrer::None
+                } else if dpo.fifo.len() > 0 {
+                    //assign to the earlybird queue
                     dpo.fifo.rotate_left(1);
                     Referrer::MemberOfDpo(dpo.fifo.pop().unwrap())
                 } else {
-                    //only case is manager
-                    Referrer::None
+                    // assign to the manager
+                    Referrer::MemberOfDpo(Buyer::Passenger(dpo.manager.clone()))
                 }
             }
         };
