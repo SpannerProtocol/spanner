@@ -397,7 +397,7 @@ impl pallet_indices::Config for Runtime {
 }
 
 parameter_types! {
-    pub const ExistentialDeposit: Balance = 1 * CENTS;
+    pub const ExistentialDeposit: Balance = 1 * MILLICENTS;
     // For weight estimation, we assume that the most locks on an individual account will be 50.
     // This number may need to be adjusted in the future if this assumption no longer holds true.
     pub const MaxLocks: u32 = 50;
@@ -553,7 +553,7 @@ parameter_types! {
     pub const VotingPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * 24 * 60 * MINUTES;
     pub const InstantAllowed: bool = true;
-    pub const MinimumDeposit: Balance = 100 * DOLLARS;
+    pub const MinimumDeposit: Balance = 1 * DOLLARS;
     pub const EnactmentPeriod: BlockNumber = 30 * 24 * 60 * MINUTES;
     pub const CooloffPeriod: BlockNumber = 28 * 24 * 60 * MINUTES;
     // One cent: $10,000 / MB
