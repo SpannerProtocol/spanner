@@ -331,8 +331,8 @@ pub mod module {
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config> {
-        CreatedTravelCabin(T::AccountId, TravelCabinIndex),
-        IssuedAdditionalTravelCabin(T::AccountId, TravelCabinIndex, u8),
+        CreatedTravelCabin(T::AccountId, CurrencyId, TravelCabinIndex),
+        IssuedAdditionalTravelCabin(T::AccountId, CurrencyId, TravelCabinIndex, u8),
         CreatedDpo(T::AccountId, DpoIndex),
         CreatedMilestoneReward(T::AccountId, CurrencyId, Balance, Balance),
         MilestoneRewardReleased(T::AccountId, CurrencyId, Balance, Balance),
@@ -576,7 +576,11 @@ pub mod module {
                     maturity,
                 },
             );
-            Self::deposit_event(Event::CreatedTravelCabin(creator, travel_cabin_idx));
+            Self::deposit_event(Event::CreatedTravelCabin(
+                creator,
+                token_id,
+                travel_cabin_idx,
+            ));
             Ok(().into())
         }
 
@@ -1808,7 +1812,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             None => {
-                if Self::is_buyer_manager(dpo, &buyer){
+                if Self::is_buyer_manager(dpo, &buyer) {
                     // then no referrer for the dpo manager
                     Referrer::None
                 } else if dpo.fifo.len() > 0 {
@@ -2018,6 +2022,7 @@ impl<T: Config> Pallet<T> {
             }
             Self::deposit_event(Event::IssuedAdditionalTravelCabin(
                 creator.clone(),
+                travel_cabin.token_id,
                 travel_cabin_idx,
                 number_more,
             ));

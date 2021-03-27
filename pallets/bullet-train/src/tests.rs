@@ -430,7 +430,7 @@ fn passenger_buy_dpo_seats_emits_events_correctly() {
             10,
             1
         ));
-        let expected_event = Event::pallet_bullet_train(crate::Event::CreatedTravelCabin(ALICE, 0));
+        let expected_event = Event::pallet_bullet_train(crate::Event::CreatedTravelCabin(ALICE, BOLT, 0));
         assert!(System::events().iter().any(|a| a.event == expected_event));
 
         assert_ok!(BulletTrain::create_dpo(
