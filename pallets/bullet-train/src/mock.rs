@@ -12,24 +12,24 @@ use orml_traits::parameter_type_with_key;
 use frame_system::EnsureSignedBy;
 
 pub type Balance = u128;
-pub type AccountId = u64;
+pub type AccountId = u128; // u64 is not enough to hold bytes used to generate dpo account
 pub type BlockNumber = u64;
 
 pub const WUSD: CurrencyId = CurrencyId::Token(TokenSymbol::WUSD);
 pub const PLKT: CurrencyId = CurrencyId::Token(TokenSymbol::PLKT);
 pub const BOLT: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
 
-pub const ALICE: u64 = 0;
-pub const BOB: u64 = 1;
-pub const CAROL: u64 = 2;
-pub const DYLAN: u64 = 3;
-pub const ELSA: u64 = 4;
-pub const FRED: u64 = 5;
-pub const GREG: u64 = 6;
-pub const HUGH: u64 = 7;
-pub const IVAN: u64 = 8;
-pub const JILL: u64 = 9;
-pub const ADAM: u64 = 100;
+pub const ALICE: u128 = 0;
+pub const BOB: u128 = 1;
+pub const CAROL: u128 = 2;
+pub const DYLAN: u128 = 3;
+pub const ELSA: u128 = 4;
+pub const FRED: u128 = 5;
+pub const GREG: u128 = 6;
+pub const HUGH: u128 = 7;
+pub const IVAN: u128 = 8;
+pub const JILL: u128 = 9;
+pub const ADAM: u128 = 100;
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
@@ -169,6 +169,7 @@ impl Default for ExtBuilder {
                 (ALICE, PLKT, 1_000_000u128),
                 (BOB, PLKT, 500_000u128),
                 (CAROL, PLKT, 500_000u128),
+                (BulletTrain::eng_account_id(), PLKT, 1_000_000)
             ],
             balance_endowed_accounts: vec![
                 (ALICE, 1_000_000),
@@ -182,6 +183,7 @@ impl Default for ExtBuilder {
                 (IVAN, 500_000),
                 (JILL, 500_000),
                 (ADAM, 500_000),
+                (BulletTrain::eng_account_id(), 1_000_000)
             ],
         }
     }

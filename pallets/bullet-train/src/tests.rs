@@ -736,7 +736,7 @@ fn dpo_buy_dpo_seats_test() {
             }
         );
         //the above action succeeded so there is event
-        let dpo1_acc = BulletTrain::dpo_account_id(1);
+        let dpo1_acc = BulletTrain::account_id();
         let expected_event = Event::orml_currencies(orml_currencies::Event::Transferred(
             BOLT, DYLAN, dpo1_acc, 500,
         ));

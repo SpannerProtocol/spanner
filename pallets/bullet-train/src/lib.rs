@@ -479,9 +479,9 @@ pub mod module {
                 Error::<T>::RewardMilestoneInvalid
             );
 
-            // minted
-            T::Currency::update_balance(
+            T::Currency::transfer(
                 token_id,
+                &Self::eng_account_id(),
                 &Self::account_id(),
                 reward.unique_saturated_into(),
             )?;
@@ -552,9 +552,9 @@ pub mod module {
                 .saturating_add(bonus_total)
                 .saturating_mul(stockpile.into());
 
-            // minted
-            T::Currency::update_balance(
+            T::Currency::transfer(
                 token_id,
+                &Self::eng_account_id(),
                 &Self::account_id(),
                 total_reward.unique_saturated_into(),
             )?;
@@ -629,8 +629,7 @@ pub mod module {
                 Buyer::Dpo(receiver_dpo_idx) => {
                     let mut receiver_dpo =
                         Self::dpos(receiver_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-                    Self::dpo_inflow(
-                        &Self::account_id(),
+                    Self::update_dpo_inflow(
                         &mut receiver_dpo,
                         travel_cabin.deposit_amount,
                         PaymentType::WithdrawOnCompletion,
@@ -691,10 +690,8 @@ pub mod module {
                 percentage = Permill::from_percent(100);
             } else {
                 let blk_since_purchase = now - buyer_info.purchase_blk;
-                percentage = Permill::from_rational_approximation(
-                    blk_since_purchase,
-                    travel_cabin.maturity,
-                );
+                percentage =
+                    Permill::from_rational_approximation(blk_since_purchase, travel_cabin.maturity);
             }
             let accumulated_yield: Balance = percentage * travel_cabin.yield_total;
             let mut amount = accumulated_yield.saturating_sub(buyer_info.yield_withdrawn);
@@ -719,12 +716,7 @@ pub mod module {
                 Buyer::Dpo(receiver_dpo_idx) => {
                     let mut receiver_dpo =
                         Self::dpos(receiver_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-                    Self::dpo_inflow(
-                        &Self::account_id(),
-                        &mut receiver_dpo,
-                        amount,
-                        PaymentType::Yield,
-                    )?;
+                    Self::update_dpo_inflow(&mut receiver_dpo, amount, PaymentType::Yield)?;
                     //persist the dpo after used. not gonna use it anywhere else
                     Dpos::<T>::insert(receiver_dpo_idx, receiver_dpo);
                 }
@@ -977,15 +969,16 @@ pub mod module {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn dpo_account_id(index: DpoIndex) -> T::AccountId {
-        T::ModuleId::get().into_sub_account((b"dpo", index))
-    }
-
-    /// The account ID of vaults
-    /// This actually does computation. If you need to keep using it, then make sure you cache the
-    /// value and only call this once.
+    /// The account ID for bullet train
     pub fn account_id() -> T::AccountId {
         T::ModuleId::get().into_account()
+    }
+
+    /// The account ID for bullet train engineers
+    pub fn eng_account_id() -> T::AccountId {
+        // only use two byte prefix to support 16 byte account id (used by test)
+        // "modl" ++ "sp/trsry" ++ "eng" is 15 bytes
+        T::ModuleId::get().into_sub_account(b"eng")
     }
 
     /// (a) add a record
@@ -1092,6 +1085,7 @@ impl<T: Config> Pallet<T> {
         milestone_reward_info: &mut MilestoneRewardInfo<Balance>,
         reward: Balance,
     ) -> DispatchResult {
+        let account_id = Self::account_id();
         let travel_cabin_count = Self::travel_cabin_count();
         for travel_cabin_idx in 0..travel_cabin_count {
             let travel_cabin =
@@ -1109,17 +1103,12 @@ impl<T: Config> Pallet<T> {
                 match buyer_info.buyer {
                     Buyer::Dpo(dpo_idx) => {
                         let mut dpo = Self::dpos(dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-                        Self::dpo_inflow(
-                            &Self::account_id(),
-                            &mut dpo,
-                            amount,
-                            PaymentType::MilestoneReward,
-                        )?;
+                        Self::update_dpo_inflow(&mut dpo, amount, PaymentType::MilestoneReward)?;
                         Dpos::<T>::insert(dpo_idx, &dpo);
                     }
                     Buyer::Passenger(acc) => T::Currency::transfer(
                         milestone_reward_info.token_id,
-                        &Self::account_id(),
+                        &account_id,
                         &acc,
                         amount,
                     )?,
@@ -1168,8 +1157,7 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
         payment_type: PaymentType,
     ) -> DispatchResult {
-        let to_acc = Self::dpo_account_id(dpo.index);
-        T::Currency::transfer(dpo.token_id, from_acc, &to_acc, amount)?;
+        T::Currency::transfer(dpo.token_id, from_acc, &Self::account_id(), amount)?;
         Self::update_dpo_inflow(dpo, amount, payment_type)?;
         Ok(())
     }
@@ -1293,17 +1281,16 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
         payment_type: PaymentType,
     ) -> DispatchResult {
-        let from_acc = Self::dpo_account_id(dpo.index);
         match buyer {
             Buyer::Dpo(receiver_dpo_idx) => {
                 let mut receiver_dpo =
                     Self::dpos(receiver_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-                Self::dpo_inflow(&from_acc, &mut receiver_dpo, amount, payment_type)?;
+                Self::update_dpo_inflow(&mut receiver_dpo, amount, payment_type)?;
                 //persist the dpo after used. not gonna use it anywhere else
                 Dpos::<T>::insert(receiver_dpo_idx, receiver_dpo);
             }
             Buyer::Passenger(to_acc) => {
-                T::Currency::transfer(dpo.token_id, &from_acc, &to_acc, amount)?
+                T::Currency::transfer(dpo.token_id, &Self::account_id(), &to_acc, amount)?
             }
             Buyer::InvalidBuyer => Err(Error::<T>::InvalidBuyerType)?,
         };
@@ -1318,13 +1305,8 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
         payment_type: PaymentType,
     ) -> DispatchResult {
+        T::Currency::transfer(dpo.token_id, &Self::account_id(), &account, amount)?;
         Self::update_dpo_outflow(dpo, amount, payment_type)?;
-        T::Currency::transfer(
-            dpo.token_id,
-            &Self::dpo_account_id(dpo.index),
-            &account,
-            amount,
-        )?;
         Ok(())
     }
 
@@ -1335,12 +1317,6 @@ impl<T: Config> Pallet<T> {
         amount: Balance,
         payment_type: PaymentType,
     ) -> DispatchResult {
-        T::Currency::transfer(
-            from_dpo.token_id,
-            &Self::dpo_account_id(from_dpo.index),
-            &Self::dpo_account_id(to_dpo.index),
-            amount,
-        )?;
         Self::update_dpo_outflow(from_dpo, amount, payment_type)?;
         Self::update_dpo_inflow(to_dpo, amount, payment_type)?;
         Ok(())
@@ -1763,11 +1739,12 @@ impl<T: Config> Pallet<T> {
         Self::is_legit_target_for_dpo(buyer_dpo, target)?;
 
         // (c) if the who has right and if we should slash the manager. but no double slashing
-        if !buyer_dpo.commission_rate_slashed{
+        if !buyer_dpo.commission_rate_slashed {
             let should_slash_manager = Self::if_should_slash_manager_on_buying(&buyer_dpo, who)?;
             if should_slash_manager {
-                buyer_dpo.commission_rate = Permill::from_perthousand(T::ManagerSlashPerThousand::get())
-                    * buyer_dpo.commission_rate;
+                buyer_dpo.commission_rate =
+                    Permill::from_perthousand(T::ManagerSlashPerThousand::get())
+                        * buyer_dpo.commission_rate;
                 buyer_dpo.commission_rate_slashed = true;
             }
         }
@@ -1821,7 +1798,7 @@ impl<T: Config> Pallet<T> {
                         if dpo.fifo.len() > 0 {
                             dpo.fifo.rotate_left(1);
                             Referrer::External(r_acc, dpo.fifo.pop().unwrap())
-                        } else if Self::is_buyer_manager(dpo, &buyer){
+                        } else if Self::is_buyer_manager(dpo, &buyer) {
                             //only if manager and has external referrer
                             Referrer::External(r_acc, Buyer::InvalidBuyer)
                         } else {
@@ -1879,7 +1856,6 @@ impl<T: Config> Pallet<T> {
         match buyer.clone() {
             Buyer::Dpo(buyer_dpo_idx) => {
                 let mut buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-
                 // (a) pre-buy
                 Self::do_dpo_pre_buy_check(signer.clone(), &mut buyer_dpo, target)?;
 
@@ -1912,17 +1888,15 @@ impl<T: Config> Pallet<T> {
                             .ok_or(Error::<T>::InvalidIndex)?;
 
                         // transfer from the buyer to pallet account
-                        Self::dpo_outflow_to_external_account(
+                        Self::update_dpo_outflow(
                             &mut buyer_dpo,
-                            Self::account_id(),
                             travel_cabin.deposit_amount,
                             PaymentType::Deposit,
                         )?;
 
                         // dpo receives bonus from the cabin (pallet account)
                         if travel_cabin.bonus_total > Zero::zero() {
-                            Self::dpo_inflow(
-                                &Self::account_id(),
+                            Self::update_dpo_inflow(
                                 &mut buyer_dpo,
                                 travel_cabin.bonus_total,
                                 PaymentType::Bonus,
@@ -2031,9 +2005,9 @@ impl<T: Config> Pallet<T> {
                     .saturating_add(travel_cabin.bonus_total)
                     .saturating_mul(number_more.into());
 
-                // minted
-                T::Currency::update_balance(
+                T::Currency::transfer(
                     travel_cabin.token_id,
+                    &Self::eng_account_id(),
                     &Self::account_id(),
                     total_reward.unique_saturated_into(),
                 )?;

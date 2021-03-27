@@ -461,10 +461,12 @@ impl_opaque_keys! {
 
 //Module accounts for runtime
 parameter_types! {
-    pub const SpannerTreasuryModuleId: ModuleId = ModuleId(*b"span/try");
-    pub const BulletTrainId: ModuleId = ModuleId(*b"span/btt");
-    pub const DexModuleId: ModuleId = ModuleId(*b"span/dex");
-    pub const RewardsModuleId: ModuleId = ModuleId(*b"span/rwd");
+    pub const TreasuryModuleId: ModuleId = ModuleId(*b"sp/trsry");
+    pub const BulletTrainId: ModuleId = ModuleId(*b"sp/blttn");
+    pub const DexModuleId: ModuleId = ModuleId(*b"sp/dexmd");
+    pub const RewardsModuleId: ModuleId = ModuleId(*b"sp/rewrd");
+    pub const SocietyModuleId: ModuleId = ModuleId(*b"sp/socie");
+    pub const LotteryModuleId: ModuleId = ModuleId(*b"sp/lotto");
 }
 
 parameter_types! {
@@ -711,7 +713,6 @@ parameter_types! {
     pub const DataDepositPerByte: Balance = 1 * CENTS;
     pub const BountyDepositBase: Balance = 1 * DOLLARS;
     pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
-    pub const TreasuryModuleId: ModuleId = ModuleId(*b"py/trsry");
     pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
     pub const MaximumReasonLength: u32 = 16384;
     pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
@@ -932,7 +933,6 @@ parameter_types! {
     pub const PeriodSpend: Balance = 500 * DOLLARS;
     pub const MaxLockDuration: BlockNumber = 36 * 30 * DAYS;
     pub const ChallengePeriod: BlockNumber = 7 * DAYS;
-    pub const SocietyModuleId: ModuleId = ModuleId(*b"py/socie");
 }
 
 impl pallet_society::Config for Runtime {
@@ -975,7 +975,6 @@ impl pallet_mmr::Config for Runtime {
 }
 
 parameter_types! {
-    pub const LotteryModuleId: ModuleId = ModuleId(*b"py/lotto");
     pub const MaxCalls: usize = 10;
     pub const MaxGenerateRandom: u32 = 10;
 }
@@ -1051,7 +1050,7 @@ parameter_type_with_key! {
     };
 }
 parameter_types! {
-    pub TreasuryModuleAccount: AccountId = SpannerTreasuryModuleId::get().into_account();
+    pub TreasuryModuleAccount: AccountId = TreasuryModuleId::get().into_account();
 }
 
 impl orml_tokens::Config for Runtime {
