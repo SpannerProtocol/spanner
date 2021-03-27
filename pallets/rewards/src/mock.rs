@@ -19,9 +19,9 @@ pub const BOB: AccountId = 2;
 pub const CAROL: AccountId = 3;
 pub const BOLT: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
 pub const WUSD: CurrencyId = CurrencyId::Token(TokenSymbol::WUSD);
-pub const WBTC: CurrencyId = CurrencyId::Token(TokenSymbol::WBTC);
-pub const ZERO: CurrencyId = CurrencyId::Token(TokenSymbol::ZERO);
-pub const WUSD_WBTC_LP: CurrencyId = CurrencyId::DexShare(TokenSymbol::WUSD, TokenSymbol::WBTC);
+pub const PLKT: CurrencyId = CurrencyId::Token(TokenSymbol::PLKT);
+pub const NCAT: CurrencyId = CurrencyId::Token(TokenSymbol::NCAT);
+pub const WUSD_NCAT_LP: CurrencyId = CurrencyId::DexShare(TokenSymbol::WUSD, TokenSymbol::NCAT);
 pub const BOLT_WUSD_LP: CurrencyId = CurrencyId::DexShare(TokenSymbol::BOLT, TokenSymbol::WUSD);
 pub const BOLT_WUSD_POOL: PoolId = PoolId::DexYieldFarming(BOLT_WUSD_LP);
 
@@ -115,10 +115,10 @@ pub struct MockDEX;
 impl DexManager<AccountId, CurrencyId, Balance> for MockDEX {
     fn get_liquidity_pool(currency_id_a: CurrencyId, currency_id_b: CurrencyId) -> (Balance, Balance) {
         match (currency_id_a, currency_id_b) {
-            (WUSD, WBTC) => (500, 100),
-            (WUSD, ZERO) => (400, 100),
-            (WBTC, WUSD) => (100, 500),
-            (ZERO, WUSD) => (100, 400),
+            (WUSD, NCAT) => (500, 100),
+            (WUSD, PLKT) => (400, 100),
+            (NCAT, WUSD) => (100, 500),
+            (PLKT, WUSD) => (100, 400),
             _ => (0, 0),
         }
     }

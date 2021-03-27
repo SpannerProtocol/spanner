@@ -16,12 +16,12 @@ pub type AccountId = u128;
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const WUSD: CurrencyId = CurrencyId::Token(TokenSymbol::WUSD);
-pub const WBTC: CurrencyId = CurrencyId::Token(TokenSymbol::WBTC);
-pub const ZERO: CurrencyId = CurrencyId::Token(TokenSymbol::ZERO);
+pub const NCAT: CurrencyId = CurrencyId::Token(TokenSymbol::NCAT);
+pub const PLKT: CurrencyId = CurrencyId::Token(TokenSymbol::PLKT);
 pub const BOLT: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
-pub const WUSD_WBTC_PAIR: TradingPair = TradingPair(WUSD, WBTC);
-pub const WUSD_ZERO_PAIR: TradingPair = TradingPair(WUSD, ZERO);
-pub const WBTC_ZERO_PAIR: TradingPair = TradingPair(WBTC, ZERO);
+pub const WUSD_NCAT_PAIR: TradingPair = TradingPair(WUSD, NCAT);
+pub const WUSD_PLKT_PAIR: TradingPair = TradingPair(WUSD, PLKT);
+pub const NCAT_PLKT_PAIR: TradingPair = TradingPair(NCAT, PLKT);
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
@@ -119,10 +119,10 @@ impl Default for ExtBuilder {
             endowed_accounts: vec![
                 (ALICE, WUSD, 1_000_000_000_000_000_000u128),
                 (BOB, WUSD, 1_000_000_000_000_000_000u128),
-                (ALICE, WBTC, 1_000_000_000_000_000_000u128),
-                (BOB, WBTC, 1_000_000_000_000_000_000u128),
-                (ALICE, ZERO, 1_000_000_000_000_000_000u128),
-                (BOB, ZERO, 1_000_000_000_000_000_000u128),
+                (ALICE, NCAT, 1_000_000_000_000_000_000u128),
+                (BOB, NCAT, 1_000_000_000_000_000_000u128),
+                (ALICE, PLKT, 1_000_000_000_000_000_000u128),
+                (BOB, PLKT, 1_000_000_000_000_000_000u128),
             ],
             initial_listing_trading_pairs: vec![],
             initial_enabled_trading_pairs: vec![],
@@ -135,19 +135,19 @@ impl ExtBuilder {
     pub fn initialize_listing_trading_pairs(mut self) -> Self {
         self.initial_listing_trading_pairs = vec![
             (
-                WUSD_ZERO_PAIR,
+                WUSD_PLKT_PAIR,
                 (5_000_000_000_000u128, 1_000_000_000_000u128),
                 (5_000_000_000_000_000u128, 1_000_000_000_000_000u128),
                 10,
             ),
             (
-                WUSD_WBTC_PAIR,
+                WUSD_NCAT_PAIR,
                 (20_000_000_000_000u128, 1_000_000_000u128),
                 (20_000_000_000_000_000u128, 1_000_000_000_000u128),
                 10,
             ),
             (
-                WBTC_ZERO_PAIR,
+                NCAT_PLKT_PAIR,
                 (4_000_000_000_000u128, 1_000_000_000u128),
                 (4_000_000_000_000_000u128, 1_000_000_000_000u128),
                 20,
@@ -157,7 +157,7 @@ impl ExtBuilder {
     }
 
     pub fn initialize_enabled_trading_pairs(mut self) -> Self {
-        self.initial_enabled_trading_pairs = vec![WUSD_ZERO_PAIR, WUSD_WBTC_PAIR, WBTC_ZERO_PAIR];
+        self.initial_enabled_trading_pairs = vec![WUSD_PLKT_PAIR, WUSD_NCAT_PAIR, NCAT_PLKT_PAIR];
         self
     }
 
@@ -165,9 +165,9 @@ impl ExtBuilder {
         self.initial_added_liquidity_pools = vec![(
             who,
             vec![
-                (WUSD_ZERO_PAIR, (1_000_000u128, 2_000_000u128)),
-                (WUSD_WBTC_PAIR, (1_000_000u128, 2_000_000u128)),
-                (WBTC_ZERO_PAIR, (1_000_000u128, 2_000_000u128)),
+                (WUSD_PLKT_PAIR, (1_000_000u128, 2_000_000u128)),
+                (WUSD_NCAT_PAIR, (1_000_000u128, 2_000_000u128)),
+                (NCAT_PLKT_PAIR, (1_000_000u128, 2_000_000u128)),
             ],
         )];
         self

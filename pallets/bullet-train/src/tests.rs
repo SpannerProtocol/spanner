@@ -167,7 +167,7 @@ fn create_milestone_reward() {
         ));
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
-            ZERO,
+            PLKT,
             100,
             0,
             100,
@@ -199,16 +199,16 @@ fn create_milestone_reward() {
             300,
             30
         ));
-        //for ZERO
+        //for PLKT
         assert_ok!(BulletTrain::create_milestone_reward(
             Origin::signed(ALICE),
-            ZERO,
+            PLKT,
             100,
             10
         ));
 
-        //test ZERO
-        // dpo 0 buy ZERO
+        //test PLKT
+        // dpo 0 buy PLKT
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
@@ -218,7 +218,7 @@ fn create_milestone_reward() {
             None
         ));
         for i in 101..110 {
-            assert_ok!(Currencies::deposit(ZERO, &i, 10));
+            assert_ok!(Currencies::deposit(PLKT, &i, 10));
             assert_ok!(BulletTrain::passenger_buy_dpo_seats(
                 Origin::signed(i),
                 0,
@@ -234,7 +234,7 @@ fn create_milestone_reward() {
         ));
         assert_ok!(BulletTrain::release_milestone_reward(
             Origin::signed(ALICE),
-            ZERO
+            PLKT
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().total_milestone_received, 10);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 10);

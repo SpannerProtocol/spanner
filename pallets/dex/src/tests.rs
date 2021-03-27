@@ -3,7 +3,7 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::{
     Dex, Event, ExtBuilder, ListingOrigin, Origin, System, Test, Tokens, ALICE, BOB, BOLT,
-    WBTC, WUSD, WUSD_WBTC_PAIR, WUSD_ZERO_PAIR, ZERO,
+    NCAT, WUSD, WUSD_NCAT_PAIR, WUSD_PLKT_PAIR, PLKT,
 };
 
 use orml_traits::MultiReservableCurrency;
@@ -15,32 +15,32 @@ fn enable_new_trading_pair_work() {
         System::set_block_number(1);
 
         assert_noop!(
-            Dex::enable_trading_pair(Origin::signed(ALICE), WUSD, ZERO),
+            Dex::enable_trading_pair(Origin::signed(ALICE), WUSD, PLKT),
             BadOrigin
         );
 
         assert_eq!(
-            Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+            Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
             TradingPairStatus::<_, _>::NotEnabled
         );
         assert_ok!(Dex::enable_trading_pair(
             Origin::signed(ListingOrigin::get()),
             WUSD,
-            ZERO
+            PLKT
         ));
         assert_eq!(
-            Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+            Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
             TradingPairStatus::<_, _>::Enabled
         );
 
         let enable_trading_pair_event =
-            Event::pallet_dex(crate::Event::EnableTradingPair(WUSD_ZERO_PAIR));
+            Event::pallet_dex(crate::Event::EnableTradingPair(WUSD_PLKT_PAIR));
         assert!(System::events()
             .iter()
             .any(|record| record.event == enable_trading_pair_event));
 
         assert_noop!(
-            Dex::enable_trading_pair(Origin::signed(ListingOrigin::get()), ZERO, WUSD),
+            Dex::enable_trading_pair(Origin::signed(ListingOrigin::get()), PLKT, WUSD),
             Error::<Test>::MustBeNotEnabled
         );
     });
@@ -55,7 +55,7 @@ fn list_new_trading_pair_work() {
             Dex::list_trading_pair(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 1_000_000_000_000u128,
                 1_000_000_000_000u128,
                 5_000_000_000_000u128,
@@ -66,13 +66,13 @@ fn list_new_trading_pair_work() {
         );
 
         assert_eq!(
-            Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+            Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
             TradingPairStatus::<_, _>::NotEnabled
         );
         assert_ok!(Dex::list_trading_pair(
             Origin::signed(ListingOrigin::get()),
             WUSD,
-            ZERO,
+            PLKT,
             1_000_000_000_000u128,
             1_000_000_000_000u128,
             5_000_000_000_000u128,
@@ -80,7 +80,7 @@ fn list_new_trading_pair_work() {
             10,
         ));
         assert_eq!(
-            Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+            Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
             TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
                 min_contribution: (1_000_000_000_000u128, 1_000_000_000_000u128),
                 target_provision: (5_000_000_000_000u128, 2_000_000_000_000u128),
@@ -90,7 +90,7 @@ fn list_new_trading_pair_work() {
         );
 
         let list_trading_pair_event =
-            Event::pallet_dex(crate::Event::ListTradingPair(WUSD_ZERO_PAIR));
+            Event::pallet_dex(crate::Event::ListTradingPair(WUSD_PLKT_PAIR));
         assert!(System::events()
             .iter()
             .any(|record| record.event == list_trading_pair_event));
@@ -99,7 +99,7 @@ fn list_new_trading_pair_work() {
             Dex::list_trading_pair(
                 Origin::signed(ListingOrigin::get()),
                 WUSD,
-                ZERO,
+                PLKT,
                 1_000_000_000_000u128,
                 1_000_000_000_000u128,
                 5_000_000_000_000u128,
@@ -119,36 +119,36 @@ fn disable_enabled_trading_pair_work() {
         assert_ok!(Dex::enable_trading_pair(
             Origin::signed(ListingOrigin::get()),
             WUSD,
-            ZERO
+            PLKT
         ));
         assert_eq!(
-            Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+            Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
             TradingPairStatus::<_, _>::Enabled
         );
 
         assert_noop!(
-            Dex::disable_trading_pair(Origin::signed(ALICE), WUSD, ZERO),
+            Dex::disable_trading_pair(Origin::signed(ALICE), WUSD, PLKT),
             BadOrigin
         );
 
         assert_ok!(Dex::disable_trading_pair(
             Origin::signed(ListingOrigin::get()),
             WUSD,
-            ZERO
+            PLKT
         ));
         assert_eq!(
-            Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+            Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
             TradingPairStatus::<_, _>::NotEnabled
         );
 
         let disable_trading_pair_event =
-            Event::pallet_dex(crate::Event::DisableTradingPair(WUSD_ZERO_PAIR));
+            Event::pallet_dex(crate::Event::DisableTradingPair(WUSD_PLKT_PAIR));
         assert!(System::events()
             .iter()
             .any(|record| record.event == disable_trading_pair_event));
 
         assert_noop!(
-            Dex::disable_trading_pair(Origin::signed(ListingOrigin::get()), WUSD, ZERO),
+            Dex::disable_trading_pair(Origin::signed(ListingOrigin::get()), WUSD, PLKT),
             Error::<Test>::NotEnabledTradingPair
         );
     });
@@ -165,14 +165,14 @@ fn disable_provisioning_trading_pair_work() {
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 5_000_000_000_000u128,
                 0,
             ));
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(BOB),
                 WUSD,
-                ZERO,
+                PLKT,
                 5_000_000_000_000u128,
                 1_000_000_000_000u128,
             ));
@@ -182,7 +182,7 @@ fn disable_provisioning_trading_pair_work() {
                 999_995_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &ALICE),
+                Tokens::free_balance(PLKT, &ALICE),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
@@ -190,7 +190,7 @@ fn disable_provisioning_trading_pair_work() {
                 999_995_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &BOB),
+                Tokens::free_balance(PLKT, &BOB),
                 999_999_000_000_000_000u128
             );
             assert_eq!(
@@ -198,19 +198,19 @@ fn disable_provisioning_trading_pair_work() {
                 10_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 1_000_000_000_000u128
             );
             assert_eq!(
-                Dex::provisioning_pool(WUSD_ZERO_PAIR, ALICE),
+                Dex::provisioning_pool(WUSD_PLKT_PAIR, ALICE),
                 (5_000_000_000_000u128, 0)
             );
             assert_eq!(
-                Dex::provisioning_pool(WUSD_ZERO_PAIR, BOB),
+                Dex::provisioning_pool(WUSD_PLKT_PAIR, BOB),
                 (5_000_000_000_000u128, 1_000_000_000_000u128)
             );
             assert_eq!(
-                Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+                Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
                 TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
                     min_contribution: (5_000_000_000_000u128, 1_000_000_000_000u128),
                     target_provision: (5_000_000_000_000_000u128, 1_000_000_000_000_000u128),
@@ -224,14 +224,14 @@ fn disable_provisioning_trading_pair_work() {
             assert_ok!(Dex::disable_trading_pair(
                 Origin::signed(ListingOrigin::get()),
                 WUSD,
-                ZERO
+                PLKT
             ));
             assert_eq!(
                 Tokens::free_balance(WUSD, &ALICE),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &ALICE),
+                Tokens::free_balance(PLKT, &ALICE),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
@@ -239,15 +239,15 @@ fn disable_provisioning_trading_pair_work() {
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &BOB),
+                Tokens::free_balance(PLKT, &BOB),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(Tokens::free_balance(WUSD, &Dex::account_id()), 0);
-            assert_eq!(Tokens::free_balance(ZERO, &Dex::account_id()), 0);
-            assert_eq!(Dex::provisioning_pool(WUSD_ZERO_PAIR, ALICE), (0, 0));
-            assert_eq!(Dex::provisioning_pool(WUSD_ZERO_PAIR, BOB), (0, 0));
+            assert_eq!(Tokens::free_balance(PLKT, &Dex::account_id()), 0);
+            assert_eq!(Dex::provisioning_pool(WUSD_PLKT_PAIR, ALICE), (0, 0));
+            assert_eq!(Dex::provisioning_pool(WUSD_PLKT_PAIR, BOB), (0, 0));
             assert_eq!(
-                Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+                Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
                 TradingPairStatus::<_, _>::NotEnabled
             );
             assert_eq!(System::consumers(&ALICE), alice_ref_count_0 - 1);
@@ -267,7 +267,7 @@ fn add_provision_work() {
                 Dex::add_liquidity(
                     Origin::signed(ALICE),
                     WUSD,
-                    ZERO,
+                    PLKT,
                     4_999_999_999_999u128,
                     999_999_999_999u128,
                 ),
@@ -276,7 +276,7 @@ fn add_provision_work() {
 
             // alice add provision
             assert_eq!(
-                Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+                Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
                 TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
                     min_contribution: (5_000_000_000_000u128, 1_000_000_000_000u128),
                     target_provision: (5_000_000_000_000_000u128, 1_000_000_000_000_000u128),
@@ -284,28 +284,28 @@ fn add_provision_work() {
                     not_before: 10,
                 })
             );
-            assert_eq!(Dex::provisioning_pool(WUSD_ZERO_PAIR, ALICE), (0, 0));
+            assert_eq!(Dex::provisioning_pool(WUSD_PLKT_PAIR, ALICE), (0, 0));
             assert_eq!(
                 Tokens::free_balance(WUSD, &ALICE),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &ALICE),
+                Tokens::free_balance(PLKT, &ALICE),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(Tokens::free_balance(WUSD, &Dex::account_id()), 0);
-            assert_eq!(Tokens::free_balance(ZERO, &Dex::account_id()), 0);
+            assert_eq!(Tokens::free_balance(PLKT, &Dex::account_id()), 0);
             let alice_ref_count_0 = System::consumers(&ALICE);
 
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 5_000_000_000_000u128,
                 0,
             ));
             assert_eq!(
-                Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+                Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
                 TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
                     min_contribution: (5_000_000_000_000u128, 1_000_000_000_000u128),
                     target_provision: (5_000_000_000_000_000u128, 1_000_000_000_000_000u128),
@@ -314,7 +314,7 @@ fn add_provision_work() {
                 })
             );
             assert_eq!(
-                Dex::provisioning_pool(WUSD_ZERO_PAIR, ALICE),
+                Dex::provisioning_pool(WUSD_PLKT_PAIR, ALICE),
                 (5_000_000_000_000u128, 0)
             );
             assert_eq!(
@@ -322,14 +322,14 @@ fn add_provision_work() {
                 999_995_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &ALICE),
+                Tokens::free_balance(PLKT, &ALICE),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
                 Tokens::free_balance(WUSD, &Dex::account_id()),
                 5_000_000_000_000u128
             );
-            assert_eq!(Tokens::free_balance(ZERO, &Dex::account_id()), 0);
+            assert_eq!(Tokens::free_balance(PLKT, &Dex::account_id()), 0);
             let alice_ref_count_1 = System::consumers(&ALICE);
             assert_eq!(alice_ref_count_1, alice_ref_count_0 + 1);
 
@@ -337,7 +337,7 @@ fn add_provision_work() {
                 ALICE,
                 WUSD,
                 5_000_000_000_000u128,
-                ZERO,
+                PLKT,
                 0,
             ));
             assert!(System::events()
@@ -345,26 +345,26 @@ fn add_provision_work() {
                 .any(|record| record.event == add_provision_event_0));
 
             // bob add provision
-            assert_eq!(Dex::provisioning_pool(WUSD_ZERO_PAIR, BOB), (0, 0));
+            assert_eq!(Dex::provisioning_pool(WUSD_PLKT_PAIR, BOB), (0, 0));
             assert_eq!(
                 Tokens::free_balance(WUSD, &BOB),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &BOB),
+                Tokens::free_balance(PLKT, &BOB),
                 1_000_000_000_000_000_000u128
             );
             let bob_ref_count_0 = System::consumers(&BOB);
 
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(BOB),
-                ZERO,
+                PLKT,
                 WUSD,
                 1_000_000_000_000_000u128,
                 0,
             ));
             assert_eq!(
-                Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+                Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
                 TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
                     min_contribution: (5_000_000_000_000u128, 1_000_000_000_000u128),
                     target_provision: (5_000_000_000_000_000u128, 1_000_000_000_000_000u128),
@@ -373,7 +373,7 @@ fn add_provision_work() {
                 })
             );
             assert_eq!(
-                Dex::provisioning_pool(WUSD_ZERO_PAIR, BOB),
+                Dex::provisioning_pool(WUSD_PLKT_PAIR, BOB),
                 (0, 1_000_000_000_000_000u128)
             );
             assert_eq!(
@@ -381,7 +381,7 @@ fn add_provision_work() {
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &BOB),
+                Tokens::free_balance(PLKT, &BOB),
                 999_000_000_000_000_000u128
             );
             assert_eq!(
@@ -389,7 +389,7 @@ fn add_provision_work() {
                 5_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 1_000_000_000_000_000u128
             );
             let bob_ref_count_1 = System::consumers(&BOB);
@@ -399,7 +399,7 @@ fn add_provision_work() {
                 BOB,
                 WUSD,
                 0,
-                ZERO,
+                PLKT,
                 1_000_000_000_000_000u128,
             ));
             assert!(System::events()
@@ -413,19 +413,19 @@ fn add_provision_work() {
                 999_995_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &ALICE),
+                Tokens::free_balance(PLKT, &ALICE),
                 1_000_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::total_issuance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap()),
+                Tokens::total_issuance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap()),
                 0
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 0
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
                 0
             );
 
@@ -433,7 +433,7 @@ fn add_provision_work() {
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 995_000_000_000_000u128,
                 1_000_000_000_000_000u128,
             ));
@@ -442,7 +442,7 @@ fn add_provision_work() {
                 999_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &ALICE),
+                Tokens::free_balance(PLKT, &ALICE),
                 999_000_000_000_000_000u128
             );
             assert_eq!(
@@ -450,31 +450,31 @@ fn add_provision_work() {
                 1_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 2_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::total_issuance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap()),
+                Tokens::total_issuance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap()),
                 4_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 3_000_000_000_000_000u128
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
                 1_000_000_000_000_000u128
             );
-            assert_eq!(Dex::provisioning_pool(WUSD_ZERO_PAIR, ALICE), (0, 0));
-            assert_eq!(Dex::provisioning_pool(WUSD_ZERO_PAIR, BOB), (0, 0));
+            assert_eq!(Dex::provisioning_pool(WUSD_PLKT_PAIR, ALICE), (0, 0));
+            assert_eq!(Dex::provisioning_pool(WUSD_PLKT_PAIR, BOB), (0, 0));
             assert_eq!(
-                Dex::trading_pair_statuses(WUSD_ZERO_PAIR),
+                Dex::trading_pair_statuses(WUSD_PLKT_PAIR),
                 TradingPairStatus::<_, _>::Enabled
             );
 
             let provisioning_to_enabled_event =
                 Event::pallet_dex(crate::Event::ProvisioningToEnabled(
-                    WUSD_ZERO_PAIR,
+                    WUSD_PLKT_PAIR,
                     1_000_000_000_000_000u128,
                     2_000_000_000_000_000u128,
                     4_000_000_000_000_000u128,
@@ -488,10 +488,10 @@ fn add_provision_work() {
 #[test]
 fn get_liquidity_work() {
     ExtBuilder::default().build().execute_with(|| {
-        LiquidityPool::<Test>::insert(WUSD_ZERO_PAIR, (1000, 20));
-        assert_eq!(Dex::liquidity_pool(WUSD_ZERO_PAIR), (1000, 20));
-        assert_eq!(Dex::get_liquidity(WUSD, ZERO), (1000, 20));
-        assert_eq!(Dex::get_liquidity(ZERO, WUSD), (20, 1000));
+        LiquidityPool::<Test>::insert(WUSD_PLKT_PAIR, (1000, 20));
+        assert_eq!(Dex::liquidity_pool(WUSD_PLKT_PAIR), (1000, 20));
+        assert_eq!(Dex::get_liquidity(WUSD, PLKT), (1000, 20));
+        assert_eq!(Dex::get_liquidity(PLKT, WUSD), (20, 1000));
     });
 }
 
@@ -527,27 +527,27 @@ fn get_target_amounts_work() {
         .initialize_enabled_trading_pairs()
         .build()
         .execute_with(|| {
-            LiquidityPool::<Test>::insert(WUSD_ZERO_PAIR, (50000, 10000));
-            LiquidityPool::<Test>::insert(WUSD_WBTC_PAIR, (100000, 10));
+            LiquidityPool::<Test>::insert(WUSD_PLKT_PAIR, (50000, 10000));
+            LiquidityPool::<Test>::insert(WUSD_NCAT_PAIR, (100000, 10));
             assert_noop!(
-                Dex::get_target_amounts(&vec![ZERO], 10000, None),
+                Dex::get_target_amounts(&vec![PLKT], 10000, None),
                 Error::<Test>::InvalidTradingPathLength,
             );
             assert_noop!(
-                Dex::get_target_amounts(&vec![ZERO, WUSD, WBTC, ZERO], 10000, None),
+                Dex::get_target_amounts(&vec![PLKT, WUSD, NCAT, PLKT], 10000, None),
                 Error::<Test>::InvalidTradingPathLength,
             );
             assert_noop!(
-                Dex::get_target_amounts(&vec![ZERO, WUSD, BOLT], 10000, None),
+                Dex::get_target_amounts(&vec![PLKT, WUSD, BOLT], 10000, None),
                 Error::<Test>::MustBeEnabled,
             );
             assert_eq!(
-                Dex::get_target_amounts(&vec![ZERO, WUSD], 10000, None),
+                Dex::get_target_amounts(&vec![PLKT, WUSD], 10000, None),
                 Ok(vec![10000, 24874])
             );
             assert_eq!(
                 Dex::get_target_amounts(
-                    &vec![ZERO, WUSD],
+                    &vec![PLKT, WUSD],
                     10000,
                     Ratio::checked_from_rational(50, 100)
                 ),
@@ -555,22 +555,22 @@ fn get_target_amounts_work() {
             );
             assert_noop!(
                 Dex::get_target_amounts(
-                    &vec![ZERO, WUSD],
+                    &vec![PLKT, WUSD],
                     10000,
                     Ratio::checked_from_rational(49, 100)
                 ),
                 Error::<Test>::ExceedPriceImpactLimit,
             );
             assert_eq!(
-                Dex::get_target_amounts(&vec![ZERO, WUSD, WBTC], 10000, None),
+                Dex::get_target_amounts(&vec![PLKT, WUSD, NCAT], 10000, None),
                 Ok(vec![10000, 24874, 1])
             );
             assert_noop!(
-                Dex::get_target_amounts(&vec![ZERO, WUSD, WBTC], 100, None),
+                Dex::get_target_amounts(&vec![PLKT, WUSD, NCAT], 100, None),
                 Error::<Test>::ZeroTargetAmount,
             );
             assert_noop!(
-                Dex::get_target_amounts(&vec![ZERO, WBTC], 100, None),
+                Dex::get_target_amounts(&vec![PLKT, NCAT], 100, None),
                 Error::<Test>::InsufficientLiquidity,
             );
         });
@@ -580,7 +580,7 @@ fn get_target_amounts_work() {
 fn calculate_amount_for_big_number_work() {
     ExtBuilder::default().build().execute_with(|| {
         LiquidityPool::<Test>::insert(
-            WUSD_ZERO_PAIR,
+            WUSD_PLKT_PAIR,
             (
                 171_000_000_000_000_000_000_000,
                 56_000_000_000_000_000_000_000,
@@ -611,27 +611,27 @@ fn get_supply_amounts_work() {
         .initialize_enabled_trading_pairs()
         .build()
         .execute_with(|| {
-            LiquidityPool::<Test>::insert(WUSD_ZERO_PAIR, (50000, 10000));
-            LiquidityPool::<Test>::insert(WUSD_WBTC_PAIR, (100000, 10));
+            LiquidityPool::<Test>::insert(WUSD_PLKT_PAIR, (50000, 10000));
+            LiquidityPool::<Test>::insert(WUSD_NCAT_PAIR, (100000, 10));
             assert_noop!(
-                Dex::get_supply_amounts(&vec![ZERO], 10000, None),
+                Dex::get_supply_amounts(&vec![PLKT], 10000, None),
                 Error::<Test>::InvalidTradingPathLength,
             );
             assert_noop!(
-                Dex::get_supply_amounts(&vec![ZERO, WUSD, WBTC, ZERO], 10000, None),
+                Dex::get_supply_amounts(&vec![PLKT, WUSD, NCAT, PLKT], 10000, None),
                 Error::<Test>::InvalidTradingPathLength,
             );
             assert_noop!(
-                Dex::get_supply_amounts(&vec![ZERO, WUSD, BOLT], 10000, None),
+                Dex::get_supply_amounts(&vec![PLKT, WUSD, BOLT], 10000, None),
                 Error::<Test>::MustBeEnabled,
             );
             assert_eq!(
-                Dex::get_supply_amounts(&vec![ZERO, WUSD], 24874, None),
+                Dex::get_supply_amounts(&vec![PLKT, WUSD], 24874, None),
                 Ok(vec![10000, 24874])
             );
             assert_eq!(
                 Dex::get_supply_amounts(
-                    &vec![ZERO, WUSD],
+                    &vec![PLKT, WUSD],
                     25000,
                     Ratio::checked_from_rational(50, 100)
                 ),
@@ -639,18 +639,18 @@ fn get_supply_amounts_work() {
             );
             assert_noop!(
                 Dex::get_supply_amounts(
-                    &vec![ZERO, WUSD],
+                    &vec![PLKT, WUSD],
                     25000,
                     Ratio::checked_from_rational(49, 100)
                 ),
                 Error::<Test>::ExceedPriceImpactLimit,
             );
             assert_noop!(
-                Dex::get_supply_amounts(&vec![ZERO, WUSD, WBTC], 10000, None),
+                Dex::get_supply_amounts(&vec![PLKT, WUSD, NCAT], 10000, None),
                 Error::<Test>::ZeroSupplyAmount,
             );
             assert_noop!(
-                Dex::get_supply_amounts(&vec![ZERO, WBTC], 10000, None),
+                Dex::get_supply_amounts(&vec![PLKT, NCAT], 10000, None),
                 Error::<Test>::InsufficientLiquidity,
             );
         });
@@ -662,13 +662,13 @@ fn _swap_work() {
         .initialize_enabled_trading_pairs()
         .build()
         .execute_with(|| {
-            LiquidityPool::<Test>::insert(WUSD_ZERO_PAIR, (50000, 10000));
+            LiquidityPool::<Test>::insert(WUSD_PLKT_PAIR, (50000, 10000));
 
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (50000, 10000));
-            Dex::_swap(WUSD, ZERO, 1000, 1000);
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (51000, 9000));
-            Dex::_swap(ZERO, WUSD, 100, 800);
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (50200, 9100));
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (50000, 10000));
+            Dex::_swap(WUSD, PLKT, 1000, 1000);
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (51000, 9000));
+            Dex::_swap(PLKT, WUSD, 100, 800);
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (50200, 9100));
         });
 }
 
@@ -678,16 +678,16 @@ fn _swap_by_path_work() {
         .initialize_enabled_trading_pairs()
         .build()
         .execute_with(|| {
-            LiquidityPool::<Test>::insert(WUSD_ZERO_PAIR, (50000, 10000));
-            LiquidityPool::<Test>::insert(WUSD_WBTC_PAIR, (100000, 10));
+            LiquidityPool::<Test>::insert(WUSD_PLKT_PAIR, (50000, 10000));
+            LiquidityPool::<Test>::insert(WUSD_NCAT_PAIR, (100000, 10));
 
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (50000, 10000));
-            assert_eq!(Dex::get_liquidity(WUSD, WBTC), (100000, 10));
-            Dex::_swap_by_path(&vec![ZERO, WUSD], &vec![10000, 25000]);
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (25000, 20000));
-            Dex::_swap_by_path(&vec![ZERO, WUSD, WBTC], &vec![4000, 10000, 2]);
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (15000, 24000));
-            assert_eq!(Dex::get_liquidity(WUSD, WBTC), (110000, 8));
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (50000, 10000));
+            assert_eq!(Dex::get_liquidity(WUSD, NCAT), (100000, 10));
+            Dex::_swap_by_path(&vec![PLKT, WUSD], &vec![10000, 25000]);
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (25000, 20000));
+            Dex::_swap_by_path(&vec![PLKT, WUSD, NCAT], &vec![4000, 10000, 2]);
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (15000, 24000));
+            assert_eq!(Dex::get_liquidity(WUSD, NCAT), (110000, 8));
         });
 }
 
@@ -710,20 +710,20 @@ fn add_liquidity_work() {
                 Error::<Test>::NotEnabledTradingPair
             );
             assert_noop!(
-                Dex::add_liquidity(Origin::signed(ALICE), WUSD, ZERO, 0, 100_000_000),
+                Dex::add_liquidity(Origin::signed(ALICE), WUSD, PLKT, 0, 100_000_000),
                 Error::<Test>::InvalidLiquidityIncrement
             );
 
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (0, 0));
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (0, 0));
             assert_eq!(Tokens::free_balance(WUSD, &Dex::account_id()), 0);
-            assert_eq!(Tokens::free_balance(ZERO, &Dex::account_id()), 0);
+            assert_eq!(Tokens::free_balance(PLKT, &Dex::account_id()), 0);
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 0
             );
             assert_eq!(
                 Tokens::reserved_balance(
-                    WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(),
+                    WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(),
                     &ALICE
                 ),
                 0
@@ -733,14 +733,14 @@ fn add_liquidity_work() {
                 1_000_000_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &ALICE),
+                Tokens::free_balance(PLKT, &ALICE),
                 1_000_000_000_000_000_000
             );
 
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 5_000_000_000_000,
                 1_000_000_000_000,
             ));
@@ -748,7 +748,7 @@ fn add_liquidity_work() {
                 ALICE,
                 WUSD,
                 5_000_000_000_000,
-                ZERO,
+                PLKT,
                 1_000_000_000_000,
                 5_000_000_000_000,
             ));
@@ -757,7 +757,7 @@ fn add_liquidity_work() {
                 .any(|record| record.event == add_liquidity_event_1));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (5_000_000_000_000, 1_000_000_000_000)
             );
             assert_eq!(
@@ -765,37 +765,37 @@ fn add_liquidity_work() {
                 5_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 1_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 5_000_000_000_000
             );
             assert_eq!(
                 Tokens::reserved_balance(
-                    WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(),
+                    WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(),
                     &ALICE
                 ),
                 0
             );
             assert_eq!(Tokens::free_balance(WUSD, &ALICE), 999_995_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &ALICE), 999_999_000_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &ALICE), 999_999_000_000_000_000);
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
                 0
             );
             assert_eq!(
-                Tokens::reserved_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
+                Tokens::reserved_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
                 0
             );
             assert_eq!(Tokens::free_balance(WUSD, &BOB), 1_000_000_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &BOB), 1_000_000_000_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &BOB), 1_000_000_000_000_000_000);
 
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(BOB),
                 WUSD,
-                ZERO,
+                PLKT,
                 50_000_000_000_000,
                 8_000_000_000_000,
             ));
@@ -803,7 +803,7 @@ fn add_liquidity_work() {
                 BOB,
                 WUSD,
                 40_000_000_000_000,
-                ZERO,
+                PLKT,
                 8_000_000_000_000,
                 40_000_000_000_000,
             ));
@@ -812,7 +812,7 @@ fn add_liquidity_work() {
                 .any(|record| record.event == add_liquidity_event_2));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (45_000_000_000_000, 9_000_000_000_000)
             );
             assert_eq!(
@@ -820,15 +820,15 @@ fn add_liquidity_work() {
                 45_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 9_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
                 40_000_000_000_000
             );
             assert_eq!(Tokens::free_balance(WUSD, &BOB), 999_960_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &BOB), 999_992_000_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &BOB), 999_992_000_000_000_000);
         });
 }
 
@@ -843,22 +843,22 @@ fn remove_liquidity_work() {
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 5_000_000_000_000,
                 1_000_000_000_000,
             ));
             assert_noop!(
                 Dex::remove_liquidity(
                     Origin::signed(ALICE),
-                    WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(),
-                    ZERO,
+                    WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(),
+                    PLKT,
                     100_000_000,
                 ),
                 Error::<Test>::InvalidCurrencyId
             );
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (5_000_000_000_000, 1_000_000_000_000)
             );
             assert_eq!(
@@ -866,27 +866,27 @@ fn remove_liquidity_work() {
                 5_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 1_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 5_000_000_000_000
             );
             assert_eq!(Tokens::free_balance(WUSD, &ALICE), 999_995_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &ALICE), 999_999_000_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &ALICE), 999_999_000_000_000_000);
 
             assert_ok!(Dex::remove_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 4_000_000_000_000,
             ));
             let remove_liquidity_event_1 = Event::pallet_dex(crate::Event::RemoveLiquidity(
                 ALICE,
                 WUSD,
                 4_000_000_000_000,
-                ZERO,
+                PLKT,
                 800_000_000_000,
                 4_000_000_000_000,
             ));
@@ -895,7 +895,7 @@ fn remove_liquidity_work() {
                 .any(|record| record.event == remove_liquidity_event_1));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (1_000_000_000_000, 200_000_000_000)
             );
             assert_eq!(
@@ -903,27 +903,27 @@ fn remove_liquidity_work() {
                 1_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 200_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 1_000_000_000_000
             );
             assert_eq!(Tokens::free_balance(WUSD, &ALICE), 999_999_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &ALICE), 999_999_800_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &ALICE), 999_999_800_000_000_000);
 
             assert_ok!(Dex::remove_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 1_000_000_000_000,
             ));
             let remove_liquidity_event_2 = Event::pallet_dex(crate::Event::RemoveLiquidity(
                 ALICE,
                 WUSD,
                 1_000_000_000_000,
-                ZERO,
+                PLKT,
                 200_000_000_000,
                 1_000_000_000_000,
             ));
@@ -931,11 +931,11 @@ fn remove_liquidity_work() {
                 .iter()
                 .any(|record| record.event == remove_liquidity_event_2));
 
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (0, 0));
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (0, 0));
             assert_eq!(Tokens::free_balance(WUSD, &Dex::account_id()), 0);
-            assert_eq!(Tokens::free_balance(ZERO, &Dex::account_id()), 0);
+            assert_eq!(Tokens::free_balance(PLKT, &Dex::account_id()), 0);
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 0
             );
             assert_eq!(
@@ -943,29 +943,29 @@ fn remove_liquidity_work() {
                 1_000_000_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &ALICE),
+                Tokens::free_balance(PLKT, &ALICE),
                 1_000_000_000_000_000_000
             );
 
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(BOB),
                 WUSD,
-                ZERO,
+                PLKT,
                 5_000_000_000_000,
                 1_000_000_000_000,
             ));
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
                 5_000_000_000_000
             );
             assert_ok!(Dex::remove_liquidity(
                 Origin::signed(BOB),
                 WUSD,
-                ZERO,
+                PLKT,
                 1_000_000_000_000,
             ));
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &BOB),
                 4_000_000_000_000
             );
         });
@@ -982,24 +982,24 @@ fn do_swap_with_exact_supply_work() {
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 500_000_000_000_000,
                 100_000_000_000_000,
             ));
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                WBTC,
+                NCAT,
                 100_000_000_000_000,
                 10_000_000_000,
             ));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (500_000_000_000_000, 100_000_000_000_000)
             );
             assert_eq!(
-                Dex::get_liquidity(WUSD, WBTC),
+                Dex::get_liquidity(WUSD, NCAT),
                 (100_000_000_000_000, 10_000_000_000)
             );
             assert_eq!(
@@ -1007,21 +1007,21 @@ fn do_swap_with_exact_supply_work() {
                 600_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 100_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(WBTC, &Dex::account_id()),
+                Tokens::free_balance(NCAT, &Dex::account_id()),
                 10_000_000_000
             );
             assert_eq!(Tokens::free_balance(WUSD, &BOB), 1_000_000_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &BOB), 1_000_000_000_000_000_000);
-            assert_eq!(Tokens::free_balance(WBTC, &BOB), 1_000_000_000_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &BOB), 1_000_000_000_000_000_000);
+            assert_eq!(Tokens::free_balance(NCAT, &BOB), 1_000_000_000_000_000_000);
 
             assert_noop!(
                 Dex::do_swap_with_exact_supply(
                     &BOB,
-                    &[ZERO, WUSD],
+                    &[PLKT, WUSD],
                     100_000_000_000_000,
                     250_000_000_000_000,
                     None
@@ -1031,7 +1031,7 @@ fn do_swap_with_exact_supply_work() {
             assert_noop!(
                 Dex::do_swap_with_exact_supply(
                     &BOB,
-                    &[ZERO, WUSD],
+                    &[PLKT, WUSD],
                     100_000_000_000_000,
                     0,
                     Ratio::checked_from_rational(10, 100)
@@ -1041,7 +1041,7 @@ fn do_swap_with_exact_supply_work() {
             assert_noop!(
                 Dex::do_swap_with_exact_supply(
                     &BOB,
-                    &[ZERO, WUSD, WBTC, ZERO],
+                    &[PLKT, WUSD, NCAT, PLKT],
                     100_000_000_000_000,
                     0,
                     None
@@ -1051,7 +1051,7 @@ fn do_swap_with_exact_supply_work() {
             assert_noop!(
                 Dex::do_swap_with_exact_supply(
                     &BOB,
-                    &[ZERO, BOLT],
+                    &[PLKT, BOLT],
                     100_000_000_000_000,
                     0,
                     None
@@ -1061,14 +1061,14 @@ fn do_swap_with_exact_supply_work() {
 
             assert_ok!(Dex::do_swap_with_exact_supply(
                 &BOB,
-                &[ZERO, WUSD],
+                &[PLKT, WUSD],
                 100_000_000_000_000,
                 200_000_000_000_000,
                 None
             ));
             let swap_event_1 = Event::pallet_dex(crate::Event::Swap(
                 BOB,
-                vec![ZERO, WUSD],
+                vec![PLKT, WUSD],
                 100_000_000_000_000,
                 248_743_718_592_964,
             ));
@@ -1077,11 +1077,11 @@ fn do_swap_with_exact_supply_work() {
                 .any(|record| record.event == swap_event_1));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (251_256_281_407_036, 200_000_000_000_000)
             );
             assert_eq!(
-                Dex::get_liquidity(WUSD, WBTC),
+                Dex::get_liquidity(WUSD, NCAT),
                 (100_000_000_000_000, 10_000_000_000)
             );
             assert_eq!(
@@ -1089,27 +1089,27 @@ fn do_swap_with_exact_supply_work() {
                 351_256_281_407_036
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 200_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(WBTC, &Dex::account_id()),
+                Tokens::free_balance(NCAT, &Dex::account_id()),
                 10_000_000_000
             );
             assert_eq!(Tokens::free_balance(WUSD, &BOB), 1_000_248_743_718_592_964);
-            assert_eq!(Tokens::free_balance(ZERO, &BOB), 999_900_000_000_000_000);
-            assert_eq!(Tokens::free_balance(WBTC, &BOB), 1_000_000_000_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &BOB), 999_900_000_000_000_000);
+            assert_eq!(Tokens::free_balance(NCAT, &BOB), 1_000_000_000_000_000_000);
 
             assert_ok!(Dex::do_swap_with_exact_supply(
                 &BOB,
-                &[ZERO, WUSD, WBTC],
+                &[PLKT, WUSD, NCAT],
                 200_000_000_000_000,
                 1,
                 None
             ));
             let swap_event_2 = Event::pallet_dex(crate::Event::Swap(
                 BOB,
-                vec![ZERO, WUSD, WBTC],
+                vec![PLKT, WUSD, NCAT],
                 200_000_000_000_000,
                 5_530_663_837,
             ));
@@ -1118,11 +1118,11 @@ fn do_swap_with_exact_supply_work() {
                 .any(|record| record.event == swap_event_2));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (126_259_437_892_983, 400_000_000_000_000)
             );
             assert_eq!(
-                Dex::get_liquidity(WUSD, WBTC),
+                Dex::get_liquidity(WUSD, NCAT),
                 (224_996_843_514_053, 4_469_336_163)
             );
             assert_eq!(
@@ -1130,16 +1130,16 @@ fn do_swap_with_exact_supply_work() {
                 351_256_281_407_036
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 400_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(WBTC, &Dex::account_id()),
+                Tokens::free_balance(NCAT, &Dex::account_id()),
                 4_469_336_163
             );
             assert_eq!(Tokens::free_balance(WUSD, &BOB), 1_000_248_743_718_592_964);
-            assert_eq!(Tokens::free_balance(ZERO, &BOB), 999_700_000_000_000_000);
-            assert_eq!(Tokens::free_balance(WBTC, &BOB), 1_000_000_005_530_663_837);
+            assert_eq!(Tokens::free_balance(PLKT, &BOB), 999_700_000_000_000_000);
+            assert_eq!(Tokens::free_balance(NCAT, &BOB), 1_000_000_005_530_663_837);
         });
 }
 
@@ -1154,24 +1154,24 @@ fn do_swap_with_exact_target_work() {
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                ZERO,
+                PLKT,
                 500_000_000_000_000,
                 100_000_000_000_000,
             ));
             assert_ok!(Dex::add_liquidity(
                 Origin::signed(ALICE),
                 WUSD,
-                WBTC,
+                NCAT,
                 100_000_000_000_000,
                 10_000_000_000,
             ));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (500_000_000_000_000, 100_000_000_000_000)
             );
             assert_eq!(
-                Dex::get_liquidity(WUSD, WBTC),
+                Dex::get_liquidity(WUSD, NCAT),
                 (100_000_000_000_000, 10_000_000_000)
             );
             assert_eq!(
@@ -1179,21 +1179,21 @@ fn do_swap_with_exact_target_work() {
                 600_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 100_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(WBTC, &Dex::account_id()),
+                Tokens::free_balance(NCAT, &Dex::account_id()),
                 10_000_000_000
             );
             assert_eq!(Tokens::free_balance(WUSD, &BOB), 1_000_000_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &BOB), 1_000_000_000_000_000_000);
-            assert_eq!(Tokens::free_balance(WBTC, &BOB), 1_000_000_000_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &BOB), 1_000_000_000_000_000_000);
+            assert_eq!(Tokens::free_balance(NCAT, &BOB), 1_000_000_000_000_000_000);
 
             assert_noop!(
                 Dex::do_swap_with_exact_target(
                     &BOB,
-                    &[ZERO, WUSD],
+                    &[PLKT, WUSD],
                     250_000_000_000_000,
                     100_000_000_000_000,
                     None
@@ -1203,7 +1203,7 @@ fn do_swap_with_exact_target_work() {
             assert_noop!(
                 Dex::do_swap_with_exact_target(
                     &BOB,
-                    &[ZERO, WUSD],
+                    &[PLKT, WUSD],
                     250_000_000_000_000,
                     200_000_000_000_000,
                     Ratio::checked_from_rational(10, 100)
@@ -1213,7 +1213,7 @@ fn do_swap_with_exact_target_work() {
             assert_noop!(
                 Dex::do_swap_with_exact_target(
                     &BOB,
-                    &[ZERO, WUSD, WBTC, ZERO],
+                    &[PLKT, WUSD, NCAT, PLKT],
                     250_000_000_000_000,
                     200_000_000_000_000,
                     None
@@ -1223,7 +1223,7 @@ fn do_swap_with_exact_target_work() {
             assert_noop!(
                 Dex::do_swap_with_exact_target(
                     &BOB,
-                    &[ZERO, BOLT],
+                    &[PLKT, BOLT],
                     250_000_000_000_000,
                     200_000_000_000_000,
                     None
@@ -1233,14 +1233,14 @@ fn do_swap_with_exact_target_work() {
 
             assert_ok!(Dex::do_swap_with_exact_target(
                 &BOB,
-                &[ZERO, WUSD],
+                &[PLKT, WUSD],
                 250_000_000_000_000,
                 200_000_000_000_000,
                 None
             ));
             let swap_event_1 = Event::pallet_dex(crate::Event::Swap(
                 BOB,
-                vec![ZERO, WUSD],
+                vec![PLKT, WUSD],
                 101_010_101_010_102,
                 250_000_000_000_000,
             ));
@@ -1249,11 +1249,11 @@ fn do_swap_with_exact_target_work() {
                 .any(|record| record.event == swap_event_1));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (250_000_000_000_000, 201_010_101_010_102)
             );
             assert_eq!(
-                Dex::get_liquidity(WUSD, WBTC),
+                Dex::get_liquidity(WUSD, NCAT),
                 (100_000_000_000_000, 10_000_000_000)
             );
             assert_eq!(
@@ -1261,27 +1261,27 @@ fn do_swap_with_exact_target_work() {
                 350_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 201_010_101_010_102
             );
             assert_eq!(
-                Tokens::free_balance(WBTC, &Dex::account_id()),
+                Tokens::free_balance(NCAT, &Dex::account_id()),
                 10_000_000_000
             );
             assert_eq!(Tokens::free_balance(WUSD, &BOB), 1_000_250_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &BOB), 999_898_989_898_989_898);
-            assert_eq!(Tokens::free_balance(WBTC, &BOB), 1_000_000_000_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &BOB), 999_898_989_898_989_898);
+            assert_eq!(Tokens::free_balance(NCAT, &BOB), 1_000_000_000_000_000_000);
 
             assert_ok!(Dex::do_swap_with_exact_target(
                 &BOB,
-                &[ZERO, WUSD, WBTC],
+                &[PLKT, WUSD, NCAT],
                 5_000_000_000,
                 2_000_000_000_000_000,
                 None
             ));
             let swap_event_2 = Event::pallet_dex(crate::Event::Swap(
                 BOB,
-                vec![ZERO, WUSD, WBTC],
+                vec![PLKT, WUSD, NCAT],
                 137_654_580_386_993,
                 5_000_000_000,
             ));
@@ -1290,11 +1290,11 @@ fn do_swap_with_exact_target_work() {
                 .any(|record| record.event == swap_event_2));
 
             assert_eq!(
-                Dex::get_liquidity(WUSD, ZERO),
+                Dex::get_liquidity(WUSD, PLKT),
                 (148_989_898_989_898, 338_664_681_397_095)
             );
             assert_eq!(
-                Dex::get_liquidity(WUSD, WBTC),
+                Dex::get_liquidity(WUSD, NCAT),
                 (201_010_101_010_102, 5_000_000_000)
             );
             assert_eq!(
@@ -1302,16 +1302,16 @@ fn do_swap_with_exact_target_work() {
                 350_000_000_000_000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 338_664_681_397_095
             );
             assert_eq!(
-                Tokens::free_balance(WBTC, &Dex::account_id()),
+                Tokens::free_balance(NCAT, &Dex::account_id()),
                 5_000_000_000
             );
             assert_eq!(Tokens::free_balance(WUSD, &BOB), 1_000_250_000_000_000_000);
-            assert_eq!(Tokens::free_balance(ZERO, &BOB), 999_761_335_318_602_905);
-            assert_eq!(Tokens::free_balance(WBTC, &BOB), 1_000_000_005_000_000_000);
+            assert_eq!(Tokens::free_balance(PLKT, &BOB), 999_761_335_318_602_905);
+            assert_eq!(Tokens::free_balance(NCAT, &BOB), 1_000_000_005_000_000_000);
         });
 }
 
@@ -1324,17 +1324,17 @@ fn initialize_added_liquidity_pools_genesis_work() {
         .execute_with(|| {
             System::set_block_number(1);
 
-            assert_eq!(Dex::get_liquidity(WUSD, ZERO), (1000000, 2000000));
+            assert_eq!(Dex::get_liquidity(WUSD, PLKT), (1000000, 2000000));
             assert_eq!(
                 Tokens::free_balance(WUSD, &Dex::account_id()),
                 2000000
             );
             assert_eq!(
-                Tokens::free_balance(ZERO, &Dex::account_id()),
+                Tokens::free_balance(PLKT, &Dex::account_id()),
                 4000000
             );
             assert_eq!(
-                Tokens::free_balance(WUSD_ZERO_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
+                Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 2000000
             );
         });

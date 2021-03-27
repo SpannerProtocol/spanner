@@ -41,7 +41,7 @@ fn inject_liquidity<T: Config>(
 benchmarks! {
     // enable a new trading pair
     enable_trading_pair {
-        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::ZERO));
+        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::PLKT));
         let currency_id_a = trading_pair.0;
         let currency_id_b = trading_pair.1;
         let _ = Dex::<T>::disable_trading_pair(RawOrigin::Root.into(), currency_id_a, currency_id_b);
@@ -49,7 +49,7 @@ benchmarks! {
 
     // disable a Enabled trading pair
     disable_trading_pair {
-        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::ZERO));
+        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::PLKT));
         let currency_id_a = trading_pair.0;
         let currency_id_b = trading_pair.1;
         let _ = Dex::<T>::enable_trading_pair(RawOrigin::Root.into(), currency_id_a, currency_id_b);
@@ -57,7 +57,7 @@ benchmarks! {
 
     // list a Enabled trading pair
     list_trading_pair {
-        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::ZERO));
+        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::PLKT));
         let currency_id_a = trading_pair.0;
         let currency_id_b = trading_pair.1;
         let min_contribution_a = dollars(1u32);
@@ -77,7 +77,7 @@ benchmarks! {
     add_liquidity {
         let first_maker: T::AccountId = account("first_maker", 0, SEED);
         let second_maker: T::AccountId = account("second_maker", 0, SEED);
-        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::ZERO));
+        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::PLKT));
         let amount_a = dollars(100u32);
         let amount_b = dollars(10000u32);
 
@@ -91,14 +91,14 @@ benchmarks! {
     // remove liquidity by liquid lp share
     remove_liquidity {
         let maker: T::AccountId = account("maker", 0, SEED);
-        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::ZERO));
+        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::PLKT));
         inject_liquidity::<T>(maker.clone(), trading_pair.0, trading_pair.1, dollars(100u32), dollars(10000u32))?;
     }: remove_liquidity(RawOrigin::Signed(maker), trading_pair.0, trading_pair.1, dollars(50u32).unique_saturated_into())
 
     swap_with_exact_supply {
         let u in 2 .. T::TradingPathLimit::get();
 
-        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::ZERO));
+        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::PLKT));
 
         let mut path: Vec<CurrencyId> = vec![];
         for i in 1 .. u {
@@ -125,7 +125,7 @@ benchmarks! {
     swap_with_exact_target {
         let u in 2 .. T::TradingPathLimit::get();
 
-        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::ZERO));
+        let trading_pair = TradingPair::new(CurrencyId::Token(TokenSymbol::WUSD),CurrencyId::Token(TokenSymbol::PLKT));
 
         let mut path: Vec<CurrencyId> = vec![];
         for i in 1 .. u {

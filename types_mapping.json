@@ -8,12 +8,9 @@
     "value_list": [
       "BOLT",
       "WUSD",
-      "WBTC",
       "BBOT",
-      "DOGE",
       "NCAT",
-      "PLKT",
-      "ZERO"
+      "PLKT"
     ]
   },
   "CurrencyId": {

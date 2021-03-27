@@ -301,14 +301,14 @@ fn scheduling_yield_farming_rewards() {
 fn deposit_dex_share_works() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Currencies::deposit(WUSD_WBTC_LP, &ALICE, 10000));
-        assert_eq!(Currencies::free_balance(WUSD_WBTC_LP, &ALICE), 10000);
+        assert_ok!(Currencies::deposit(WUSD_NCAT_LP, &ALICE, 10000));
+        assert_eq!(Currencies::free_balance(WUSD_NCAT_LP, &ALICE), 10000);
         assert_eq!(
-            Currencies::free_balance(WUSD_WBTC_LP, &RewardsModule::account_id()),
+            Currencies::free_balance(WUSD_NCAT_LP, &RewardsModule::account_id()),
             0
         );
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WUSD_WBTC_LP)),
+            RewardsModule::pools(PoolId::DexYieldFarming(WUSD_NCAT_LP)),
             PoolInfo {
                 total_shares: 0,
                 total_rewards: 0,
@@ -316,24 +316,24 @@ fn deposit_dex_share_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WUSD_WBTC_LP), ALICE),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WUSD_NCAT_LP), ALICE),
             (0, 0)
         );
         assert_ok!(RewardsModule::deposit_dex_share(
 			Origin::signed(ALICE),
-			WUSD_WBTC_LP,
+			WUSD_NCAT_LP,
 			10000
 		));
         assert!(System::events().iter().any(|record| record.event ==
-                Event::pallet_rewards(crate::Event::DepositDexShare(ALICE, WUSD_WBTC_LP, 10000))));
+                Event::pallet_rewards(crate::Event::DepositDexShare(ALICE, WUSD_NCAT_LP, 10000))));
 
-        assert_eq!(Currencies::free_balance(WUSD_WBTC_LP, &ALICE), 0);
+        assert_eq!(Currencies::free_balance(WUSD_NCAT_LP, &ALICE), 0);
         assert_eq!(
-            Currencies::free_balance(WUSD_WBTC_LP, &RewardsModule::account_id()),
+            Currencies::free_balance(WUSD_NCAT_LP, &RewardsModule::account_id()),
             10000
         );
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WUSD_WBTC_LP)),
+            RewardsModule::pools(PoolId::DexYieldFarming(WUSD_NCAT_LP)),
             PoolInfo {
                 total_shares: 10000,
                 total_rewards: 0,
@@ -341,7 +341,7 @@ fn deposit_dex_share_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WUSD_WBTC_LP), ALICE),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WUSD_NCAT_LP), ALICE),
             (10000, 0)
         );
     });
@@ -351,25 +351,25 @@ fn deposit_dex_share_works() {
 fn withdraw_dex_share_works() {
     ExtBuilder::default().build().execute_with(|| {
         System::set_block_number(1);
-        assert_ok!(Currencies::deposit(WUSD_WBTC_LP, &ALICE, 10000));
+        assert_ok!(Currencies::deposit(WUSD_NCAT_LP, &ALICE, 10000));
 
         assert_noop!(
-			RewardsModule::withdraw_dex_share(Origin::signed(BOB), WUSD_WBTC_LP, 10000),
+			RewardsModule::withdraw_dex_share(Origin::signed(BOB), WUSD_NCAT_LP, 10000),
 			Error::<Test>::NotEnough,
 		);
 
         assert_ok!(RewardsModule::deposit_dex_share(
 			Origin::signed(ALICE),
-			WUSD_WBTC_LP,
+			WUSD_NCAT_LP,
 			10000
 		));
-        assert_eq!(Currencies::free_balance(WUSD_WBTC_LP, &ALICE), 0);
+        assert_eq!(Currencies::free_balance(WUSD_NCAT_LP, &ALICE), 0);
         assert_eq!(
-            Currencies::free_balance(WUSD_WBTC_LP, &RewardsModule::account_id()),
+            Currencies::free_balance(WUSD_NCAT_LP, &RewardsModule::account_id()),
             10000
         );
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WUSD_WBTC_LP)),
+            RewardsModule::pools(PoolId::DexYieldFarming(WUSD_NCAT_LP)),
             PoolInfo {
                 total_shares: 10000,
                 total_rewards: 0,
@@ -377,27 +377,27 @@ fn withdraw_dex_share_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WUSD_WBTC_LP), ALICE),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WUSD_NCAT_LP), ALICE),
             (10000, 0)
         );
 
         assert_ok!(RewardsModule::withdraw_dex_share(
 			Origin::signed(ALICE),
-			WUSD_WBTC_LP,
+			WUSD_NCAT_LP,
 			8000
 		));
-        let withdraw_dex_share_event = Event::pallet_rewards(crate::Event::WithdrawDexShare(ALICE, WUSD_WBTC_LP, 8000));
+        let withdraw_dex_share_event = Event::pallet_rewards(crate::Event::WithdrawDexShare(ALICE, WUSD_NCAT_LP, 8000));
         assert!(System::events()
             .iter()
             .any(|record| record.event == withdraw_dex_share_event));
 
-        assert_eq!(Currencies::free_balance(WUSD_WBTC_LP, &ALICE), 8000);
+        assert_eq!(Currencies::free_balance(WUSD_NCAT_LP, &ALICE), 8000);
         assert_eq!(
-            Currencies::free_balance(WUSD_WBTC_LP, &RewardsModule::account_id()),
+            Currencies::free_balance(WUSD_NCAT_LP, &RewardsModule::account_id()),
             2000
         );
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WUSD_WBTC_LP)),
+            RewardsModule::pools(PoolId::DexYieldFarming(WUSD_NCAT_LP)),
             PoolInfo {
                 total_shares: 2000,
                 total_rewards: 0,
@@ -405,7 +405,7 @@ fn withdraw_dex_share_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WUSD_WBTC_LP), ALICE),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WUSD_NCAT_LP), ALICE),
             (2000, 0)
         );
     });
@@ -415,7 +415,7 @@ fn withdraw_dex_share_works() {
 fn on_add_liquidity_works() {
     ExtBuilder::default().build().execute_with(|| {
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WBTC)),
+            RewardsModule::pools(PoolId::DexYieldFarming(NCAT)),
             PoolInfo {
                 total_shares: 0,
                 total_rewards: 0,
@@ -423,12 +423,12 @@ fn on_add_liquidity_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WBTC), ALICE),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(NCAT), ALICE),
             (0, 0)
         );
-        RewardsModule::add_share(&ALICE, PoolId::DexYieldFarming(WBTC), 100);
+        RewardsModule::add_share(&ALICE, PoolId::DexYieldFarming(NCAT), 100);
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WBTC)),
+            RewardsModule::pools(PoolId::DexYieldFarming(NCAT)),
             PoolInfo {
                 total_shares: 100,
                 total_rewards: 0,
@@ -436,13 +436,13 @@ fn on_add_liquidity_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WBTC), ALICE),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(NCAT), ALICE),
             (100, 0)
         );
 
-        RewardsModule::add_share(&BOB, PoolId::DexYieldFarming(WBTC), 100);
+        RewardsModule::add_share(&BOB, PoolId::DexYieldFarming(NCAT), 100);
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WBTC)),
+            RewardsModule::pools(PoolId::DexYieldFarming(NCAT)),
             PoolInfo {
                 total_shares: 200,
                 total_rewards: 0,
@@ -450,7 +450,7 @@ fn on_add_liquidity_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WBTC), BOB),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(NCAT), BOB),
             (100, 0)
         );
     });
@@ -459,10 +459,10 @@ fn on_add_liquidity_works() {
 #[test]
 fn on_remove_liquidity_works() {
     ExtBuilder::default().build().execute_with(|| {
-        RewardsModule::add_share(&ALICE, PoolId::DexYieldFarming(WBTC), 100);
-        RewardsModule::add_share(&BOB, PoolId::DexYieldFarming(WBTC), 100);
+        RewardsModule::add_share(&ALICE, PoolId::DexYieldFarming(NCAT), 100);
+        RewardsModule::add_share(&BOB, PoolId::DexYieldFarming(NCAT), 100);
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WBTC)),
+            RewardsModule::pools(PoolId::DexYieldFarming(NCAT)),
             PoolInfo {
                 total_shares: 200,
                 total_rewards: 0,
@@ -470,18 +470,18 @@ fn on_remove_liquidity_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WBTC), ALICE),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(NCAT), ALICE),
             (100, 0)
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WBTC), BOB),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(NCAT), BOB),
             (100, 0)
         );
 
-        RewardsModule::remove_share(&ALICE, PoolId::DexYieldFarming(WBTC), 40);
-        RewardsModule::remove_share(&BOB, PoolId::DexYieldFarming(WBTC), 70);
+        RewardsModule::remove_share(&ALICE, PoolId::DexYieldFarming(NCAT), 40);
+        RewardsModule::remove_share(&BOB, PoolId::DexYieldFarming(NCAT), 70);
         assert_eq!(
-            RewardsModule::pools(PoolId::DexYieldFarming(WBTC)),
+            RewardsModule::pools(PoolId::DexYieldFarming(NCAT)),
             PoolInfo {
                 total_shares: 90,
                 total_rewards: 0,
@@ -489,11 +489,11 @@ fn on_remove_liquidity_works() {
             }
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WBTC), ALICE),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(NCAT), ALICE),
             (60, 0)
         );
         assert_eq!(
-            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(WBTC), BOB),
+            RewardsModule::share_and_withdrawn_reward(PoolId::DexYieldFarming(NCAT), BOB),
             (30, 0)
         );
     });
@@ -507,7 +507,7 @@ fn payout_works() {
 
         assert_eq!(Currencies::free_balance(BOLT, &RewardsModule::account_id()), 10000);
         assert_eq!(Currencies::free_balance(BOLT, &BOB), 0);
-        RewardsModule::payout(&BOB, PoolId::DexYieldFarming(WBTC), 1000);
+        RewardsModule::payout(&BOB, PoolId::DexYieldFarming(NCAT), 1000);
         assert_eq!(Currencies::free_balance(BOLT, &RewardsModule::account_id()), 9000);
         assert_eq!(Currencies::free_balance(BOLT, &BOB), 1000);
     });

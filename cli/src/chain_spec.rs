@@ -384,17 +384,7 @@ pub fn testnet_genesis(
                         ),
                         (
                             x.clone(),
-                            CurrencyId::Token(TokenSymbol::WBTC),
-                            INITIAL_BALANCE,
-                        ),
-                        (
-                            x.clone(),
                             CurrencyId::Token(TokenSymbol::NCAT),
-                            INITIAL_BALANCE,
-                        ),
-                        (
-                            x.clone(),
-                            CurrencyId::Token(TokenSymbol::DOGE),
                             INITIAL_BALANCE,
                         ),
                         (
@@ -405,11 +395,6 @@ pub fn testnet_genesis(
                         (
                             x.clone(),
                             CurrencyId::Token(TokenSymbol::BBOT),
-                            INITIAL_BALANCE,
-                        ),
-                        (
-                            x.clone(),
-                            CurrencyId::Token(TokenSymbol::ZERO),
                             INITIAL_BALANCE,
                         ),
                     ]
@@ -424,28 +409,16 @@ pub fn testnet_genesis(
                     CurrencyId::Token(TokenSymbol::WUSD),
                 ),
                 TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::BOLT),
-                    CurrencyId::Token(TokenSymbol::WBTC),
-                ),
-                TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::BOLT),
-                    CurrencyId::Token(TokenSymbol::BBOT),
-                ),
-                TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::BOLT),
-                    CurrencyId::Token(TokenSymbol::DOGE),
-                ),
-                TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::BOLT),
                     CurrencyId::Token(TokenSymbol::NCAT),
+                    CurrencyId::Token(TokenSymbol::WUSD),
                 ),
                 TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::BOLT),
                     CurrencyId::Token(TokenSymbol::PLKT),
+                    CurrencyId::Token(TokenSymbol::WUSD),
                 ),
                 TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::BOLT),
-                    CurrencyId::Token(TokenSymbol::ZERO),
+                    CurrencyId::Token(TokenSymbol::BBOT),
+                    CurrencyId::Token(TokenSymbol::WUSD),
                 ),
             ],
             initial_added_liquidity_pools: vec![],

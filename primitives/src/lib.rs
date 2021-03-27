@@ -107,12 +107,9 @@ pub mod report {
 pub enum TokenSymbol {
 	BOLT,
 	WUSD,
-	WBTC,
-	BBOT, //bee bot
-	DOGE, // doge
-	NCAT, // nyan cat
-	PLKT, // plankton
-	ZERO, // zero
+	BBOT,
+	NCAT,
+	PLKT,
 }
 
 #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord)]

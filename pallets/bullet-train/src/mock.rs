@@ -16,7 +16,7 @@ pub type AccountId = u64;
 pub type BlockNumber = u64;
 
 pub const WUSD: CurrencyId = CurrencyId::Token(TokenSymbol::WUSD);
-pub const ZERO: CurrencyId = CurrencyId::Token(TokenSymbol::ZERO);
+pub const PLKT: CurrencyId = CurrencyId::Token(TokenSymbol::PLKT);
 pub const BOLT: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
 
 pub const ALICE: u64 = 0;
@@ -166,9 +166,9 @@ impl Default for ExtBuilder {
                 (ALICE, WUSD, 1_000_000u128),
                 (BOB, WUSD, 500_000u128),
                 (CAROL, WUSD, 500_000u128),
-                (ALICE, ZERO, 1_000_000u128),
-                (BOB, ZERO, 500_000u128),
-                (CAROL, ZERO, 500_000u128),
+                (ALICE, PLKT, 1_000_000u128),
+                (BOB, PLKT, 500_000u128),
+                (CAROL, PLKT, 500_000u128),
             ],
             balance_endowed_accounts: vec![
                 (ALICE, 1_000_000),

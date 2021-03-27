@@ -74,5 +74,5 @@ cd spanner
   --template=./template.hbs
 
 # To export chain spec into .json file
-./target/release/substrate build-spec --chain local > spanner.json
+./target/release/substrate build-spec --chain local --disable-default-bootnode > spec/local.json
 ```
