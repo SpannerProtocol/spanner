@@ -106,7 +106,7 @@ ord_parameter_types! {
 }
 
 parameter_types!{
-    pub const BulletTrainId: ModuleId = ModuleId(*b"span/btt");
+    pub const BulletTrainId: ModuleId = ModuleId(*b"sp/blttn");
     pub const ReleaseYieldGracePeriod: BlockNumber = 10;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 10;
     pub const TreasureHuntingGracePeriod: BlockNumber = 10;

@@ -980,8 +980,9 @@ impl<T: Config> Pallet<T> {
 
     /// The account ID for bullet train engineers
     pub fn eng_account_id() -> T::AccountId {
-        // only use two byte prefix to support 16 byte account id (used by test)
-        // "modl" ++ "sp/trsry" ++ "eng" is 15 bytes
+        // support 16 byte account id (used by test)
+        // "modl" ++ "sp/blttn" ++ "eng" is 15 bytes
+        // 5EYCAe5jLB1jafP3Dq6qZQ4Z1pQJzUf4xBFADEWT362mYmCK
         T::ModuleId::get().into_sub_account(b"eng")
     }
 
