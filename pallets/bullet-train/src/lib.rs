@@ -82,7 +82,7 @@ mod benchmarking;
 pub mod weights;
 use weights::WeightInfo;
 
-pub const COMMISSION_RATE_BASE_CAP: u32 = 50;
+pub const BASE_FEE_CAP: u32 = 50; //per thousand
 pub const TARGET_AMOUNT_MINIMUM: Balance = 100;
 
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Debug)]
@@ -192,10 +192,9 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     referrer: Option<AccountId>,
     fare_withdrawn: bool,
     //rates
-    first_referral_rate: u32, //per thousand
-    second_referral_rate: u32, //per thousand
-    commission_rate: u32, //per thousand
-    commission_rate_slashed: bool,
+    direct_referral_rate: u32, //per thousand
+    fee: u32, //per thousand
+    fee_slashed: bool,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Copy, Debug)]
@@ -769,7 +768,8 @@ pub mod module {
             name: Vec<u8>,
             target: Target,
             manager_seats: u8,
-            commission_rate_base: u32,
+            base_fee: u32,
+            direct_referral_rate: u32,
             end: T::BlockNumber,
             referrer: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
@@ -783,7 +783,7 @@ pub mod module {
                 Error::<T>::ExceededSeatCap
             );
             //check commission rate base does not exceed cap
-            ensure!(commission_rate_base <= COMMISSION_RATE_BASE_CAP, Error::<T>::ExceededRateCap);
+            ensure!(base_fee <= BASE_FEE_CAP, Error::<T>::ExceededRateCap);
 
             //construct the new dpo
             let current_dpo_idx = Self::dpo_count();
@@ -792,12 +792,13 @@ pub mod module {
                 name,
                 target: target.clone(),
                 manager: manager.clone(),
-                commission_rate: commission_rate_base + (manager_seats * 10) as u32,
-                commission_rate_slashed: false,
+                fee: base_fee + (manager_seats * 10) as u32,
+                fee_slashed: false,
                 empty_seats: T::DpoSeats::get(),
                 expiry_blk: end,
                 state: DpoState::CREATED,
                 fare_withdrawn: false,
+                direct_referral_rate,
                 referrer: referrer.clone(),
                 ..Default::default()
             };
@@ -1346,7 +1347,7 @@ impl<T: Config> Pallet<T> {
         match dpo.blk_of_last_yield {
             None => Err(Error::<T>::NoYieldToRelease)?,
             Some(_) => {
-                let mut commission_rate = dpo.commission_rate;
+                let mut fee = dpo.fee;
                 let now = <frame_system::Module<T>>::block_number();
                 let grace_period_over =
                     now - dpo.blk_of_last_yield.unwrap() > T::ReleaseYieldGracePeriod::get();
@@ -1359,16 +1360,16 @@ impl<T: Config> Pallet<T> {
                     }
 
                     if slash_commission {
-                        commission_rate =
+                        fee =
                             Permill::from_perthousand(T::ManagerSlashPerThousand::get())
-                                * commission_rate
+                                * fee
                     }
                 }
                 let reward_each = dpo
                     .vault_yield
                     .checked_div(T::DpoSeats::get().into())
                     .unwrap_or_else(Zero::zero);
-                let commission_each = Permill::from_perthousand(commission_rate) * reward_each;
+                let commission_each = Permill::from_perthousand(fee) * reward_each;
                 let reward_each = reward_each - commission_each;
                 let total_reward_to_members = reward_each.saturating_mul(T::DpoSeats::get().into());
                 let manager_commission = dpo.vault_yield.saturating_sub(total_reward_to_members);
@@ -1536,7 +1537,7 @@ impl<T: Config> Pallet<T> {
                 emit_bonus -= external_bonus;
             };
 
-            // step 4 (catch-2): distributable bonus goes to referrers by the 80%/20% rule
+            // step 4 (catch-2): distributable bonus goes to referrers by the direct_referral_rate/1-direct_referral_rate rule
             let parent_buyer = match member_info.referrer.clone() {
                 Referrer::MemberOfDpo(buyer) | Referrer::External(_, buyer) => buyer,
                 Referrer::None => Err(Error::<T>::InvalidReferrerType)?,
@@ -1552,7 +1553,7 @@ impl<T: Config> Pallet<T> {
                 )?;
             } else {
                 //member
-                let parent_bonus = Percent::from_percent(80) * emit_bonus;
+                let parent_bonus = Permill::from_perthousand(dpo.direct_referral_rate) * emit_bonus;
                 let grandpa_bonus = emit_bonus - parent_bonus;
                 Self::dpo_outflow_to_member_account(
                     dpo,
@@ -1586,7 +1587,7 @@ impl<T: Config> Pallet<T> {
         target_seats: u8,
     ) -> (Balance, Balance) {
         let target_yield_after_commission =
-            Permill::from_perthousand(1000 - target_dpo.commission_rate)
+            Permill::from_perthousand(1000 - target_dpo.fee)
                 * target_dpo.target_yield_estimate;
         let target_yield_estimate = target_yield_after_commission
             .saturating_mul(target_seats.into())
@@ -1766,13 +1767,13 @@ impl<T: Config> Pallet<T> {
         Self::is_legit_target_for_dpo(buyer_dpo, target)?;
 
         // (c) if the who has right and if we should slash the manager. but no double slashing
-        if !buyer_dpo.commission_rate_slashed {
+        if !buyer_dpo.fee_slashed {
             let should_slash_manager = Self::if_should_slash_manager_on_buying(&buyer_dpo, who)?;
             if should_slash_manager {
-                buyer_dpo.commission_rate =
+                buyer_dpo.fee =
                     Permill::from_perthousand(T::ManagerSlashPerThousand::get())
-                        * buyer_dpo.commission_rate;
-                buyer_dpo.commission_rate_slashed = true;
+                        * buyer_dpo.fee;
+                buyer_dpo.fee_slashed = true;
             }
         }
 

@@ -219,6 +219,7 @@ fn create_milestone_reward() {
             Target::TravelCabin(1),
             10,
             50,
+            800,
             10,
             None
         ));
@@ -380,6 +381,7 @@ fn create_dpo() {
                 Target::Dpo(0, 1),
                 5,
                 50,
+                800,
                 10,
                 None
             ),
@@ -392,6 +394,7 @@ fn create_dpo() {
                 Target::TravelCabin(0),
                 5,
                 51,
+                800,
                 10,
                 None
             ),
@@ -404,6 +407,7 @@ fn create_dpo() {
             Target::TravelCabin(0),
             5,
             50,
+            800,
             10,
             None
         ));
@@ -418,6 +422,7 @@ fn create_dpo() {
                 Target::Dpo(0, 3),
                 15,
                 50,
+                800,
                 10,
                 None
             ),
@@ -430,6 +435,7 @@ fn create_dpo() {
             Target::Dpo(0, 10),
             15,
             50,
+            800,
             5,
             None
         ));
@@ -442,6 +448,7 @@ fn create_dpo() {
                 Target::Dpo(1, 1),
                 15,
                 0,
+                800,
                 4,
                 None
             ),
@@ -476,6 +483,7 @@ fn passenger_buy_dpo_seats_emits_events_correctly() {
             Target::TravelCabin(0),
             5,
             50,
+            800,
             10,
             None
         ));
@@ -518,6 +526,7 @@ fn passenger_buy_dpo_seats_test() {
             Target::TravelCabin(0),
             5,
             50,
+            800,
             10,
             None
         ));
@@ -560,6 +569,7 @@ fn passenger_buy_dpo_seats_test() {
             Target::Dpo(0, 10),
             10,
             50,
+            800,
             9,
             None
         ));
@@ -597,6 +607,7 @@ fn dpo_withdraw_on_fail_test() {
             Target::TravelCabin(0),
             0,
             50,
+            800,
             10,
             None
         ));
@@ -607,6 +618,7 @@ fn dpo_withdraw_on_fail_test() {
             Target::Dpo(0, 30),
             15,
             50,
+            800,
             8,
             None
         ));
@@ -702,6 +714,7 @@ fn dpo_buy_dpo_seats_test() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             10,
             None
         ));
@@ -712,6 +725,7 @@ fn dpo_buy_dpo_seats_test() {
             Target::Dpo(0, 10),
             15,
             50,
+            800,
             9,
             None
         ));
@@ -970,6 +984,7 @@ fn nested_dpo_bonus_test() {
             Target::TravelCabin(0),
             10,
             50,
+            800,
             10,
             None
         ));
@@ -984,6 +999,7 @@ fn nested_dpo_bonus_test() {
                 Target::Dpo(l, 10),
                 10,
                 50,
+                800,
                 (9 - l).into(),
                 None
             ));
@@ -1072,6 +1088,7 @@ fn dpo_buy_travel_cabin() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             10,
             None
         ));
@@ -1159,6 +1176,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             100,
             None
         ));
@@ -1168,6 +1186,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             Target::Dpo(0, 30),
             15,
             50,
+            800,
             99,
             None
         ));
@@ -1194,7 +1213,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             0,
             30
         ));
-        assert_eq!(BulletTrain::dpos(1).unwrap().commission_rate, 200);
+        assert_eq!(BulletTrain::dpos(1).unwrap().fee, 200);
     });
 }
 
@@ -1218,6 +1237,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             100,
             None
         ));
@@ -1228,6 +1248,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             Target::Dpo(0, 30),
             15,
             50,
+            800,
             99,
             None
         ));
@@ -1254,7 +1275,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             0,
             30
         ));
-        assert_eq!(BulletTrain::dpos(1).unwrap().commission_rate, 100);
+        assert_eq!(BulletTrain::dpos(1).unwrap().fee, 100);
     });
 }
 
@@ -1277,6 +1298,7 @@ fn buy_dpo_seats_after_grace_period_by_external() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             100,
             None
         ));
@@ -1287,6 +1309,7 @@ fn buy_dpo_seats_after_grace_period_by_external() {
             Target::Dpo(0, 30),
             15,
             50,
+            800,
             99,
             None
         ));
@@ -1324,7 +1347,7 @@ fn buy_dpo_seats_after_grace_period_by_external() {
             0,
             30
         ));
-        assert_eq!(BulletTrain::dpos(1).unwrap().commission_rate, 200);
+        assert_eq!(BulletTrain::dpos(1).unwrap().fee, 200);
     });
 }
 
@@ -1347,6 +1370,7 @@ fn buy_travel_cabin_after_grace_period_by_manager() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             100,
             None
         ));
@@ -1372,7 +1396,7 @@ fn buy_travel_cabin_after_grace_period_by_manager() {
             0,
             0
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().commission_rate, 200);
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 200);
     });
 }
 
@@ -1395,6 +1419,7 @@ fn buy_travel_cabin_after_grace_period_by_member() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             100,
             None
         ));
@@ -1416,7 +1441,7 @@ fn buy_travel_cabin_after_grace_period_by_member() {
         run_to_block(12);
         //member buy. should slash the manager
         assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(BOB), 0, 0));
-        assert_eq!(BulletTrain::dpos(0).unwrap().commission_rate, 100);
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 100);
     });
 }
 
@@ -1439,6 +1464,7 @@ fn buy_travel_cabin_after_grace_period_by_external() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             100,
             None
         ));
@@ -1463,7 +1489,7 @@ fn buy_travel_cabin_after_grace_period_by_external() {
             BulletTrain::dpo_buy_travel_cabin(Origin::signed(10), 0, 0),
             Error::<Test>::NoPermission
         );
-        assert_eq!(BulletTrain::dpos(0).unwrap().commission_rate, 200);
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 200);
     });
 }
 
@@ -1486,10 +1512,11 @@ fn yield_commission_test() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             10,
             None
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().commission_rate, 200);
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 200);
         for i in BOB..JILL {
             assert_ok!(BulletTrain::passenger_buy_dpo_seats(
                 Origin::signed(i),
@@ -1681,6 +1708,7 @@ fn dpo_referral() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             10,
             None
         ));
@@ -1690,6 +1718,7 @@ fn dpo_referral() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             10,
             None
         ));
@@ -1889,6 +1918,7 @@ fn do_release_bonus_from_dpo() {
             Target::TravelCabin(0),
             15,
             50,
+            800,
             10,
             Some(ADAM)
         ));
@@ -1916,6 +1946,7 @@ fn do_release_bonus_from_dpo() {
             Target::Dpo(0, 30),
             15,
             50,
+            800,
             9,
             None
         ));
@@ -2032,6 +2063,7 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
             Target::TravelCabin(0),
             10,
             50,
+            800,
             10,
             Some(110) //referrer of ALICE
         ));
@@ -2100,6 +2132,7 @@ fn passenger_buy_non_default_dpo_test() {
             Target::TravelCabin(0),
             10,
             50,
+            800,
             10,
             None
         ));
@@ -2227,6 +2260,7 @@ fn dpo_buy_non_default_dpo_test() {
             Target::TravelCabin(0),
             10,
             50,
+            800,
             100,
             None
         ));
@@ -2237,6 +2271,7 @@ fn dpo_buy_non_default_dpo_test() {
             Target::TravelCabin(1),
             10,
             50,
+            800,
             100,
             None
         ));
@@ -2247,6 +2282,7 @@ fn dpo_buy_non_default_dpo_test() {
             Target::TravelCabin(2),
             10,
             50,
+            800,
             100,
             None
         ));
@@ -2260,6 +2296,7 @@ fn dpo_buy_non_default_dpo_test() {
             Target::Dpo(0, 30),
             10,
             50,
+            800,
             99,
             None
         ));
@@ -2458,6 +2495,7 @@ fn get_dpos_of_accounts() {
             Target::TravelCabin(0),
             5,
             50,
+            800,
             10,
             None
         ));
@@ -2467,6 +2505,7 @@ fn get_dpos_of_accounts() {
             Target::TravelCabin(0),
             5,
             50,
+            800,
             10,
             None
         ));
