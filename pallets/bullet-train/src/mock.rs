@@ -169,7 +169,7 @@ impl Default for ExtBuilder {
                 (ALICE, PLKT, 1_000_000u128),
                 (BOB, PLKT, 500_000u128),
                 (CAROL, PLKT, 500_000u128),
-                (BulletTrain::eng_account_id(), PLKT, 1_001_000)
+                (BulletTrain::eng_account_id(), PLKT, 1_000_000_000)
             ],
             balance_endowed_accounts: vec![
                 (ALICE, 1_000_000),
@@ -183,7 +183,7 @@ impl Default for ExtBuilder {
                 (IVAN, 500_000),
                 (JILL, 500_000),
                 (ADAM, 500_000),
-                (BulletTrain::eng_account_id(), 1_001_000)
+                (BulletTrain::eng_account_id(), 1_000_000_000)
             ],
         }
     }

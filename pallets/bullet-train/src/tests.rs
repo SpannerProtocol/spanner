@@ -148,7 +148,6 @@ fn issue_additional_travel_cabin() {
             10
         ));
 
-
         assert_ok!(Currencies::withdraw(BOLT, &ALICE, 999900));
         assert_eq!(BulletTrain::travel_cabin_inventory(0), Some((0, 12)));
         assert_eq!(Balances::free_balance(BulletTrain::account_id()), 120);
@@ -219,6 +218,7 @@ fn create_milestone_reward() {
             String::from("test").into_bytes(),
             Target::TravelCabin(1),
             10,
+            50,
             10,
             None
         ));
@@ -379,10 +379,23 @@ fn create_dpo() {
                 String::from("test").into_bytes(),
                 Target::Dpo(0, 1),
                 5,
+                50,
                 10,
                 None
             ),
             Error::<Test>::InvalidIndex
+        );
+        assert_noop!(
+            BulletTrain::create_dpo(
+                Origin::signed(ALICE),
+                String::from("test").into_bytes(),
+                Target::TravelCabin(0),
+                5,
+                51,
+                10,
+                None
+            ),
+            Error::<Test>::ExceededRateCap
         );
         //create dpo0 with end time 10
         assert_ok!(BulletTrain::create_dpo(
@@ -390,6 +403,7 @@ fn create_dpo() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             5,
+            50,
             10,
             None
         ));
@@ -403,6 +417,7 @@ fn create_dpo() {
                 String::from("test").into_bytes(),
                 Target::Dpo(0, 3),
                 15,
+                50,
                 10,
                 None
             ),
@@ -414,10 +429,24 @@ fn create_dpo() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 10),
             15,
+            50,
             5,
             None
         ));
         assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::CREATED);
+
+        assert_noop!(
+            BulletTrain::create_dpo(
+                Origin::signed(BOB),
+                String::from("test").into_bytes(),
+                Target::Dpo(1, 1),
+                15,
+                0,
+                4,
+                None
+            ),
+            Error::<Test>::TargetValueTooSmall
+        );
     });
 }
 
@@ -437,7 +466,8 @@ fn passenger_buy_dpo_seats_emits_events_correctly() {
             10,
             1
         ));
-        let expected_event = Event::pallet_bullet_train(crate::Event::CreatedTravelCabin(ALICE, BOLT, 0));
+        let expected_event =
+            Event::pallet_bullet_train(crate::Event::CreatedTravelCabin(ALICE, BOLT, 0));
         assert!(System::events().iter().any(|a| a.event == expected_event));
 
         assert_ok!(BulletTrain::create_dpo(
@@ -445,6 +475,7 @@ fn passenger_buy_dpo_seats_emits_events_correctly() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             5,
+            50,
             10,
             None
         ));
@@ -486,6 +517,7 @@ fn passenger_buy_dpo_seats_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             5,
+            50,
             10,
             None
         ));
@@ -527,6 +559,7 @@ fn passenger_buy_dpo_seats_test() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 10),
             10,
+            50,
             9,
             None
         ));
@@ -563,6 +596,7 @@ fn dpo_withdraw_on_fail_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             0,
+            50,
             10,
             None
         ));
@@ -572,6 +606,7 @@ fn dpo_withdraw_on_fail_test() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 30),
             15,
+            50,
             8,
             None
         ));
@@ -666,6 +701,7 @@ fn dpo_buy_dpo_seats_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             10,
             None
         ));
@@ -675,6 +711,7 @@ fn dpo_buy_dpo_seats_test() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 10),
             15,
+            50,
             9,
             None
         ));
@@ -921,7 +958,7 @@ fn nested_dpo_bonus_test() {
             String::from("test").into_bytes(),
             10000000,
             1000000, //10% bonus
-            100,
+            100000000,
             10,
             1
         ));
@@ -932,6 +969,7 @@ fn nested_dpo_bonus_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             10,
+            50,
             10,
             None
         ));
@@ -945,6 +983,7 @@ fn nested_dpo_bonus_test() {
                 String::from("test").into_bytes(),
                 Target::Dpo(l, 10),
                 10,
+                50,
                 (9 - l).into(),
                 None
             ));
@@ -1001,7 +1040,7 @@ fn nested_dpo_bonus_test() {
             Origin::signed(ALICE),
             0
         ));
-        let mut bonus_exp = 90000;     // 90000 = 1000k - 10k - 1k
+        let mut bonus_exp = 90000; // 90000 = 1000k - 10k - 1k
         for i in 1..6 {
             assert_eq!(BulletTrain::dpos(i).unwrap().vault_bonus, bonus_exp);
             bonus_exp /= 10;
@@ -1032,6 +1071,7 @@ fn dpo_buy_travel_cabin() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             10,
             None
         ));
@@ -1118,6 +1158,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             100,
             None
         ));
@@ -1126,6 +1167,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 30),
             15,
+            50,
             99,
             None
         ));
@@ -1175,6 +1217,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             100,
             None
         ));
@@ -1184,6 +1227,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 30),
             15,
+            50,
             99,
             None
         ));
@@ -1232,6 +1276,7 @@ fn buy_dpo_seats_after_grace_period_by_external() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             100,
             None
         ));
@@ -1241,6 +1286,7 @@ fn buy_dpo_seats_after_grace_period_by_external() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 30),
             15,
+            50,
             99,
             None
         ));
@@ -1300,6 +1346,7 @@ fn buy_travel_cabin_after_grace_period_by_manager() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             100,
             None
         ));
@@ -1347,6 +1394,7 @@ fn buy_travel_cabin_after_grace_period_by_member() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             100,
             None
         ));
@@ -1390,6 +1438,7 @@ fn buy_travel_cabin_after_grace_period_by_external() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             100,
             None
         ));
@@ -1436,6 +1485,7 @@ fn yield_commission_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             10,
             None
         ));
@@ -1630,6 +1680,7 @@ fn dpo_referral() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             10,
             None
         ));
@@ -1638,6 +1689,7 @@ fn dpo_referral() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             10,
             None
         ));
@@ -1830,17 +1882,18 @@ fn do_release_bonus_from_dpo() {
             1
         ));
         assert_eq!(Balances::free_balance(ALICE), 1000000); //
-        //alice creates dpo 0 and take 15 seats spending 15,000, referred by adam
+                                                            //alice creates dpo 0 and take 15 seats spending 15,000, referred by adam
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             15,
+            50,
             10,
             Some(ADAM)
         ));
         assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000); //
-        //BCDE taking 10 each, spending 10,000
+                                                                    //BCDE taking 10 each, spending 10,000
         for i in BOB..FRED {
             assert_ok!(BulletTrain::passenger_buy_dpo_seats(
                 Origin::signed(i),
@@ -1862,6 +1915,7 @@ fn do_release_bonus_from_dpo() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 30),
             15,
+            50,
             9,
             None
         ));
@@ -1917,14 +1971,17 @@ fn do_release_bonus_from_dpo() {
         );
 
         //referral chain of dpo0 Alice <- Bob <- Carol <- Dylan <- Elsa <- Fred -< DPO1(JILL)/
-        assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000 + 105 + 100 + 20);
+        assert_eq!(
+            Balances::free_balance(ALICE),
+            1000000 - 15000 + 105 + 100 + 20
+        );
         assert_eq!(
             Balances::free_balance(ALICE),
             1000000 - 15000 + 105 + 100 + 20
         ); // 150 * 70% (30% to ADAM as external referrer)
-        // + 100 from bob + 20 from Carol
+           // + 100 from bob + 20 from Carol
         assert_eq!(Balances::free_balance(ADAM), 500000 + 45); // 150 * 30%
-        // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
+                                                               // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
         assert_eq!(Balances::free_balance(BOB), 487000 + 80 + 20); // Carol 80 + Dylan 20
         assert_eq!(Balances::free_balance(CAROL), 487000 + 80 + 20); // Dylan 80 + elsa 20
         assert_eq!(Balances::free_balance(DYLAN), 487000 + 80 + 30); // Elsa 80 + Fred (150 * 20% = 30)
@@ -1946,10 +2003,10 @@ fn do_release_bonus_from_dpo() {
         assert_eq!(Balances::free_balance(ELSA), 487000 + 120 + 9 + 24 + 6); // Fred 24 + Greg 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
-        // balancer for greg and hugh = 500000 - 3000 (10 seats, 300 each)
+                                                                        // balancer for greg and hugh = 500000 - 3000 (10 seats, 300 each)
         assert_eq!(Balances::free_balance(GREG), 500000 - 3000 + 24 + 9); // Hugh 24 + Ivan 9
         assert_eq!(Balances::free_balance(HUGH), 500000 - 3000 + 36); // Ivan 36
-        // balancer for greg and hugh = 500000 - 4500 (15 seats)
+                                                                      // balancer for greg and hugh = 500000 - 4500 (15 seats)
         assert_eq!(Balances::free_balance(IVAN), 500000 - 4500);
     });
 }
@@ -1974,6 +2031,7 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             10,
+            50,
             10,
             Some(110) //referrer of ALICE
         ));
@@ -2041,6 +2099,7 @@ fn passenger_buy_non_default_dpo_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             10,
+            50,
             10,
             None
         ));
@@ -2167,6 +2226,7 @@ fn dpo_buy_non_default_dpo_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             10,
+            50,
             100,
             None
         ));
@@ -2176,6 +2236,7 @@ fn dpo_buy_non_default_dpo_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(1),
             10,
+            50,
             100,
             None
         ));
@@ -2185,6 +2246,7 @@ fn dpo_buy_non_default_dpo_test() {
             String::from("test").into_bytes(),
             Target::TravelCabin(2),
             10,
+            50,
             100,
             None
         ));
@@ -2197,6 +2259,7 @@ fn dpo_buy_non_default_dpo_test() {
             String::from("test").into_bytes(),
             Target::Dpo(0, 30),
             10,
+            50,
             99,
             None
         ));
@@ -2394,6 +2457,7 @@ fn get_dpos_of_accounts() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             5,
+            50,
             10,
             None
         ));
@@ -2402,6 +2466,7 @@ fn get_dpos_of_accounts() {
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
             5,
+            50,
             10,
             None
         ));

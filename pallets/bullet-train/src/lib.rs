@@ -82,7 +82,8 @@ mod benchmarking;
 pub mod weights;
 use weights::WeightInfo;
 
-pub const COMMISSION_RATE_BASE: u32 = 50;
+pub const COMMISSION_RATE_BASE_CAP: u32 = 50;
+pub const TARGET_AMOUNT_MINIMUM: Balance = 100;
 
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Debug)]
 pub struct TravelCabinInfo<Balance, AccountId, BlockNumber> {
@@ -173,8 +174,6 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     target_yield_estimate: Balance,
     target_bonus_estimate: Balance,
     amount_per_seat: Balance,
-    commission_rate: u32,
-    commission_rate_slashed: bool,
     empty_seats: u8,
     fifo: Vec<Buyer<AccountId>>,
     //money
@@ -192,6 +191,11 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     state: DpoState,
     referrer: Option<AccountId>,
     fare_withdrawn: bool,
+    //rates
+    first_referral_rate: u32, //per thousand
+    second_referral_rate: u32, //per thousand
+    commission_rate: u32, //per thousand
+    commission_rate_slashed: bool,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Copy, Debug)]
@@ -301,6 +305,8 @@ pub mod module {
         InvalidEndTime,
         /// exceeded the allowed seat cap, 30 for DPO, 20 for manager, 10 for passenger
         ExceededSeatCap,
+        /// exceeded the allowed base rate cap, 5%
+        ExceededRateCap,
         /// cannot fulfill requested seats as they have ran out
         DpoNotEnoughSeats,
         /// the account has no permission to perform action
@@ -763,6 +769,7 @@ pub mod module {
             name: Vec<u8>,
             target: Target,
             manager_seats: u8,
+            commission_rate_base: u32,
             end: T::BlockNumber,
             referrer: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
@@ -775,8 +782,8 @@ pub mod module {
                 manager_seats <= T::PassengerSeatCap::get(),
                 Error::<T>::ExceededSeatCap
             );
-            //ensure the target is legit in general
-            Self::is_legit_target(&target)?;
+            //check commission rate base does not exceed cap
+            ensure!(commission_rate_base <= COMMISSION_RATE_BASE_CAP, Error::<T>::ExceededRateCap);
 
             //construct the new dpo
             let current_dpo_idx = Self::dpo_count();
@@ -785,7 +792,7 @@ pub mod module {
                 name,
                 target: target.clone(),
                 manager: manager.clone(),
-                commission_rate: COMMISSION_RATE_BASE + (manager_seats * 10) as u32,
+                commission_rate: commission_rate_base + (manager_seats * 10) as u32,
                 commission_rate_slashed: false,
                 empty_seats: T::DpoSeats::get(),
                 expiry_blk: end,
@@ -1644,7 +1651,19 @@ impl<T: Config> Pallet<T> {
                     dpo.target_amount >= new_target_amount,
                     Error::<T>::TargetValueTooBig
                 );
+                // if dpo can split the target evenly
+                ensure!(
+                    new_target_amount >= TARGET_AMOUNT_MINIMUM,
+                    Error::<T>::TargetValueTooSmall
+                );
+                // if dpo can split the reward evenly
+                let (yield_est, _) =
+                    Self::get_dpo_reward_estimates(&target_dpo, number_of_seats);
                 // if the target dpo is of the same token
+                ensure!(
+                    yield_est >= TARGET_AMOUNT_MINIMUM,
+                    Error::<T>::TargetValueTooSmall
+                );
                 ensure!(
                     dpo.token_id == target_dpo.token_id,
                     Error::<T>::InvalidTargetForDpo
