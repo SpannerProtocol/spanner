@@ -10,6 +10,7 @@ fn create_travel_cabin() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100,
             0,
             10,
@@ -21,6 +22,7 @@ fn create_travel_cabin() {
         assert_eq!(
             BulletTrain::travel_cabins(0).unwrap(),
             TravelCabinInfo {
+                name: String::from("test").into_bytes(),
                 creator: ALICE,
                 token_id: BOLT,
                 index: 0,
@@ -126,6 +128,7 @@ fn issue_additional_travel_cabin() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100,
             0,
             10,
@@ -159,6 +162,7 @@ fn create_milestone_reward() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100,
             0,
             10,
@@ -168,6 +172,7 @@ fn create_milestone_reward() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             PLKT,
+            String::from("test").into_bytes(),
             100,
             0,
             100,
@@ -361,6 +366,7 @@ fn create_dpo() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             10000,
             0,
             2000,
@@ -424,6 +430,7 @@ fn passenger_buy_dpo_seats_emits_events_correctly() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             100,
@@ -466,6 +473,7 @@ fn passenger_buy_dpo_seats_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             2000,
@@ -541,6 +549,7 @@ fn dpo_withdraw_on_fail_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             2000,
@@ -620,6 +629,7 @@ fn dpo_withdraw_on_fail_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             28000,
             0,
             2000,
@@ -644,6 +654,7 @@ fn dpo_buy_dpo_seats_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             2000,
@@ -907,6 +918,7 @@ fn nested_dpo_bonus_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             10000000,
             1000000, //10% bonus
             100,
@@ -1008,6 +1020,7 @@ fn dpo_buy_travel_cabin() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             1000,
             0,
             100,
@@ -1093,6 +1106,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             1000,
             0,
             1000,
@@ -1148,6 +1162,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             1000,
             0,
             1000,
@@ -1205,6 +1220,7 @@ fn buy_dpo_seats_after_grace_period_by_external() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             1000,
             0,
             1000,
@@ -1272,6 +1288,7 @@ fn buy_travel_cabin_after_grace_period_by_manager() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             1000,
             0,
             100,
@@ -1318,6 +1335,7 @@ fn buy_travel_cabin_after_grace_period_by_member() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             1000,
             0,
             100,
@@ -1360,6 +1378,7 @@ fn buy_travel_cabin_after_grace_period_by_external() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             1000,
             0,
             100,
@@ -1405,6 +1424,7 @@ fn yield_commission_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             100000,
@@ -1598,6 +1618,7 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             100,
             1000,
@@ -1801,6 +1822,7 @@ fn do_release_bonus_from_dpo() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             1000,
             1000,
@@ -1939,6 +1961,7 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             1000,
             1000,
@@ -1996,6 +2019,7 @@ fn passenger_buy_non_default_dpo_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             2000,
@@ -2005,6 +2029,7 @@ fn passenger_buy_non_default_dpo_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             10000,
             0,
             1000,
@@ -2096,6 +2121,7 @@ fn dpo_buy_non_default_dpo_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             10000,
@@ -2106,6 +2132,7 @@ fn dpo_buy_non_default_dpo_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             10000,
             0,
             10000,
@@ -2116,6 +2143,7 @@ fn dpo_buy_non_default_dpo_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100200,
             0,
             10000,
@@ -2126,6 +2154,7 @@ fn dpo_buy_non_default_dpo_test() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             9000,
             0,
             10000,
@@ -2294,6 +2323,7 @@ fn get_travel_cabins_of_accounts() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             10000,
@@ -2303,6 +2333,7 @@ fn get_travel_cabins_of_accounts() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             10000,
             0,
             10000,
@@ -2312,6 +2343,7 @@ fn get_travel_cabins_of_accounts() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100200,
             0,
             10000,
@@ -2350,6 +2382,7 @@ fn get_dpos_of_accounts() {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
+            String::from("test").into_bytes(),
             100000,
             0,
             10000,

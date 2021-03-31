@@ -86,6 +86,7 @@ pub const COMMISSION_RATE_BASE: u32 = 50;
 
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Debug)]
 pub struct TravelCabinInfo<Balance, AccountId, BlockNumber> {
+    name: Vec<u8>,
     creator: AccountId,
     token_id: CurrencyId,
     index: TravelCabinIndex,
@@ -521,6 +522,7 @@ pub mod module {
         pub fn create_travel_cabin(
             origin: OriginFor<T>,
             token_id: CurrencyId,
+            name: Vec<u8>,
             deposit_amount: Balance,
             bonus_total: Balance,
             yield_total: Balance,
@@ -567,6 +569,7 @@ pub mod module {
             TravelCabins::<T>::insert(
                 travel_cabin_idx,
                 TravelCabinInfo {
+                    name,
                     creator: creator.clone(),
                     token_id,
                     index: travel_cabin_idx,
