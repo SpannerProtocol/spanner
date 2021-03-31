@@ -34,6 +34,10 @@
     "type": "struct",
     "type_mapping": [
       [
+        "name",
+        "Text"
+      ],
+      [
         "creator",
         "AccountId"
       ],
@@ -189,14 +193,6 @@
         "Balance"
       ],
       [
-        "commission_rate",
-        "u32"
-      ],
-      [
-        "commission_rate_slashed",
-        "bool"
-      ],
-      [
         "empty_seats",
         "u8"
       ],
@@ -254,6 +250,18 @@
       ],
       [
         "fare_withdrawn",
+        "bool"
+      ],
+      [
+        "direct_referral_rate",
+        "u32"
+      ],
+      [
+        "fee",
+        "u32"
+      ],
+      [
+        "fee_slashed",
         "bool"
       ]
     ]
