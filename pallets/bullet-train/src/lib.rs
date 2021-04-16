@@ -1042,7 +1042,7 @@ impl<T: Config> Pallet<T> {
                 let dpo = Self::dpos(*dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
                 ensure!(
                     dpo.state == DpoState::CREATED,
-                    Error::<T>::DpoNotEnoughSeats
+                    Error::<T>::DpoWrongState
                 );
                 //(a) target dpo not having enough seats
                 ensure!(num_seats <= dpo.empty_seats, Error::<T>::DpoNotEnoughSeats);

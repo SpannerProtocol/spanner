@@ -1020,7 +1020,7 @@ type EnsureRootOrHalfBulletTrainEngineer = EnsureOneOf<
     pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, BulletTrainEngineerCollective>,
 >;
 parameter_types! {
-    pub const GetExchangeFee: (u32, u32) = (3, 1000);	// 0.3%
+    pub const GetExchangeFee: (u32, u32) = (10, 1000);	// 1%
     pub const TradingPathLimit: u32 = 3;
 }
 impl pallet_dex::Config for Runtime {
