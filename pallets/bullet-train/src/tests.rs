@@ -841,6 +841,15 @@ fn dpo_buy_dpo_seats_test() {
             BulletTrain::dpos(1).unwrap().target_amount,
             BulletTrain::dpos(1).unwrap().vault_deposit
         );
+
+        // acc 120 not a member buying
+        assert_noop!(BulletTrain::dpo_buy_dpo_seats(
+            Origin::signed(120),
+            1,
+            0,
+            10
+        ), Error::<Test>::NoPermission);
+
         //still within grace period, dpo1 commit to dpo0
         assert_ok!(BulletTrain::dpo_buy_dpo_seats(
             Origin::signed(CAROL),
@@ -1028,6 +1037,7 @@ fn nested_dpo_bonus_test() {
             }
             //then the dpo should be fully filled. now commits to the target
             //manager buy
+            //todo: this returning no permission due to grace period not over
             assert_ok!(BulletTrain::dpo_buy_dpo_seats(
                 Origin::signed(ALICE),
                 dpo_id,
@@ -1243,7 +1253,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
         ));
         //create dpo 1
         assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
+            Origin::signed(BOB),
             String::from("test").into_bytes(),
             Target::Dpo(0, 30),
             15,
@@ -1252,7 +1262,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             99,
             None
         ));
-        for i in BOB..JILL {
+        for i in CAROL..10 {
             assert_ok!(BulletTrain::passenger_buy_dpo_seats(
                 Origin::signed(i),
                 1,
@@ -1266,16 +1276,49 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             5,
             None
         ));
-        //overtime
+        //dpo1 overtime
         run_to_block(11);
         //member buy
         assert_ok!(BulletTrain::dpo_buy_dpo_seats(
-            Origin::signed(BOB),
+            Origin::signed(CAROL),
             1,
             0,
             30
         ));
         assert_eq!(BulletTrain::dpos(1).unwrap().fee, 100);
+
+        for i in DYLAN..HUGH {
+            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                Origin::signed(i),
+                0,
+                10,
+                None
+            ));
+        }
+        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            Origin::signed(HUGH),
+            0,
+            15,
+            None
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
+        //dpo0 overtime
+        run_to_block(22);
+
+        //manager of dpo1 making purchase for dpo0
+        assert_noop!(BulletTrain::dpo_buy_travel_cabin(
+            Origin::signed(CAROL),
+            0,
+            0
+        ), Error::<Test>::NoPermission);
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
+            Origin::signed(BOB),
+            0,
+            0
+        ));
+        //todo: this needs to be slashed
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 200)
     });
 }
 

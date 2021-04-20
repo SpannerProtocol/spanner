@@ -1700,7 +1700,7 @@ impl<T: Config> Pallet<T> {
         let signed_by_member = match signer_role {
             Buyer::Passenger(acc) if acc == dpo.manager => false, //always no
             Buyer::Passenger(_) => true,
-            Buyer::Dpo(_) => false,
+            Buyer::Dpo(_) => false, //todo: this should be true
             Buyer::InvalidBuyer => Err(Error::<T>::NoPermission)?,
         };
 
