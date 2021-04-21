@@ -2388,7 +2388,7 @@ fn dpo_buy_non_default_dpo_test() {
         // dpo2 buy dpo0 seats (already taken)
         assert_noop!(
             BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 0, 10),
-            Error::<Test>::DpoNotEnoughSeats
+            Error::<Test>::DpoWrongState
         );
         // dpo3 buy dpo2 seats (not affordable)
         assert_noop!(
