@@ -193,7 +193,7 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     fare_withdrawn: bool,
     //rates
     direct_referral_rate: u32, //per thousand
-    fee: u32, //per thousand
+    fee: u32,                  //per thousand
     fee_slashed: bool,
 }
 
@@ -1147,6 +1147,9 @@ impl<T: Config> Pallet<T> {
         who: &T::AccountId,
         dpo_included: bool,
     ) -> Result<Buyer<T::AccountId>, sp_runtime::DispatchError> {
+        if *who == dpo.manager {
+            return Ok(Buyer::Passenger(who.clone()));
+        }
         let dpo_members = DpoMembers::<T>::iter_prefix_values(dpo.index);
         for member_info in dpo_members.into_iter() {
             let signer_acc = match member_info.buyer.clone() {
@@ -1158,9 +1161,10 @@ impl<T: Config> Pallet<T> {
                 Buyer::Dpo(_) => None,
                 Buyer::InvalidBuyer => Err(Error::<T>::InvalidBuyerType)?,
             };
-            match signer_acc {
-                Some(acc) if acc == *who => return Ok(member_info.buyer),
-                _ => (),
+            if let Some(acc) = signer_acc {
+                if acc == *who {
+                    return Ok(member_info.buyer);
+                }
             }
         }
         return Ok(Buyer::InvalidBuyer);
@@ -1361,9 +1365,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     if slash_commission {
-                        fee =
-                            Permill::from_perthousand(T::ManagerSlashPerThousand::get())
-                                * fee
+                        fee = Permill::from_perthousand(T::ManagerSlashPerThousand::get()) * fee
                     }
                 }
                 let reward_each = dpo
@@ -1588,8 +1590,7 @@ impl<T: Config> Pallet<T> {
         target_seats: u8,
     ) -> (Balance, Balance) {
         let target_yield_after_commission =
-            Permill::from_perthousand(1000 - target_dpo.fee)
-                * target_dpo.target_yield_estimate;
+            Permill::from_perthousand(1000 - target_dpo.fee) * target_dpo.target_yield_estimate;
         let target_yield_estimate = target_yield_after_commission
             .saturating_mul(target_seats.into())
             .checked_div(T::DpoSeats::get().into())
@@ -1659,8 +1660,7 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::TargetValueTooSmall
                 );
                 // if dpo can split the reward evenly
-                let (yield_est, _) =
-                    Self::get_dpo_reward_estimates(&target_dpo, number_of_seats);
+                let (yield_est, _) = Self::get_dpo_reward_estimates(&target_dpo, number_of_seats);
                 // if the target dpo is of the same token
                 ensure!(
                     yield_est >= TARGET_AMOUNT_MINIMUM,
@@ -1701,7 +1701,7 @@ impl<T: Config> Pallet<T> {
         let signed_by_member = match signer_role {
             Buyer::Passenger(acc) if acc == dpo.manager => false, //always no
             Buyer::Passenger(_) => true,
-            Buyer::Dpo(_) => false, //todo: this should be true
+            Buyer::Dpo(_) => true,
             Buyer::InvalidBuyer => Err(Error::<T>::NoPermission)?,
         };
 
@@ -1768,14 +1768,11 @@ impl<T: Config> Pallet<T> {
         Self::is_legit_target_for_dpo(buyer_dpo, target)?;
 
         // (c) if the who has right and if we should slash the manager. but no double slashing
-        if !buyer_dpo.fee_slashed {
-            let should_slash_manager = Self::if_should_slash_manager_on_buying(&buyer_dpo, who)?;
-            if should_slash_manager {
-                buyer_dpo.fee =
-                    Permill::from_perthousand(T::ManagerSlashPerThousand::get())
-                        * buyer_dpo.fee;
-                buyer_dpo.fee_slashed = true;
-            }
+        let should_slash_manager = Self::if_should_slash_manager_on_buying(&buyer_dpo, who)?;
+        if should_slash_manager && !buyer_dpo.fee_slashed {
+            buyer_dpo.fee =
+                Permill::from_perthousand(T::ManagerSlashPerThousand::get()) * buyer_dpo.fee;
+            buyer_dpo.fee_slashed = true;
         }
 
         Ok(())
