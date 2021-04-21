@@ -400,6 +400,19 @@ fn create_dpo() {
             ),
             Error::<Test>::ExceededRateCap
         );
+        assert_noop!(
+            BulletTrain::create_dpo(
+                Origin::signed(ALICE),
+                String::from("test").into_bytes(),
+                Target::TravelCabin(0),
+                5,
+                50,
+                1001,
+                10,
+                None
+            ),
+            Error::<Test>::ExceededRateCap
+        );
         //create dpo0 with end time 10
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(ALICE),

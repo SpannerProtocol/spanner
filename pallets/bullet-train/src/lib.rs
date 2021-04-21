@@ -784,6 +784,7 @@ pub mod module {
             );
             //check commission rate base does not exceed cap
             ensure!(base_fee <= BASE_FEE_CAP, Error::<T>::ExceededRateCap);
+            ensure!(direct_referral_rate <= 1000, Error::<T>::ExceededRateCap);
 
             //construct the new dpo
             let current_dpo_idx = Self::dpo_count();
