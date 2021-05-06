@@ -204,6 +204,8 @@ pub mod module {
         /// Provisioning trading pair convert to Enabled. \[trading_pair,
         /// pool_0_amount, pool_1_amount, total_share_amount\]
         ProvisioningToEnabled(TradingPair, Balance, Balance, Balance),
+        /// liquidity pool balance. \[currency_id_0, pool_0, currency_id_1, pool_1\]
+        Sync(CurrencyId, Balance, CurrencyId, Balance),
     }
 
     /// Liquidity pool for TradingPair.
@@ -633,6 +635,12 @@ impl<T: Config> Pallet<T> {
                 LiquidityPool::<T>::mutate(trading_pair, |(pool_0, pool_1)| {
                     *pool_0 = pool_0.saturating_add(provision_parameters.accumulated_provision.0);
                     *pool_1 = pool_1.saturating_sub(provision_parameters.accumulated_provision.1);
+                    Self::deposit_event(Event::Sync(
+                        trading_pair.0,
+                        *pool_0,
+                        trading_pair.1,
+                        *pool_1,
+                    ));
                 });
 
                 // update trading_pair to Enabled status
@@ -806,6 +814,12 @@ impl<T: Config> Pallet<T> {
                 pool_1_increment,
                 share_increment,
             ));
+            Self::deposit_event(Event::Sync(
+                trading_pair.0,
+                *pool_0,
+                trading_pair.1,
+                *pool_1,
+            ));
             Ok(())
         })
     }
@@ -847,6 +861,12 @@ impl<T: Config> Pallet<T> {
                 trading_pair.1,
                 pool_1_decrement,
                 remove_share,
+            ));
+            Self::deposit_event(Event::Sync(
+                trading_pair.0,
+                *pool_0,
+                trading_pair.1,
+                *pool_1,
             ));
             Ok(())
         })
@@ -1023,6 +1043,12 @@ impl<T: Config> Pallet<T> {
                     *pool_0 = pool_0.saturating_sub(target_decrement);
                     *pool_1 = pool_1.saturating_add(supply_increment);
                 }
+                Self::deposit_event(Event::Sync(
+                    trading_pair.0,
+                    *pool_0,
+                    trading_pair.1,
+                    *pool_1,
+                ));
             });
         }
     }
