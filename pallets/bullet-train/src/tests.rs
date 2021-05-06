@@ -856,12 +856,10 @@ fn dpo_buy_dpo_seats_test() {
         );
 
         // acc 120 not a member buying
-        assert_noop!(BulletTrain::dpo_buy_dpo_seats(
-            Origin::signed(120),
-            1,
-            0,
-            10
-        ), Error::<Test>::NoPermission);
+        assert_noop!(
+            BulletTrain::dpo_buy_dpo_seats(Origin::signed(120), 1, 0, 10),
+            Error::<Test>::NoPermission
+        );
 
         //still within grace period, dpo1 commit to dpo0
         assert_ok!(BulletTrain::dpo_buy_dpo_seats(
@@ -1319,18 +1317,13 @@ fn buy_dpo_seats_after_grace_period_by_member() {
         run_to_block(22);
 
         //member of dpo1 making purchase for dpo0
-        assert_noop!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(CAROL),
-            0,
-            0
-        ), Error::<Test>::NoPermission);
+        assert_noop!(
+            BulletTrain::dpo_buy_travel_cabin(Origin::signed(CAROL), 0, 0),
+            Error::<Test>::NoPermission
+        );
 
         //manager of dpo1 making purchase for dpo0
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(BOB),
-            0,
-            0
-        ));
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(BOB), 0, 0));
 
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 100)
     });
@@ -1662,6 +1655,10 @@ fn yield_commission_test() {
             0,
             0
         ));
+        let expected_event =
+            Event::pallet_bullet_train(crate::Event::TreasureHunted(ALICE, 0, 0, 1000 * 20 / 100));
+        assert!(System::events().iter().any(|a| a.event == expected_event));
+
         run_to_block(47);
         assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(27));
         assert_eq!(
@@ -1714,6 +1711,16 @@ fn yield_commission_test() {
             0,
             0
         ));
+        let expected_event =
+            Event::pallet_bullet_train(crate::Event::TreasureHunted(ALICE, 0, 0, 1000 * 20 / 100));
+        assert!(
+            System::events()
+                .iter()
+                .filter(|a| a.event == expected_event)
+                .count()
+                == 2
+        );
+
         assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(47));
         assert_eq!(
             BulletTrain::travel_cabin_buyer(0, 0)
