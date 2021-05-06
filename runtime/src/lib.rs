@@ -122,7 +122,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     // and set impl_version to 0. If only runtime
     // implementation changes and behavior does not, then leave spec_version as
     // is and increment impl_version.
-    spec_version: 101,
+    spec_version: 102,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1020,7 +1020,7 @@ type EnsureRootOrHalfBulletTrainEngineer = EnsureOneOf<
     pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, BulletTrainEngineerCollective>,
 >;
 parameter_types! {
-    pub const GetExchangeFee: (u32, u32) = (3, 1000);	// 0.3%
+    pub const GetExchangeFee: (u32, u32) = (10, 1000);	// 1%
     pub const TradingPathLimit: u32 = 3;
 }
 impl pallet_dex::Config for Runtime {

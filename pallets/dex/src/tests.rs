@@ -2,8 +2,8 @@
 use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::{
-    Dex, Event, ExtBuilder, ListingOrigin, Origin, System, Test, Tokens, ALICE, BOB, BOLT,
-    NCAT, WUSD, WUSD_NCAT_PAIR, WUSD_PLKT_PAIR, PLKT,
+    Dex, Event, ExtBuilder, ListingOrigin, Origin, System, Test, Tokens, ALICE, BOB, BOLT, NCAT,
+    PLKT, WUSD, WUSD_NCAT_PAIR, WUSD_PLKT_PAIR,
 };
 
 use orml_traits::MultiReservableCurrency;
@@ -700,13 +700,7 @@ fn add_liquidity_work() {
             System::set_block_number(1);
 
             assert_noop!(
-                Dex::add_liquidity(
-                    Origin::signed(ALICE),
-                    BOLT,
-                    WUSD,
-                    100_000_000,
-                    100_000_000,
-                ),
+                Dex::add_liquidity(Origin::signed(ALICE), BOLT, WUSD, 100_000_000, 100_000_000),
                 Error::<Test>::NotEnabledTradingPair
             );
             assert_noop!(
@@ -1049,13 +1043,7 @@ fn do_swap_with_exact_supply_work() {
                 Error::<Test>::InvalidTradingPathLength,
             );
             assert_noop!(
-                Dex::do_swap_with_exact_supply(
-                    &BOB,
-                    &[PLKT, BOLT],
-                    100_000_000_000_000,
-                    0,
-                    None
-                ),
+                Dex::do_swap_with_exact_supply(&BOB, &[PLKT, BOLT], 100_000_000_000_000, 0, None),
                 Error::<Test>::MustBeEnabled,
             );
 
@@ -1325,17 +1313,138 @@ fn initialize_added_liquidity_pools_genesis_work() {
             System::set_block_number(1);
 
             assert_eq!(Dex::get_liquidity(WUSD, PLKT), (1000000, 2000000));
-            assert_eq!(
-                Tokens::free_balance(WUSD, &Dex::account_id()),
-                2000000
-            );
-            assert_eq!(
-                Tokens::free_balance(PLKT, &Dex::account_id()),
-                4000000
-            );
+            assert_eq!(Tokens::free_balance(WUSD, &Dex::account_id()), 2000000);
+            assert_eq!(Tokens::free_balance(PLKT, &Dex::account_id()), 4000000);
             assert_eq!(
                 Tokens::free_balance(WUSD_PLKT_PAIR.get_dex_share_currency_id().unwrap(), &ALICE),
                 2000000
             );
+        });
+}
+
+#[test]
+fn sync_event_emits_correctly() {
+    ExtBuilder::default()
+        .initialize_enabled_trading_pairs()
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+
+            //add liquidity
+            assert_ok!(Dex::add_liquidity(
+                Origin::signed(ALICE),
+                WUSD,
+                PLKT,
+                5_000_000_000_000,
+                1_000_000_000_000,
+            ));
+            assert_ok!(Dex::add_liquidity(
+                Origin::signed(ALICE),
+                WUSD,
+                NCAT,
+                5_000_000_000_000,
+                5_000_000_000_000,
+            ));
+
+            assert_eq!(LiquidityPool::<Test>::get(WUSD_NCAT_PAIR), (5_000_000_000_000, 5_000_000_000_000));
+            assert_eq!(LiquidityPool::<Test>::get(WUSD_PLKT_PAIR), (5_000_000_000_000, 1_000_000_000_000));
+            let add_liquidity_sync_event_1 = Event::pallet_dex(crate::Event::Sync(
+                WUSD,
+                5_000_000_000_000,
+                PLKT,
+                1_000_000_000_000,
+            ));
+            assert!(System::events()
+                .iter()
+                .any(|record| record.event == add_liquidity_sync_event_1));
+            let add_liquidity_sync_event_2 = Event::pallet_dex(crate::Event::Sync(
+                WUSD,
+                5_000_000_000_000,
+                NCAT,
+                5_000_000_000_000,
+            ));
+            assert!(System::events()
+                .iter()
+                .any(|record| record.event == add_liquidity_sync_event_2));
+
+            //swap with exact supply
+            assert_ok!(Dex::do_swap_with_exact_supply(
+                &BOB,
+                &[PLKT, WUSD, NCAT],
+                1_000_000_000_000,
+                1,
+                None
+            ));
+            assert_eq!(LiquidityPool::<Test>::get(WUSD_NCAT_PAIR), (7_487_437_185_929, 3_350_055_553_686));
+            assert_eq!(LiquidityPool::<Test>::get(WUSD_PLKT_PAIR), (2_512_562_814_071, 2_000_000_000_000));
+
+            let swap_with_supply_sync_event_1 = Event::pallet_dex(crate::Event::Sync(
+                WUSD,
+                2_512_562_814_071,
+                PLKT,
+                2_000_000_000_000,
+            ));
+            assert!(System::events()
+                .iter()
+                .any(|record| record.event == swap_with_supply_sync_event_1));
+            let swap_with_supply_swap_sync_event_2 = Event::pallet_dex(crate::Event::Sync(
+                WUSD,
+                7_487_437_185_929,
+                NCAT,
+                3_350_055_553_686,
+            ));
+            assert!(System::events()
+                .iter()
+                .any(|record| record.event == swap_with_supply_swap_sync_event_2));
+
+
+            //swap with exact target
+            assert_ok!(Dex::do_swap_with_exact_target(
+                &BOB,
+                &[NCAT, WUSD, PLKT],
+                1_000_000_000_000,
+                2_000_000_000_000,
+                None
+            ));
+            assert_eq!(LiquidityPool::<Test>::get(WUSD_NCAT_PAIR), (4_949_494_949_493, 5_085_208_101_464));
+            assert_eq!(LiquidityPool::<Test>::get(WUSD_PLKT_PAIR), (5_050_505_050_507, 1_000_000_000_000));
+
+            let swap_with_target_sync_event_1 = Event::pallet_dex(crate::Event::Sync(
+                WUSD,
+                5_050_505_050_507,
+                PLKT,
+                1_000_000_000_000,
+            ));
+            assert!(System::events()
+                .iter()
+                .any(|record| record.event == swap_with_target_sync_event_1));
+            let swap_with_target_swap_sync_event_2 = Event::pallet_dex(crate::Event::Sync(
+                WUSD,
+                4_949_494_949_493,
+                NCAT,
+                5_085_208_101_464,
+            ));
+            assert!(System::events()
+                .iter()
+                .any(|record| record.event == swap_with_target_swap_sync_event_2));
+
+            // remove liquidity (80%)
+            assert_ok!(Dex::remove_liquidity(
+                Origin::signed(ALICE),
+                WUSD,
+                PLKT,
+                4_000_000_000_000,
+            ));
+            assert_eq!(LiquidityPool::<Test>::get(WUSD_PLKT_PAIR), (1_010_101_010_102, 200_000_000_000));
+
+            let remove_liquidity_sync_event = Event::pallet_dex(crate::Event::Sync(
+                WUSD,
+                1_010_101_010_102,
+                PLKT,
+                200_000_000_000,
+            ));
+            assert!(System::events()
+                .iter()
+                .any(|record| record.event == remove_liquidity_sync_event));
         });
 }

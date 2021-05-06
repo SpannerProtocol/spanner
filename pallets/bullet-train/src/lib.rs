@@ -359,6 +359,12 @@ pub mod module {
             Balance,
         ),
         FareWithdrawnFromTravelCabin(T::AccountId, TravelCabinIndex, TravelCabinInventoryIndex),
+        TreasureHunted(
+            T::AccountId,
+            TravelCabinIndex,
+            TravelCabinInventoryIndex,
+            Balance,
+        ),
     }
 
     #[pallet::storage]
@@ -721,6 +727,12 @@ pub mod module {
                     &who,
                     bounty_amount,
                 )?;
+                Self::deposit_event(Event::TreasureHunted(
+                    who.clone(),
+                    travel_cabin_idx,
+                    travel_cabin_number,
+                    bounty_amount,
+                ));
             }
 
             // make reward, debit buyer
@@ -1041,10 +1053,7 @@ impl<T: Config> Pallet<T> {
             Target::Dpo(dpo_idx, number_of_seats) => {
                 let num_seats = *number_of_seats;
                 let dpo = Self::dpos(*dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-                ensure!(
-                    dpo.state == DpoState::CREATED,
-                    Error::<T>::DpoNotEnoughSeats
-                );
+                ensure!(dpo.state == DpoState::CREATED, Error::<T>::DpoWrongState);
                 //(a) target dpo not having enough seats
                 ensure!(num_seats <= dpo.empty_seats, Error::<T>::DpoNotEnoughSeats);
                 //(b) target dpo value too small. Actually an existing dpo in storage must be valid
