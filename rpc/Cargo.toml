@@ -35,4 +35,4 @@ sp-consensus-babe = "0.9.0"
 sp-runtime = "3.0.0"
 sp-transaction-pool = "3.0.0"
 substrate-frame-rpc-system = "3.0.0"
-pallet-bullet-train-rpc = { path = "../pallets/bullet-train/rpc" }
+#pallet-bullet-train-rpc = { path = "../pallets/bullet-train/rpc" }

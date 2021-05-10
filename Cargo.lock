@@ -3926,7 +3926,6 @@ dependencies = [
  "jsonrpc-core",
  "node-primitives",
  "node-runtime",
- "pallet-bullet-train-rpc",
  "pallet-transaction-payment-rpc",
  "sc-chain-spec",
  "sc-client-api",
@@ -3987,7 +3986,6 @@ dependencies = [
  "pallet-bounties",
  "pallet-bullet-train",
  "pallet-bullet-train-primitives",
- "pallet-bullet-train-rpc-runtime-api",
  "pallet-collective",
  "pallet-democracy",
  "pallet-dex",
@@ -4457,38 +4455,6 @@ version = "2.0.0"
 dependencies = [
  "parity-scale-codec 1.3.6",
  "sp-std 2.0.0",
-]
-
-[[package]]
-name = "pallet-bullet-train-rpc"
-version = "2.0.0"
-dependencies = [
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "pallet-bullet-train-primitives",
- "pallet-bullet-train-rpc-runtime-api",
- "parity-scale-codec 2.0.0",
- "serde",
- "serde_json",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-rpc",
- "sp-runtime",
- "sp-std 3.0.0",
-]
-
-[[package]]
-name = "pallet-bullet-train-rpc-runtime-api"
-version = "2.0.0"
-dependencies = [
- "pallet-bullet-train-primitives",
- "parity-scale-codec 2.0.0",
- "serde",
- "sp-api",
- "sp-runtime",
- "sp-std 3.0.0",
 ]
 
 [[package]]
