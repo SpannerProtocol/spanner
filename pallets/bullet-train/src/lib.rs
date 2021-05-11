@@ -677,7 +677,6 @@ pub mod module {
                 travel_cabin_number,
             ));
 
-            TravelCabins::<T>::insert(travel_cabin_idx, &travel_cabin);
             Ok(().into())
         }
 
@@ -761,8 +760,6 @@ pub mod module {
                     info.blk_of_last_withdraw = now;
                 }
             });
-
-            TravelCabins::<T>::insert(travel_cabin_idx, &travel_cabin);
 
             Self::deposit_event(Event::YieldWithdrawnFromTravelCabin(
                 who,
