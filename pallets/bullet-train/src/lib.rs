@@ -929,20 +929,40 @@ pub mod module {
                 }
             }
             ensure!(
-                dpo.state == DpoState::FAILED || dpo.state == DpoState::COMPLETED,
+                dpo.state == DpoState::FAILED || dpo.state == DpoState::COMPLETED ||
+                dpo.state == DpoState::ACTIVE || dpo.state == DpoState::RUNNING,
                 Error::<T>::DpoWrongState
             );
-            ensure!(!dpo.fare_withdrawn, Error::<T>::ZeroBalanceToWithdraw);
 
-            let amount_per_seat = dpo.amount_per_seat;
-            let payment_type = match dpo.state {
-                DpoState::FAILED => PaymentType::WithdrawOnFailure,
-                DpoState::COMPLETED => PaymentType::WithdrawOnCompletion,
-                _ => Err(Error::<T>::DpoWrongState)?, //no need to process others, as they will trigger wrong states
+            let (amount_per_seat, payment_type) = match dpo.state {
+                DpoState::COMPLETED => {
+                    ensure!(!dpo.fare_withdrawn && dpo.vault_withdraw > Zero::zero(), Error::<T>::ZeroBalanceToWithdraw);
+                    // should be calculated by vault_withdraw
+                    // it may include unused fund
+                    let amount_each = dpo
+                        .vault_withdraw
+                        .checked_div(T::DpoSeats::get().into())
+                        .unwrap_or_else(Zero::zero);
+                    (amount_each, PaymentType::WithdrawOnCompletion)
+                }
+                DpoState::FAILED => {
+                    ensure!(!dpo.fare_withdrawn, Error::<T>::ZeroBalanceToWithdraw);
+                    (dpo.amount_per_seat, PaymentType::WithdrawOnFailure)
+                }
+                DpoState::ACTIVE | DpoState::RUNNING => {
+                    ensure!(dpo.vault_withdraw > Zero::zero(), Error::<T>::ZeroBalanceToWithdraw);
+                    let amount_each = dpo
+                        .vault_withdraw
+                        .checked_div(T::DpoSeats::get().into())
+                        .unwrap_or_else(Zero::zero);
+                    (amount_each, PaymentType::UnusedFund)
+                }
+                _ => Err(Error::<T>::DpoWrongState)?,
             };
             Self::dpo_outflow_to_members_by_seats(&mut dpo, amount_per_seat, payment_type)?;
-            dpo.fare_withdrawn = true;
-
+            if dpo.state == DpoState::FAILED || dpo.state == DpoState::COMPLETED {
+                dpo.fare_withdrawn = true;
+            }
             Dpos::<T>::insert(dpo.index, &dpo);
 
             Self::deposit_event(Event::WithdrewFareFromDpo(who, dpo.index));
@@ -1205,10 +1225,10 @@ impl<T: Config> Pallet<T> {
             PaymentType::Yield => {
                 dpo.vault_yield = dpo.vault_yield.saturating_sub(amount);
             }
-            PaymentType::Deposit | PaymentType::UnusedFund | PaymentType::WithdrawOnFailure => {
+            PaymentType::Deposit | PaymentType::WithdrawOnFailure => {
                 dpo.vault_deposit = dpo.vault_deposit.saturating_sub(amount)
             }
-            PaymentType::WithdrawOnCompletion => {
+            PaymentType::WithdrawOnCompletion | PaymentType::UnusedFund => {
                 dpo.vault_withdraw = dpo.vault_withdraw.saturating_sub(amount)
             }
             _ => Err(Error::<T>::InvalidPaymentType)?,
@@ -1289,6 +1309,8 @@ impl<T: Config> Pallet<T> {
                 dpo.total_yield_received = dpo.total_yield_received.saturating_add(amount);
             }
             PaymentType::UnusedFund => {
+                Self::refresh_dpo_target_info(dpo)?;
+                dpo.vault_deposit = dpo.vault_deposit.saturating_sub(amount.clone());
                 dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount)
             }
             PaymentType::WithdrawOnCompletion => {
@@ -1800,14 +1822,7 @@ impl<T: Config> Pallet<T> {
         // (b) check if there is unused amount. if any, pay back instantly
         let unused_total = original_amount.saturating_sub(buyer_dpo.target_amount);
         if unused_total > Zero::zero() {
-            let unused_each_seat = unused_total
-                .checked_div(T::DpoSeats::get().into())
-                .unwrap_or_else(Zero::zero);
-            Self::dpo_outflow_to_members_by_seats(
-                buyer_dpo,
-                unused_each_seat,
-                PaymentType::UnusedFund,
-            )?;
+            Self::update_dpo_inflow(buyer_dpo, unused_total, PaymentType::UnusedFund)?;
         }
         Ok(())
     }

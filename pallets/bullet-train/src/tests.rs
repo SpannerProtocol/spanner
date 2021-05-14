@@ -2302,7 +2302,7 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
 }
 
 #[test]
-fn passenger_buy_non_default_dpo_test() {
+fn dpo_buy_non_default_carbin_test() {
     ExtBuilder::default().build().execute_with(|| {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
@@ -2364,6 +2364,12 @@ fn passenger_buy_non_default_dpo_test() {
             Origin::signed(ALICE),
             0,
             1
+        ));
+
+        // withdraw unused fun
+        assert_ok!(BulletTrain::release_fare_from_dpo(
+            Origin::signed(ALICE),
+            0
         ));
         for i in 11..20 {
             assert_eq!(Balances::free_balance(&i), 9000);
@@ -2526,7 +2532,7 @@ fn dpo_buy_non_default_dpo_test() {
             ));
         }
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
-        // dpo2 buy dpo0 seats (already taken)
+        // dpo3 buy dpo0 seats (already taken)
         assert_noop!(
             BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 0, 10),
             Error::<Test>::DpoWrongState
@@ -2539,6 +2545,13 @@ fn dpo_buy_non_default_dpo_test() {
         // dpo3 buy dpo1 seats
         assert_ok!(BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 1, 30));
         assert_eq!(BulletTrain::dpos(1).unwrap().amount_per_seat, 100);
+        assert_eq!(BulletTrain::dpos(3).unwrap().amount_per_seat, 30);
+        assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 27000);
+        // withdraw unused fun
+        assert_ok!(BulletTrain::release_fare_from_dpo(
+            Origin::signed(ALICE),
+            3
+        ));
         for i in 11..20 {
             assert_eq!(Balances::free_balance(&i), 3000 - 300);
         }
@@ -2577,10 +2590,23 @@ fn dpo_buy_non_default_dpo_test() {
             1,
             3
         ));
+        // dpo1 withdraw unused fun
+        assert_ok!(BulletTrain::release_fare_from_dpo(
+            Origin::signed(ALICE),
+            1
+        ));
         assert_eq!(
             BulletTrain::dpos(3).unwrap().vault_withdraw,
             (10000 - 9000) * 30 / 100 //300
         );
+        // dpo3 withdraw unused fun
+        assert_ok!(BulletTrain::release_fare_from_dpo(
+            Origin::signed(ALICE),
+            3
+        ));
+        for i in 11..20 {
+            assert_eq!(Balances::free_balance(&i), 2730); // 2700 +  300/10
+        }
 
         run_to_block(10);
         // withdraw from travel_cabin3 into dpo1
@@ -2599,21 +2625,133 @@ fn dpo_buy_non_default_dpo_test() {
         // withdraw from dpo1 into dpo3
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::ACTIVE);
         assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(10), 1));
-        assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 300 + 2700);
+        assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 2700);
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::COMPLETED);
         assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(10), 1));
-        assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 3000);
+        assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 2700);
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_yield, 2550);
         assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(10), 3));
-        // withdraw from dpo3
-        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 3));
         for i in 11..20 {
             //precision lost when calculating commission each
             // in this case 2550/100 => 25 * 0.15 => 4, resulting in 21 yield each
-            assert_eq!(Balances::free_balance(&i), 3000 + 210);
+            assert_eq!(Balances::free_balance(&i), 2730 + 210);
+        }
+        // withdraw from dpo3
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 3));
+        for i in 11..20 {
+            assert_eq!(Balances::free_balance(&i), 2730 + 270 + 210); // 3000+210
         }
     });
 }
+
+#[test]
+fn release_fare_from_dpo_without_withdrawing_unused_fund() {
+    ExtBuilder::default().build().execute_with(|| {
+        // cabin 0
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            100000,
+            0,
+            10000,
+            10,
+            1
+        ));
+        // cabin 1
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            10000,
+            0,
+            10000,
+            10,
+            1
+        ));
+        //dpo 0
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::TravelCabin(0),
+            10,
+            50,
+            800,
+            100,
+            None
+        ));
+        // dpo 1, buy 30 seats of dpo 0
+        // target amount: 30000
+        assert_ok!(Currencies::deposit(BOLT, &10, 3000));
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(10),
+            String::from("test").into_bytes(),
+            Target::Dpo(0, 30),
+            10,
+            50,
+            800,
+            99,
+            None
+        ));
+        //fill dpo1
+        for i in 11..20 {
+            assert_ok!(Currencies::deposit(BOLT, &i, 3000));
+            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                Origin::signed(i),
+                1,
+                10,
+                None
+            ));
+            assert_eq!(Balances::free_balance(&i), 0);
+        }
+        // dpo 1 buy dpo 0
+        assert_ok!(BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 1, 0, 30));
+        //fill dpo0
+        for i in 21..27 {
+            assert_ok!(Currencies::deposit(BOLT, &i, 10000));
+            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                Origin::signed(i),
+                0,
+                10,
+                None
+            ));
+            assert_eq!(Balances::free_balance(&i), 0);
+        }
+        // BOB buy cabin 0, making cabin 0 unavailable
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
+            Origin::signed(BOB),
+            0
+        ));
+        // dpo1 buy travel_cabin1 (unavailable)
+        assert_noop!(
+            BulletTrain::dpo_buy_travel_cabin(Origin::signed(ALICE), 0, 0),
+            Error::<Test>::CabinNotAvailable
+        );
+        // dpo0 buy cabin 1
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(ALICE), 0, 1));
+
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 90000); // 100000 - 10000
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0); // keep 0
+
+        run_to_block(10);
+        assert_ok!(BulletTrain::withdraw_fare_from_travel_cabin(
+            Origin::signed(ALICE),
+            1,
+            0
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 100000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::COMPLETED);
+        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::ACTIVE);
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 30000);
+        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::COMPLETED);
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(10), 1));
+        for i in 11..20 {
+            assert_eq!(Balances::free_balance(&i), 3000); // just deposit, without yield
+        }
+    });
+}
+
 
 #[test]
 fn get_travel_cabins_of_accounts() {
