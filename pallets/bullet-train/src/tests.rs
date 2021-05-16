@@ -2542,12 +2542,14 @@ fn dpo_buy_non_default_dpo_test() {
             BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 2, 30),
             Error::<Test>::TargetValueTooBig
         );
-        // dpo3 buy dpo1 seats
+        // dpo3 buy dpo1 seats (spends 27000 less)
         assert_ok!(BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 1, 30));
         assert_eq!(BulletTrain::dpos(1).unwrap().amount_per_seat, 100);
         assert_eq!(BulletTrain::dpos(3).unwrap().amount_per_seat, 30);
+        // unused fund (27000) should be moved from vault_deposit into vault_withdraw
+        assert_eq!(BulletTrain::dpos(3).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 27000);
-        // withdraw unused fun
+        // withdraw unused fund
         assert_ok!(BulletTrain::release_fare_from_dpo(
             Origin::signed(ALICE),
             3
@@ -2590,16 +2592,20 @@ fn dpo_buy_non_default_dpo_test() {
             1,
             3
         ));
-        // dpo1 withdraw unused fun
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 0); // vault_deposit empty
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 1000); // (10000 - 9000)
+        // dpo1 withdraw unused fund
         assert_ok!(BulletTrain::release_fare_from_dpo(
             Origin::signed(ALICE),
             1
         ));
+        // dpo3 get unused fund (300) from dpo 1
+        assert_eq!(BulletTrain::dpos(3).unwrap().vault_deposit, 0); // vault_deposit keeps 0
         assert_eq!(
             BulletTrain::dpos(3).unwrap().vault_withdraw,
             (10000 - 9000) * 30 / 100 //300
         );
-        // dpo3 withdraw unused fun
+        // dpo3 withdraw unused fund
         assert_ok!(BulletTrain::release_fare_from_dpo(
             Origin::signed(ALICE),
             3

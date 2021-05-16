@@ -1310,6 +1310,10 @@ impl<T: Config> Pallet<T> {
             }
             PaymentType::UnusedFund => {
                 Self::refresh_dpo_target_info(dpo)?;
+                // case 1: self dpo buy a new smaller target, unused fund should be moved from
+                // vault_deposit into vault_withdraw.
+                // case 2: if unused fund comes from parent dpo, vault_deposit of child dpo has already
+                // been 0. It is still 0 after saturating_sub.
                 dpo.vault_deposit = dpo.vault_deposit.saturating_sub(amount.clone());
                 dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount)
             }
