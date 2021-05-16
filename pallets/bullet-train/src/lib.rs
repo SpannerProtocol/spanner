@@ -928,11 +928,7 @@ pub mod module {
                     dpo.state = DpoState::FAILED;
                 }
             }
-            ensure!(
-                dpo.state == DpoState::FAILED || dpo.state == DpoState::COMPLETED ||
-                dpo.state == DpoState::ACTIVE || dpo.state == DpoState::RUNNING,
-                Error::<T>::DpoWrongState
-            );
+            ensure!(dpo.state != DpoState::CREATED, Error::<T>::DpoWrongState);
 
             let (amount_per_seat, payment_type) = match dpo.state {
                 DpoState::COMPLETED => {
@@ -1309,6 +1305,7 @@ impl<T: Config> Pallet<T> {
                 dpo.total_yield_received = dpo.total_yield_received.saturating_add(amount);
             }
             PaymentType::UnusedFund => {
+                // to return unused fund means that the dpo has a new smaller target
                 Self::refresh_dpo_target_info(dpo)?;
                 // case 1: self dpo buy a new smaller target, unused fund should be moved from
                 // vault_deposit into vault_withdraw.

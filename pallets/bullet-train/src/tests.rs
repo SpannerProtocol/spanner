@@ -2650,8 +2650,10 @@ fn dpo_buy_non_default_dpo_test() {
     });
 }
 
+/// child dpo has unused fund from parent pdo, but the fund is not going to be withdrawn until the
+/// travel ends and the fare ticket releases. At that moment, the unused fund and fare can be withdrawn at once.
 #[test]
-fn release_fare_from_dpo_without_withdrawing_unused_fund() {
+fn release_fare_from_dpo_including_unused_fund() {
     ExtBuilder::default().build().execute_with(|| {
         // cabin 0
         assert_ok!(BulletTrain::create_travel_cabin(
