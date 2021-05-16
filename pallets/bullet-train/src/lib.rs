@@ -1873,9 +1873,10 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        //push to user member list, only if the new member is a passenger
-        if let Buyer::Passenger(_) = buyer.clone() {
-            dpo.fifo.push(buyer.clone());
+        //push to user member list, only if the new member is a passenger, except for the manager
+        match buyer.clone() {
+            Buyer::Passenger(_) if !Self::is_buyer_manager(dpo, &buyer) => dpo.fifo.push(buyer.clone()),
+            _ => {}
         }
 
         //add the new member info into storage
