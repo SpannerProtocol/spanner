@@ -26,6 +26,7 @@ fn mint_travel_cabin<T: Config>(
     maturity: BlockNumber,
     stockpile: TravelCabinInventoryIndex,
 ) -> Result<(), &'static str> {
+    T::Currency::update_balance(BOLT, &BulletTrain::<T>::eng_account_id(), Balance::MAX.unique_saturated_into())?;
     BulletTrain::<T>::create_travel_cabin(
         T::EngineerOrigin::successful_origin(),
         token_id,
@@ -84,6 +85,7 @@ fn funded_fill_dpo_except_seats<T: Config>(idx: DpoIndex) -> Result<(), &'static
 
 benchmarks! {
     create_milestone_reward {
+        T::Currency::update_balance(BOLT, &BulletTrain::<T>::eng_account_id(), Balance::MAX.unique_saturated_into())?;
         let total_reward: Balance = 100_000_000_000;
         let milestone: Balance = 10_000_000_000;
         let call = Call::<T>::create_milestone_reward(BOLT, milestone, total_reward);
@@ -107,6 +109,7 @@ benchmarks! {
     }
 
     create_travel_cabin {
+        T::Currency::update_balance(BOLT, &BulletTrain::<T>::eng_account_id(), Balance::MAX.unique_saturated_into())?;
         let caller = funded_account::<T>("caller", 0);
         let deposit_amount: Balance = 100_000_000_000;
         let bonus_reward: Balance = 10_000_000_000;
@@ -123,6 +126,7 @@ benchmarks! {
     }
 
     issue_additional_travel_cabin {
+        T::Currency::update_balance(BOLT, &BulletTrain::<T>::eng_account_id(), Balance::MAX.unique_saturated_into())?;
         let creator = funded_account::<T>("creator", 0);
         let maturity: BlockNumber = 100;
         TravelCabins::<T>::insert(0, TravelCabinInfo{
@@ -180,9 +184,10 @@ benchmarks! {
         let maturity: BlockNumber = 10;
         let stockpile: TravelCabinInventoryIndex = 1;
 
+        T::Currency::update_balance(BOLT, &BulletTrain::<T>::eng_account_id(), Balance::MAX.unique_saturated_into())?;
         let call = Call::<T>::create_travel_cabin(BOLT, b"test".to_vec(), deposit_amount, bonus_reward, yield_reward, maturity.into(), stockpile);
         let origin = T::EngineerOrigin::successful_origin();
-        assert!(call.dispatch_bypass_filter(origin).is_ok());
+        call.dispatch_bypass_filter(origin)?;
 
     }: _(RawOrigin::Signed(caller), dpo_name.as_bytes().to_vec(), Target::TravelCabin(0), 15, 50, 800, ending_block.into(), None)
     verify{
