@@ -29,6 +29,7 @@ fn mint_travel_cabin<T: Config>(
     BulletTrain::<T>::create_travel_cabin(
         T::EngineerOrigin::successful_origin(),
         token_id,
+        b"test".to_vec(),
         deposit_amount,
         bonus_total,
         yield_total,
@@ -51,6 +52,8 @@ fn funded_create_dpo<T: Config>(
         b"benchmarking".to_vec(),
         target,
         manager_seats,
+        50,
+        800,
         end.into(),
         referrer,
     )?;
@@ -80,15 +83,6 @@ fn funded_fill_dpo_except_seats<T: Config>(idx: DpoIndex) -> Result<(), &'static
 }
 
 benchmarks! {
-    mint_from_bridge {
-        let acc: T::AccountId = funded_account::<T>("account", 0);
-        let call = Call::<T>::mint_from_bridge(BOLT, acc.clone(), 100);
-        let origin = T::EngineerOrigin::successful_origin();
-    }: { call.dispatch_bypass_filter(origin)? }
-    // verify {
-    //     assert_eq!(T::Currency::free_balance(BOLT, &acc), 100);
-    // }
-
     create_milestone_reward {
         let total_reward: Balance = 100_000_000_000;
         let milestone: Balance = 10_000_000_000;
@@ -120,7 +114,7 @@ benchmarks! {
         let maturity: BlockNumber = 10;
         let stockpile: TravelCabinInventoryIndex = 1;
 
-        let call = Call::<T>::create_travel_cabin(BOLT, deposit_amount, bonus_reward, yield_reward, maturity.into(), stockpile);
+        let call = Call::<T>::create_travel_cabin(BOLT, b"test".to_vec(), deposit_amount, bonus_reward, yield_reward, maturity.into(), stockpile);
         let origin = T::EngineerOrigin::successful_origin();
 
     }: { call.dispatch_bypass_filter(origin)? }
@@ -133,6 +127,7 @@ benchmarks! {
         let maturity: BlockNumber = 100;
         TravelCabins::<T>::insert(0, TravelCabinInfo{
             creator,
+            name: b"test".to_vec(),
             token_id: BOLT,
             index: 0,
             deposit_amount: 100_000_000_000,
@@ -185,11 +180,11 @@ benchmarks! {
         let maturity: BlockNumber = 10;
         let stockpile: TravelCabinInventoryIndex = 1;
 
-        let call = Call::<T>::create_travel_cabin(BOLT, deposit_amount, bonus_reward, yield_reward, maturity.into(), stockpile);
+        let call = Call::<T>::create_travel_cabin(BOLT, b"test".to_vec(), deposit_amount, bonus_reward, yield_reward, maturity.into(), stockpile);
         let origin = T::EngineerOrigin::successful_origin();
         assert!(call.dispatch_bypass_filter(origin).is_ok());
 
-    }: _(RawOrigin::Signed(caller), dpo_name.as_bytes().to_vec(), Target::TravelCabin(0), 15, ending_block.into(), None)
+    }: _(RawOrigin::Signed(caller), dpo_name.as_bytes().to_vec(), Target::TravelCabin(0), 15, 50, 800, ending_block.into(), None)
     verify{
         assert_eq!(DpoCount::<T>::get(), 1);
     }
@@ -289,13 +284,6 @@ mod tests {
     use super::*;
     use crate::mock::{ExtBuilder, Test};
     use frame_support::assert_ok;
-
-    #[test]
-    fn mint_from_bridge() {
-        ExtBuilder::default().build().execute_with(|| {
-            assert_ok!(test_benchmark_mint_from_bridge::<Test>());
-        });
-    }
 
     #[test]
     fn create_milestone_reward() {
