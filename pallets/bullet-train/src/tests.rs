@@ -1800,6 +1800,7 @@ fn dpo_referral() {
         //bob buying into Alice's dpo 0
         // member len: 0, assigned to manager
         //fifo queueby account: [1]
+        assert_eq!(BulletTrain::dpos(0).unwrap().fifo, vec![]); // fifo empty
         assert_ok!(BulletTrain::passenger_buy_dpo_seats(
             Origin::signed(BOB),
             0,
