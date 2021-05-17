@@ -75,4 +75,7 @@ cd spanner
 
 # To export chain spec into .json file
 ./target/release/substrate build-spec --chain local --disable-default-bootnode > spec/local.json
+
+# Produce WASM for forkless update
+cargo build --release -p node-runtime
 ```

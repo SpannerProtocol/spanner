@@ -806,6 +806,12 @@ impl<T: Config> Pallet<T> {
             *pool_0 = pool_0.saturating_add(pool_0_increment);
             *pool_1 = pool_1.saturating_add(pool_1_increment);
 
+            Self::deposit_event(Event::Sync(
+                trading_pair.0,
+                *pool_0,
+                trading_pair.1,
+                *pool_1,
+            ));
             Self::deposit_event(Event::AddLiquidity(
                 who.clone(),
                 trading_pair.0,
@@ -813,12 +819,6 @@ impl<T: Config> Pallet<T> {
                 trading_pair.1,
                 pool_1_increment,
                 share_increment,
-            ));
-            Self::deposit_event(Event::Sync(
-                trading_pair.0,
-                *pool_0,
-                trading_pair.1,
-                *pool_1,
             ));
             Ok(())
         })
@@ -854,6 +854,12 @@ impl<T: Config> Pallet<T> {
             *pool_0 = pool_0.saturating_sub(pool_0_decrement);
             *pool_1 = pool_1.saturating_sub(pool_1_decrement);
 
+            Self::deposit_event(Event::Sync(
+                trading_pair.0,
+                *pool_0,
+                trading_pair.1,
+                *pool_1,
+            ));
             Self::deposit_event(Event::RemoveLiquidity(
                 who.clone(),
                 trading_pair.0,
@@ -861,12 +867,6 @@ impl<T: Config> Pallet<T> {
                 trading_pair.1,
                 pool_1_decrement,
                 remove_share,
-            ));
-            Self::deposit_event(Event::Sync(
-                trading_pair.0,
-                *pool_0,
-                trading_pair.1,
-                *pool_1,
             ));
             Ok(())
         })

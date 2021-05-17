@@ -1384,19 +1384,20 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_bullet_train_rpc_runtime_api::BulletTrainApi<Block, AccountId> for Runtime {
-        fn get_travel_cabins_of_account(
-            origin: AccountId,
-        ) -> Vec<(pallet_bullet_train_primitives::TravelCabinIndex, pallet_bullet_train_primitives::TravelCabinInventoryIndex)> {
-            BulletTrain::get_travel_cabins_of_account(&origin)
-        }
-
-        fn get_dpos_of_account(
-            origin: AccountId,
-        ) -> Vec<pallet_bullet_train_primitives::DpoIndex> {
-            BulletTrain::get_dpos_of_account(origin)
-        }
-    }
+    // Disable RPC
+    // impl pallet_bullet_train_rpc_runtime_api::BulletTrainApi<Block, AccountId> for Runtime {
+    //     fn get_travel_cabins_of_account(
+    //         origin: AccountId,
+    //     ) -> Vec<(pallet_bullet_train_primitives::TravelCabinIndex, pallet_bullet_train_primitives::TravelCabinInventoryIndex)> {
+    //         BulletTrain::get_travel_cabins_of_account(&origin)
+    //     }
+    //
+    //     fn get_dpos_of_account(
+    //         origin: AccountId,
+    //     ) -> Vec<pallet_bullet_train_primitives::DpoIndex> {
+    //         BulletTrain::get_dpos_of_account(origin)
+    //     }
+    // }
 
     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<
         Block,

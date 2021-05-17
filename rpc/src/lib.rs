@@ -115,7 +115,7 @@ pub fn create_full<C, P, SC, B>(
 	C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + AuxStore +
 		HeaderMetadata<Block, Error=BlockChainError> + Sync + Send + 'static,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
-	C::Api: pallet_bullet_train_rpc::BulletTrainRuntimeApi<Block, AccountId>,
+	// C::Api: pallet_bullet_train_rpc::BulletTrainRuntimeApi<Block, AccountId>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
@@ -125,7 +125,7 @@ pub fn create_full<C, P, SC, B>(
 	B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
 {
 	use substrate_frame_rpc_system::{FullSystem, SystemApi};
-	use pallet_bullet_train_rpc::{BulletTrain, BulletTrainApi};
+	// use pallet_bullet_train_rpc::{BulletTrain, BulletTrainApi};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
 
 	let mut io = jsonrpc_core::IoHandler::default();
@@ -155,9 +155,9 @@ pub fn create_full<C, P, SC, B>(
 	io.extend_with(
 		SystemApi::to_delegate(FullSystem::new(client.clone(), pool, deny_unsafe))
 	);
-	io.extend_with(
-		BulletTrainApi::to_delegate(BulletTrain::new(client.clone()))
-	);
+	// io.extend_with(
+	// 	BulletTrainApi::to_delegate(BulletTrain::new(client.clone()))
+	// );
 	io.extend_with(
 		TransactionPaymentApi::to_delegate(TransactionPayment::new(client.clone()))
 	);
