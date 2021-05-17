@@ -442,19 +442,6 @@ pub mod module {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(0)]
-        #[transactional]
-        pub fn mint_from_bridge(
-            origin: OriginFor<T>,
-            token_id: CurrencyId,
-            who: T::AccountId,
-            amount: Balance,
-        ) -> DispatchResultWithPostInfo {
-            let _ = T::EngineerOrigin::ensure_origin(origin)?;
-            T::Currency::update_balance(token_id, &who, amount.unique_saturated_into())?;
-            Ok(().into())
-        }
-
         /// milestone reward triggered by total ticket fairs of travel cabin
         /// will be given to all passengers by their paid ticket fair.
         /// dpo will then distribute to its members just like Yield
