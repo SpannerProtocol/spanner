@@ -1,0 +1,34 @@
+name: Build and Test
+
+on:
+#   push:
+#     branches: [ main ]
+  pull_request:
+    branches:
+      - main
+      - hammer
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install minimal stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install minimal nightly Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+      - name: Build
+        run: cargo build
+      - name: Run tests
+        run: cargo test
