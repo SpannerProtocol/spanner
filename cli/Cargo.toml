@@ -91,7 +91,7 @@ pallet-staking = "3.0.0"
 pallet-grandpa = "3.0.0"
 
 # node-specific dependencies
-node-runtime = { version = "2.0.0", path = "../runtime" }
+spanner-runtime = { version = "2.0.0", path = "../runtime/spanner" }
 node-rpc = { version = "2.0.0", path = "../rpc" }
 node-primitives = { version = "2.0.0", path = "../primitives" }
 node-executor = { version = "2.0.0", path = "../executor" }
@@ -156,6 +156,6 @@ cli = [
 	"substrate-build-script-utils",
 ]
 runtime-benchmarks = [
-	"node-runtime/runtime-benchmarks",
+	"spanner-runtime/runtime-benchmarks",
 	"frame-benchmarking-cli",
 ]

@@ -22,7 +22,7 @@ use frame_support::{
 };
 use sp_core::NeverNativeValue;
 use sp_runtime::{Perbill, FixedPointNumber};
-use node_runtime::{
+use spanner_runtime::{
 	CheckedExtrinsic, Call, Runtime, Balances, TransactionPayment, Multiplier,
 	TransactionByteFee,
 	constants::currency::*,

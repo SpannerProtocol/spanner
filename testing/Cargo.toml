@@ -23,7 +23,7 @@ pallet-indices = "3.0.0"
 sp-keyring = "3.0.0"
 node-executor = { version = "2.0.0", path = "../executor" }
 node-primitives = { version = "2.0.0", path = "../primitives" }
-node-runtime = { version = "2.0.0", path = "../runtime" }
+spanner-runtime = { version = "2.0.0", path = "../runtime/spanner" }
 sp-core = "3.0.0"
 sp-io = "3.0.0"
 frame-support = "3.0.0"

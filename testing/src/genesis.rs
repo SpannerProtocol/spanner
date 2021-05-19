@@ -19,8 +19,8 @@
 //! Genesis Configuration.
 
 use crate::keyring::*;
-use node_runtime::constants::currency::*;
-use node_runtime::{
+use spanner_runtime::constants::currency::*;
+use spanner_runtime::{
     wasm_binary_unwrap, AccountId, BalancesConfig, GenesisConfig, GrandpaConfig, IndicesConfig,
     SessionConfig, SocietyConfig, StakerStatus, StakingConfig, SystemConfig, TokensConfig,
 };

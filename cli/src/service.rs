@@ -23,7 +23,7 @@
 use std::sync::Arc;
 use sc_consensus_babe;
 use node_primitives::Block;
-use node_runtime::RuntimeApi;
+use spanner_runtime::RuntimeApi;
 use sc_service::{
 	config::{Configuration}, error::{Error as ServiceError},
 	RpcHandlers, TaskManager,
@@ -474,8 +474,8 @@ mod tests {
 		RecordProof,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
-	use node_runtime::{BalancesCall, Call, UncheckedExtrinsic, Address};
-	use node_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
+	use spanner_runtime::{BalancesCall, Call, UncheckedExtrinsic, Address};
+	use spanner_runtime::constants::{currency::CENTS, time::SLOT_DURATION};
 	use codec::Encode;
 	use sp_core::{
 		crypto::Pair as CryptoPair,

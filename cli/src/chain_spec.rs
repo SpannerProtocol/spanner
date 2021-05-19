@@ -20,9 +20,9 @@
 
 use grandpa_primitives::AuthorityId as GrandpaId;
 use hex_literal::hex;
-use node_runtime::constants::currency::*;
-use node_runtime::Block;
-use node_runtime::{
+use spanner_runtime::constants::currency::*;
+use spanner_runtime::Block;
+use spanner_runtime::{
     wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig, BalancesConfig,
     BulletTrainEngineerConfig, CouncilConfig, CurrencyId, DemocracyConfig, DexConfig,
     ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
@@ -45,7 +45,7 @@ use sp_runtime::{
 };
 
 pub use node_primitives::{AccountId, Balance, Signature};
-pub use node_runtime::GenesisConfig;
+pub use spanner_runtime::GenesisConfig;
 
 type AccountPublic = <Signature as Verify>::Signer;
 
