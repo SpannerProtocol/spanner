@@ -26,7 +26,7 @@ sp-state-machine = "0.9.0"
 sp-externalities = "0.9.0"
 sp-trie = "3.0.0"
 sp-storage = "3.0.0"
-sc-client-db = { version = "0.9.0", default-features = false }
+sc-client-db = { version = "0.9.0", default-features = false,  features = ["with-kvdb-rocksdb"] }
 futures = { version = "0.3.1", features = ["compat"] }
 sc-service = { version = "0.9.0", default-features = false, features = ["test-helpers"] }
 sc-network = "0.9.0"
