@@ -541,7 +541,7 @@ pub(crate) mod tests {
                     network,
                     transaction_pool,
                     ..
-                } = new_full_base::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)?;
+                } = new_full_base::<spanner_runtime::RuntimeApi, node_executor::SpannerExecutor>(config)?;
                 Ok(sc_service_test::TestNetComponents::new(
                     task_manager,
                     client,
@@ -551,7 +551,7 @@ pub(crate) mod tests {
             },
             |config| {
                 let (keep_alive, _, _, client, network, transaction_pool)
-                    = new_light_base::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)?;
+                    = new_light_base::<spanner_runtime::RuntimeApi, node_executor::SpannerExecutor>(config)?;
                 Ok(sc_service_test::TestNetComponents::new(
                     keep_alive,
                     client,
