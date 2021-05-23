@@ -43,6 +43,7 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     Perbill,
 };
+use node_executor::{SpannerExecutor, HammerExecutor};
 
 pub use node_primitives::{AccountId, Balance, Signature};
 pub use spanner_runtime::GenesisConfig;
@@ -541,7 +542,7 @@ pub(crate) mod tests {
                     network,
                     transaction_pool,
                     ..
-                } = new_full_base(config, |_, _| ())?;
+                } = new_full_base::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)?;
                 Ok(sc_service_test::TestNetComponents::new(
                     task_manager,
                     client,
@@ -550,7 +551,8 @@ pub(crate) mod tests {
                 ))
             },
             |config| {
-                let (keep_alive, _, _, client, network, transaction_pool) = new_light_base(config)?;
+                let (keep_alive, _, _, client, network, transaction_pool)
+                    = new_light_base::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)?;
                 Ok(sc_service_test::TestNetComponents::new(
                     keep_alive,
                     client,

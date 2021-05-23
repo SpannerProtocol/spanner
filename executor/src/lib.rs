@@ -24,8 +24,15 @@ use sc_executor::native_executor_instance;
 // Declare an instance of the native executor named `Executor`. Include the wasm binary as the
 // equivalent wasm code.
 native_executor_instance!(
-	pub Executor,
+	pub SpannerExecutor,
 	spanner_runtime::api::dispatch,
 	spanner_runtime::native_version,
+	frame_benchmarking::benchmarking::HostFunctions,
+);
+
+native_executor_instance!(
+	pub HammerExecutor,
+	hammer_runtime::api::dispatch,
+	hammer_runtime::native_version,
 	frame_benchmarking::benchmarking::HostFunctions,
 );

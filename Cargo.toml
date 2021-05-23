@@ -8,6 +8,7 @@ members = [
 	"rpc-client",
 	"rpc",
 	"runtime/spanner",
+	"runtime/hammer",
 	"testing",
 
 	'pallets/bullet-train',

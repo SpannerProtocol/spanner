@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{chain_spec, service, Cli, Subcommand};
-use node_executor::Executor;
+use node_executor::{SpannerExecutor, HammerExecutor};
 use spanner_runtime::{Block, RuntimeApi};
 use sc_cli::{Result, SubstrateCli, RuntimeVersion, Role, ChainSpec};
 use sc_service::PartialComponents;
@@ -77,21 +77,21 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(&cli.run)?;
 			runner.run_node_until_exit(|config| async move {
 				match config.role {
-					Role::Light => service::new_light(config),
-					_ => service::new_full(config),
+					Role::Light => service::build_light(config),
+					_ => service::build_full(config),
 				}.map_err(sc_cli::Error::Service)
 			})
 		}
 		Some(Subcommand::Inspect(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 
-			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, Executor>(config))
+			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, SpannerExecutor>(config))
 		}
 		Some(Subcommand::Benchmark(cmd)) => {
 			if cfg!(feature = "runtime-benchmarks") {
 				let runner = cli.create_runner(cmd)?;
 
-				runner.sync_run(|config| cmd.run::<Block, Executor>(config))
+				runner.sync_run(|config| cmd.run::<Block, SpannerExecutor>(config))
 			} else {
 				Err("Benchmarking wasn't enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`.".into())
@@ -109,7 +109,7 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, ..}
-					= new_partial(&config)?;
+					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
@@ -117,7 +117,7 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, ..}
-					= new_partial(&config)?;
+					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
 		},
@@ -125,7 +125,7 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, ..}
-					= new_partial(&config)?;
+					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
 				Ok((cmd.run(client, config.chain_spec), task_manager))
 			})
 		},
@@ -133,7 +133,7 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, ..}
-					= new_partial(&config)?;
+					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
@@ -145,7 +145,7 @@ pub fn run() -> Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, backend, ..}
-					= new_partial(&config)?;
+					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
 				Ok((cmd.run(client, backend), task_manager))
 			})
 		},

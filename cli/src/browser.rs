@@ -23,6 +23,7 @@ use browser_utils::{
 	Client,
 	browser_configuration, init_logging_and_telemetry, set_console_error_panic_hook,
 };
+use node_executor::{SpannerExecutor, HammerExecutor};
 
 /// Starts the client.
 #[wasm_bindgen]
@@ -59,7 +60,7 @@ async fn start_inner(
 
 	// Create the service. This is the most heavy initialization step.
 	let (task_manager, rpc_handlers) =
-		crate::service::new_light_base(config)
+		crate::service::new_light_base::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)
 			.map(|(components, rpc_handlers, _, _, _, _)| (components, rpc_handlers))
 			.map_err(|e| format!("{:?}", e))?;
 

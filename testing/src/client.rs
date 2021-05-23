@@ -24,7 +24,7 @@ use sc_service::client;
 pub use substrate_test_client::*;
 
 /// Call executor for `node-runtime` `TestClient`.
-pub type Executor = sc_executor::NativeExecutor<node_executor::Executor>;
+pub type Executor = sc_executor::NativeExecutor<node_executor::SpannerExecutor>;
 
 /// Default backend type.
 pub type Backend = sc_client_db::Backend<node_primitives::Block>;

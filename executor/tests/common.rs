@@ -34,7 +34,7 @@ use sp_runtime::{
 use sc_executor::{NativeExecutor, WasmExecutionMethod};
 use sc_executor::error::Result;
 
-use node_executor::Executor;
+use node_executor::{SpannerExecutor, HammerExecutor};
 use spanner_runtime::{
 	Header, Block, UncheckedExtrinsic, CheckedExtrinsic, Runtime, BuildStorage,
 	constants::currency::*,
@@ -93,7 +93,7 @@ pub fn from_block_number(n: u32) -> Header {
 	Header::new(n, Default::default(), Default::default(), [69; 32].into(), Default::default())
 }
 
-pub fn executor() -> NativeExecutor<Executor> {
+pub fn executor() -> NativeExecutor<SpannerExecutor> {
 	NativeExecutor::new(WasmExecutionMethod::Interpreted, None, 8)
 }
 
