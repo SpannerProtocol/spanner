@@ -18,10 +18,8 @@
 
 use crate::{chain_spec, service, Cli, Subcommand};
 use node_executor::{SpannerExecutor, HammerExecutor};
-use spanner_runtime::{Block, RuntimeApi};
 use sc_cli::{Result, SubstrateCli, RuntimeVersion, Role, ChainSpec};
-use sc_service::PartialComponents;
-use crate::service::new_partial;
+use crate::client::IdentifyVariant;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -84,14 +82,24 @@ pub fn run() -> Result<()> {
 		}
 		Some(Subcommand::Inspect(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-
-			runner.sync_run(|config| cmd.run::<Block, RuntimeApi, SpannerExecutor>(config))
+			let chain_spec = &runner.config().chain_spec;
+			if chain_spec.is_hammer() {
+				runner.sync_run(|config| cmd.run::<hammer_runtime::Block, hammer_runtime::RuntimeApi, HammerExecutor>(config))
+			} else {
+				// else we assume it is spanner itself.
+				runner.sync_run(|config| cmd.run::<spanner_runtime::Block, spanner_runtime::RuntimeApi, SpannerExecutor>(config))
+			}
 		}
 		Some(Subcommand::Benchmark(cmd)) => {
 			if cfg!(feature = "runtime-benchmarks") {
 				let runner = cli.create_runner(cmd)?;
-
-				runner.sync_run(|config| cmd.run::<Block, SpannerExecutor>(config))
+				let chain_spec = &runner.config().chain_spec;
+				if chain_spec.is_hammer() {
+					runner.sync_run(|config| cmd.run::<hammer_runtime::Block, HammerExecutor>(config))
+				} else {
+					// else we assume it is spanner itself.
+					runner.sync_run(|config| cmd.run::<spanner_runtime::Block, SpannerExecutor>(config))
+				}
 			} else {
 				Err("Benchmarking wasn't enabled when building the node. \
 				You can enable it with `--features runtime-benchmarks`.".into())
@@ -107,33 +115,29 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, import_queue, ..}
-					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
+			runner.async_run(|mut config| {
+				let (client, _, import_queue, task_manager) = service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, ..}
-					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
+			runner.async_run(|mut config| {
+				let (client, _, _, task_manager) = service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, ..}
-					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
+			runner.async_run(|mut config| {
+				let (client, _, _, task_manager) = service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, config.chain_spec), task_manager))
 			})
 		},
 		Some(Subcommand::ImportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, import_queue, ..}
-					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
+			runner.async_run(|mut config| {
+				let (client, _, import_queue, task_manager) = service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
@@ -143,9 +147,8 @@ pub fn run() -> Result<()> {
 		},
 		Some(Subcommand::Revert(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
-			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, backend, ..}
-					= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(&config)?;
+			runner.async_run(|mut config| {
+				let (client, backend, _, task_manager) = service::new_chain_ops(&mut config)?;
 				Ok((cmd.run(client, backend), task_manager))
 			})
 		},

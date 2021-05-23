@@ -24,6 +24,7 @@ use browser_utils::{
 	browser_configuration, init_logging_and_telemetry, set_console_error_panic_hook,
 };
 use node_executor::{SpannerExecutor, HammerExecutor};
+use crate::client::IdentifyVariant;
 
 /// Starts the client.
 #[wasm_bindgen]
@@ -59,11 +60,17 @@ async fn start_inner(
 	info!("👤 Role: {:?}", config.role);
 
 	// Create the service. This is the most heavy initialization step.
+	let chain_spec = &config.chain_spec;
 	let (task_manager, rpc_handlers) =
-		crate::service::new_light_base::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)
-			.map(|(components, rpc_handlers, _, _, _, _)| (components, rpc_handlers))
-			.map_err(|e| format!("{:?}", e))?;
-
+		if chain_spec.is_hammer() {
+			crate::service::new_light_base::<hammer_runtime::RuntimeApi, HammerExecutor>(config)
+				.map(|(components, rpc_handlers, _, _, _, _)| (components, rpc_handlers))
+				.map_err(|e| format!("{:?}", e))?
+		} else {
+			crate::service::new_light_base::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)
+				.map(|(components, rpc_handlers, _, _, _, _)| (components, rpc_handlers))
+				.map_err(|e| format!("{:?}", e))?
+		};
 	task_manager.spawn_handle().spawn("telemetry", telemetry_worker.run());
 
 	Ok(browser_utils::start_client(task_manager, rpc_handlers))

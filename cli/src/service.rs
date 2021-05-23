@@ -23,7 +23,6 @@
 use std::sync::Arc;
 use sc_consensus_babe;
 use node_primitives::Block;
-use spanner_runtime::RuntimeApi;
 use sc_service::{
 	config::{Configuration}, error::{Error as ServiceError},
 	RpcHandlers, TaskManager,
@@ -40,7 +39,7 @@ pub use sc_executor::NativeExecutionDispatch;
 pub use crate::client::*;
 
 pub type FullClient<RuntimeApi, Executor> = sc_service::TFullClient<Block, RuntimeApi, Executor>;
-type FullBackend = sc_service::TFullBackend<Block>;
+pub type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport<RuntimeApi, Executor> =
 	grandpa::GrandpaBlockImport<FullBackend, Block, FullClient<RuntimeApi, Executor>, FullSelectChain>;
@@ -528,6 +527,33 @@ pub fn build_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 	}
 }
 
+/// Builds a new object suitable for chain operations.
+pub fn new_chain_ops(mut config: &mut Configuration) -> Result<
+	(
+		Arc<Client>,
+		Arc<FullBackend>,
+		sp_consensus::import_queue::BasicQueue<Block, sp_trie::PrefixedMemoryDB<BlakeTwo256>>,
+		TaskManager,
+	),
+	ServiceError
+>
+{
+	config.keystore = sc_service::config::KeystoreConfig::InMemory;
+	if config.chain_spec.is_spanner() {
+		let sc_service::PartialComponents { client, backend, import_queue, task_manager, .. }
+			= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)?;
+		Ok((Arc::new(Client::Spanner(client)), backend, import_queue, task_manager))
+	} else if config.chain_spec.is_hammer() {
+		let sc_service::PartialComponents { client, backend, import_queue, task_manager, .. }
+			= new_partial::<hammer_runtime::RuntimeApi, HammerExecutor>(config)?;
+		Ok((Arc::new(Client::Hammer(client)), backend, import_queue, task_manager))
+	} else {
+		let sc_service::PartialComponents { client, backend, import_queue, task_manager, .. }
+			= new_partial::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)?;
+		Ok((Arc::new(Client::Spanner(client)), backend, import_queue, task_manager))
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use std::{sync::Arc, borrow::Cow, any::Any, convert::TryInto};
@@ -564,7 +590,7 @@ mod tests {
 
 	type AccountPublic = <Signature as Verify>::Signer;
 
-	#[test]
+	// #[test]
 	// It is "ignored", but the node-cli ignored tests are running on the CI.
 	// This can be run locally with `cargo test --release -p node-cli test_sync -- --ignored`.
 	// #[ignore]

@@ -62,6 +62,7 @@ sp-block-builder = "3.0.0"
 sp-offchain = "3.0.0"
 sp-session = "3.0.0"
 sp-blockchain = "3.0.0"
+sp-storage = "3.0.0"
 
 
 # client dependencies

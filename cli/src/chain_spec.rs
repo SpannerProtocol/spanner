@@ -43,7 +43,6 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     Perbill,
 };
-use node_executor::{SpannerExecutor, HammerExecutor};
 
 pub use node_primitives::{AccountId, Balance, Signature};
 pub use spanner_runtime::GenesisConfig;
