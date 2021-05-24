@@ -751,16 +751,16 @@ pub(crate) mod tests {
 
     #[test]
     fn test_create_development_chain_spec() {
-        spanner_development_config().build_storage().unwrap();
+        spanner_development_config().unwrap().build_storage().unwrap();
     }
 
     #[test]
     fn test_create_local_testnet_chain_spec() {
-        spanner_local_testnet_config().build_storage().unwrap();
+        spanner_local_testnet_config().unwrap().build_storage().unwrap();
     }
 
     #[test]
     fn test_staging_test_net_chain_spec() {
-        spanner_staging_testnet_config().build_storage().unwrap();
+        spanner_staging_testnet_config().unwrap().build_storage().unwrap();
     }
 }
