@@ -27,9 +27,6 @@ pub trait IdentifyVariant {
 
     /// Returns true if this configuration is for a development network.
     fn is_dev(&self) -> bool;
-
-    /// Returns true if this configuration is for a local network.
-    fn is_local(&self) -> bool;
 }
 
 impl IdentifyVariant for Box<dyn ChainSpec> {
@@ -40,10 +37,7 @@ impl IdentifyVariant for Box<dyn ChainSpec> {
         self.id().starts_with("hammer") || self.id().starts_with("ham")
     }
     fn is_dev(&self) -> bool {
-        self.id().starts_with("dev")
-    }
-    fn is_local(&self) -> bool {
-        self.id().starts_with("local")
+        self.id().ends_with("dev")
     }
 }
 

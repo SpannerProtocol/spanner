@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::chain_spec::ChainSpec;
+use crate::chain_spec::SpannerChainSpec;
 use log::info;
 use wasm_bindgen::prelude::*;
 use browser_utils::{
@@ -41,9 +41,9 @@ async fn start_inner(
 	set_console_error_panic_hook();
 	let telemetry_worker = init_logging_and_telemetry(&log_directives)?;
 	let chain_spec = match chain_spec {
-		Some(chain_spec) => ChainSpec::from_json_bytes(chain_spec.as_bytes().to_vec())
+		Some(chain_spec) => SpannerChainSpec::from_json_bytes(chain_spec.as_bytes().to_vec())
 			.map_err(|e| format!("{:?}", e))?,
-		None => crate::chain_spec::development_config(),
+		None => crate::chain_spec::spanner_development_config(),
 	};
 
 	let telemetry_handle = telemetry_worker.handle();

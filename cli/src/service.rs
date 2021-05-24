@@ -388,10 +388,6 @@ pub fn build_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		new_full::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)
 	} else if config.chain_spec.is_hammer() {
 		new_full::<hammer_runtime::RuntimeApi, HammerExecutor>(config)
-	} else if config.chain_spec.is_dev() {
-		new_full::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)
-	} else if config.chain_spec.is_local() {
-		new_full::<hammer_runtime::RuntimeApi, HammerExecutor>(config)
 	} else {
 		new_full::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)
 	}
@@ -517,10 +513,6 @@ pub fn build_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 	if config.chain_spec.is_spanner() {
 		new_light::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)
 	} else if config.chain_spec.is_hammer() {
-		new_light::<hammer_runtime::RuntimeApi, HammerExecutor>(config)
-	} else if config.chain_spec.is_dev() {
-		new_light::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)
-	} else if config.chain_spec.is_local() {
 		new_light::<hammer_runtime::RuntimeApi, HammerExecutor>(config)
 	} else {
 		new_light::<spanner_runtime::RuntimeApi, SpannerExecutor>(config)

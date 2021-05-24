@@ -20,15 +20,8 @@
 
 use grandpa_primitives::AuthorityId as GrandpaId;
 use hex_literal::hex;
-use spanner_runtime::constants::currency::*;
-use spanner_runtime::Block;
-use spanner_runtime::{
-    wasm_binary_unwrap, AuthorityDiscoveryConfig, BabeConfig, BalancesConfig,
-    BulletTrainEngineerConfig, CouncilConfig, CurrencyId, DemocracyConfig, DexConfig,
-    ElectionsConfig, GrandpaConfig, ImOnlineConfig, IndicesConfig, SessionConfig, SessionKeys,
-    SocietyConfig, StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
-    TokenSymbol, TokensConfig,
-};
+use spanner_runtime as spanner;
+use hammer_runtime as hammer;
 use pallet_dex::TradingPair;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::ChainSpecExtension;
@@ -44,12 +37,12 @@ use sp_runtime::{
     Perbill,
 };
 
-pub use node_primitives::{AccountId, Balance, Signature};
-pub use spanner_runtime::GenesisConfig;
+pub use node_primitives::{AccountId, Balance, Signature, Block, TokenSymbol, CurrencyId};
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const SPANNER_STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+const HAMMER_STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Node `ChainSpec` extensions.
 ///
@@ -64,34 +57,404 @@ pub struct Extensions {
     pub bad_blocks: sc_client_api::BadBlocks<Block>,
 }
 
-/// Specialized `ChainSpec`.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
-/// Flaming Fir testnet generator
-pub fn flaming_fir_config() -> Result<ChainSpec, String> {
-    ChainSpec::from_json_bytes(&include_bytes!("../res/flaming-fir.json")[..])
+/// The `ChainSpec` parametrised for the spanner runtime.
+pub type SpannerChainSpec = sc_service::GenericChainSpec<spanner::GenesisConfig, Extensions>;
+
+/// The `ChainSpec` parametrised for the spanner runtime.
+pub type HammerChainSpec = sc_service::GenericChainSpec<hammer::GenesisConfig, Extensions>;
+
+pub fn spanner_config() -> Result<SpannerChainSpec, String> {
+    SpannerChainSpec::from_json_bytes(&include_bytes!("../../network_spec/spanner_raw.json")[..])
 }
 
-fn session_keys(
-    grandpa: GrandpaId,
-    babe: BabeId,
-    im_online: ImOnlineId,
-    authority_discovery: AuthorityDiscoveryId,
-) -> SessionKeys {
-    SessionKeys {
-        grandpa,
-        babe,
-        im_online,
-        authority_discovery,
+pub fn hammer_config() -> Result<HammerChainSpec, String> {
+    HammerChainSpec::from_json_bytes(&include_bytes!("../../network_spec/hammer_raw.json")[..])
+}
+
+/// Spanner development config (single validator Alice)
+pub fn spanner_development_config() -> Result<SpannerChainSpec, String> {
+    let mut properties = Map::new();
+    properties.insert("tokenDecimals".into(), 10.into());
+
+    Ok(SpannerChainSpec::from_genesis(
+        "Development",
+        "spanner_dev",
+        ChainType::Development,
+        spanner_development_config_genesis,
+        vec![],
+        None,
+        None,
+        Some(properties),
+        Default::default(),
+    ))
+}
+
+fn spanner_development_config_genesis() -> spanner::GenesisConfig {
+    spanner_testnet_genesis(
+        vec![authority_keys_from_seed("Alice")],
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        None,
+        true,
+    )
+}
+
+/// Helper function to create spanner GenesisConfig for testing
+pub fn spanner_testnet_genesis(
+    initial_authorities: Vec<(
+        AccountId,
+        AccountId,
+        GrandpaId,
+        BabeId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )>,
+    root_key: AccountId,
+    endowed_accounts: Option<Vec<AccountId>>,
+    _enable_println: bool,
+) -> spanner::GenesisConfig {
+    let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
+    initial_authorities.iter().for_each(|x| {
+        if !endowed_accounts.contains(&x.0) {
+            endowed_accounts.push(x.0.clone())
+        }
+    });
+
+    let num_endowed_accounts = endowed_accounts.len();
+
+    const ENDOWMENT: Balance = 1_000_000 * spanner::constants::currency::BOLTS;
+    const STASH: Balance = 0;
+    const INITIAL_BALANCE: u128 = 1_000_000 * spanner::constants::currency::BOLTS;
+
+    spanner::GenesisConfig {
+        frame_system: Some(spanner::SystemConfig {
+            code: spanner::wasm_binary_unwrap().to_vec(),
+            changes_trie_config: Default::default(),
+        }),
+        pallet_balances: Some(spanner::BalancesConfig {
+            balances: endowed_accounts
+                .iter()
+                .cloned()
+                .map(|x| (x, ENDOWMENT))
+                .collect(),
+        }),
+        pallet_indices: Some(spanner::IndicesConfig { indices: vec![] }),
+        pallet_session: Some(spanner::SessionConfig {
+            keys: initial_authorities
+                .iter()
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        x.0.clone(),
+                        spanner::SessionKeys {
+                            grandpa: x.2.clone(),
+                            babe: x.3.clone(),
+                            im_online: x.4.clone(),
+                            authority_discovery: x.5.clone()
+                        },
+                    )
+                })
+                .collect::<Vec<_>>(),
+        }),
+        pallet_staking: Some(spanner::StakingConfig {
+            force_era: pallet_staking::Forcing::ForceNone,
+            validator_count: initial_authorities.len() as u32 * 2,
+            minimum_validator_count: initial_authorities.len() as u32,
+            stakers: initial_authorities
+                .iter()
+                .map(|x| (x.0.clone(), x.1.clone(), STASH, spanner::StakerStatus::Validator))
+                .collect(),
+            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+            slash_reward_fraction: Perbill::from_percent(10),
+            ..Default::default()
+        }),
+        pallet_democracy: Some(spanner::DemocracyConfig::default()),
+        pallet_elections_phragmen: Some(spanner::ElectionsConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .map(|member| (member, STASH))
+                .collect(),
+        }),
+        pallet_collective_Instance1: Some(spanner::CouncilConfig::default()),
+        pallet_collective_Instance2: Some(spanner::TechnicalCommitteeConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .collect(),
+            phantom: Default::default(),
+        }),
+        pallet_collective_Instance3: Some(spanner::BulletTrainEngineerConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .collect(),
+            phantom: Default::default(),
+        }),
+        pallet_sudo: Some(spanner::SudoConfig {
+            key: root_key.clone(),
+        }),
+        pallet_babe: Some(spanner::BabeConfig {
+            authorities: vec![],
+        }),
+        pallet_im_online: Some(spanner::ImOnlineConfig { keys: vec![] }),
+        pallet_authority_discovery: Some(spanner::AuthorityDiscoveryConfig { keys: vec![] }),
+        pallet_grandpa: Some(spanner::GrandpaConfig {
+            authorities: vec![],
+        }),
+        pallet_membership_Instance1: Some(Default::default()),
+        pallet_treasury: Some(Default::default()),
+        pallet_society: Some(spanner::SocietyConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .collect(),
+            pot: 0,
+            max_members: 999,
+        }),
+        pallet_vesting: Some(Default::default()),
+        orml_tokens: Some(spanner::TokensConfig {
+            endowed_accounts: endowed_accounts
+                .iter()
+                .flat_map(|x| testnet_account_balance(x, INITIAL_BALANCE))
+                .collect(),
+        }),
+        pallet_dex: Some(spanner::DexConfig {
+            initial_listing_trading_pairs: vec![],
+            initial_enabled_trading_pairs: testnet_trading_pairs(),
+            initial_added_liquidity_pools: vec![],
+        }),
     }
 }
 
-fn staging_testnet_config_genesis() -> GenesisConfig {
+/// Hammer development config (single validator Alice)
+pub fn hammer_development_config() -> Result<HammerChainSpec, String> {
+    let mut properties = Map::new();
+    properties.insert("tokenDecimals".into(), 10.into());
+
+    Ok(HammerChainSpec::from_genesis(
+        "Development",
+        "hammer_dev",
+        ChainType::Development,
+        hammer_development_config_genesis,
+        vec![],
+        None,
+        None,
+        Some(properties),
+        Default::default(),
+    ))
+}
+
+fn hammer_development_config_genesis() -> hammer::GenesisConfig {
+    hammer_testnet_genesis(
+        vec![authority_keys_from_seed("Alice")],
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        None,
+        true,
+    )
+}
+
+/// Helper function to create hammer GenesisConfig for testing
+pub fn hammer_testnet_genesis(
+    initial_authorities: Vec<(
+        AccountId,
+        AccountId,
+        GrandpaId,
+        BabeId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )>,
+    root_key: AccountId,
+    endowed_accounts: Option<Vec<AccountId>>,
+    _enable_println: bool,
+) -> hammer::GenesisConfig {
+    let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(testnet_accounts);
+    initial_authorities.iter().for_each(|x| {
+        if !endowed_accounts.contains(&x.0) {
+            endowed_accounts.push(x.0.clone())
+        }
+    });
+
+    let num_endowed_accounts = endowed_accounts.len();
+
+    const ENDOWMENT: Balance = 1_000_000 * hammer::constants::currency::BOLTS;
+    const STASH: Balance = 100;
+    const INITIAL_BALANCE: u128 = 1_000_000 * hammer::constants::currency::BOLTS;
+
+    hammer::GenesisConfig {
+        frame_system: Some(hammer::SystemConfig {
+            code: hammer::wasm_binary_unwrap().to_vec(),
+            changes_trie_config: Default::default(),
+        }),
+        pallet_balances: Some(hammer::BalancesConfig {
+            balances: endowed_accounts
+                .iter()
+                .cloned()
+                .map(|x| (x, ENDOWMENT))
+                .collect(),
+        }),
+        pallet_indices: Some(hammer::IndicesConfig { indices: vec![] }),
+        pallet_session: Some(hammer::SessionConfig {
+            keys: initial_authorities
+                .iter()
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        x.0.clone(),
+                        hammer::SessionKeys {
+                            grandpa: x.2.clone(),
+                            babe: x.3.clone(),
+                            im_online: x.4.clone(),
+                            authority_discovery: x.5.clone()
+                        },
+                    )
+                })
+                .collect::<Vec<_>>(),
+        }),
+        pallet_staking: Some(hammer::StakingConfig {
+            force_era: pallet_staking::Forcing::ForceNone,
+            validator_count: initial_authorities.len() as u32 * 2,
+            minimum_validator_count: initial_authorities.len() as u32,
+            stakers: initial_authorities
+                .iter()
+                .map(|x| (x.0.clone(), x.1.clone(), STASH, spanner::StakerStatus::Validator))
+                .collect(),
+            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+            slash_reward_fraction: Perbill::from_percent(10),
+            ..Default::default()
+        }),
+        pallet_democracy: Some(hammer::DemocracyConfig::default()),
+        pallet_elections_phragmen: Some(hammer::ElectionsConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .map(|member| (member, STASH))
+                .collect(),
+        }),
+        pallet_collective_Instance1: Some(hammer::CouncilConfig::default()),
+        pallet_collective_Instance2: Some(hammer::TechnicalCommitteeConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .collect(),
+            phantom: Default::default(),
+        }),
+        pallet_collective_Instance3: Some(hammer::BulletTrainEngineerConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .collect(),
+            phantom: Default::default(),
+        }),
+        pallet_sudo: Some(hammer::SudoConfig {
+            key: root_key.clone(),
+        }),
+        pallet_babe: Some(hammer::BabeConfig {
+            authorities: vec![],
+        }),
+        pallet_im_online: Some(hammer::ImOnlineConfig { keys: vec![] }),
+        pallet_authority_discovery: Some(hammer::AuthorityDiscoveryConfig { keys: vec![] }),
+        pallet_grandpa: Some(hammer::GrandpaConfig {
+            authorities: vec![],
+        }),
+        pallet_membership_Instance1: Some(Default::default()),
+        pallet_treasury: Some(Default::default()),
+        pallet_society: Some(hammer::SocietyConfig {
+            members: endowed_accounts
+                .iter()
+                .take((num_endowed_accounts + 1) / 2)
+                .cloned()
+                .collect(),
+            pot: 0,
+            max_members: 999,
+        }),
+        pallet_vesting: Some(Default::default()),
+        orml_tokens: Some(hammer::TokensConfig {
+            endowed_accounts: endowed_accounts
+                .iter()
+                .flat_map(|x| testnet_account_balance(x, INITIAL_BALANCE))
+                .collect(),
+        }),
+        pallet_dex: Some(hammer::DexConfig {
+            initial_listing_trading_pairs: vec![],
+            initial_enabled_trading_pairs: testnet_trading_pairs(),
+            initial_added_liquidity_pools: vec![],
+        }),
+    }
+}
+
+fn spanner_local_testnet_genesis() -> spanner::GenesisConfig {
+    spanner_testnet_genesis(
+        vec![
+            authority_keys_from_seed("Alice"),
+            authority_keys_from_seed("Bob"),
+        ],
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        None,
+        false,
+    )
+}
+
+/// Spanner local testnet config (multivalidator Alice + Bob)
+pub fn spanner_local_testnet_config() -> Result<SpannerChainSpec, String> {
+    let mut properties = Map::new();
+    properties.insert("tokenDecimals".into(), 10.into());
+
+    Ok(SpannerChainSpec::from_genesis(
+        "Local Testnet",
+        "spanner_local_testnet",
+        ChainType::Local,
+        spanner_local_testnet_genesis,
+        vec![],
+        None,
+        None,
+        Some(properties),
+        Default::default(),
+    ))
+}
+
+fn hammer_local_testnet_genesis() -> hammer::GenesisConfig {
+    hammer_testnet_genesis(
+        vec![
+            authority_keys_from_seed("Alice"),
+            authority_keys_from_seed("Bob"),
+        ],
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        None,
+        false,
+    )
+}
+
+/// Hammer local testnet config (multivalidator Alice + Bob)
+pub fn hammer_local_testnet_config() -> Result<HammerChainSpec, String> {
+    let mut properties = Map::new();
+    properties.insert("tokenDecimals".into(), 10.into());
+
+    Ok(HammerChainSpec::from_genesis(
+        "Local Testnet",
+        "hammer_local_testnet",
+        ChainType::Local,
+        hammer_local_testnet_genesis,
+        vec![],
+        None,
+        None,
+        Some(properties),
+        Default::default(),
+    ))
+}
+
+fn spanner_staging_testnet_config_genesis() -> spanner::GenesisConfig {
     // stash, controller, session-key
     // generated with secret:
     // for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect "$secret"/fir/$j/$i; done; done
     // and
     // for i in 1 2 3 4 ; do for j in session; do subkey --ed25519 inspect "$secret"//fir//$j//$i; done; done
-
     let initial_authorities: Vec<(
         AccountId,
         AccountId,
@@ -178,34 +541,95 @@ fn staging_testnet_config_genesis() -> GenesisConfig {
     let root_key: AccountId = hex![
         // 5Ff3iXP75ruzroPWRP2FYBHWnmGGBSb63857BgnzCoXNxfPo
         "9ee5e5bdc0ec239eb164f865ecc345ce4c88e76ee002e0f7e318097347471809"
-    ]
-    .into();
+    ].into();
 
     let endowed_accounts: Vec<AccountId> = vec![root_key.clone()];
-
-    testnet_genesis(initial_authorities, root_key, Some(endowed_accounts), false)
+    spanner_testnet_genesis(initial_authorities, root_key, Some(endowed_accounts), false)
 }
 
-/// Staging testnet config.
-pub fn staging_testnet_config() -> ChainSpec {
+/// Spanner staging testnet config.
+pub fn spanner_staging_testnet_config() -> Result<SpannerChainSpec, String> {
     let boot_nodes = vec![];
     let mut properties = Map::new();
     properties.insert("tokenDecimals".into(), 10.into());
 
-    ChainSpec::from_genesis(
+    Ok(SpannerChainSpec::from_genesis(
         "Staging Testnet",
-        "staging_testnet",
+        "spanner_staging_testnet",
         ChainType::Live,
-        staging_testnet_config_genesis,
+        spanner_staging_testnet_config_genesis,
         boot_nodes,
         Some(
-            TelemetryEndpoints::new(vec![(STAGING_TELEMETRY_URL.to_string(), 0)])
+            TelemetryEndpoints::new(vec![(SPANNER_STAGING_TELEMETRY_URL.to_string(), 0)])
                 .expect("Staging telemetry url is valid; qed"),
         ),
         None,
         Some(properties),
         Default::default(),
-    )
+    ))
+}
+
+fn testnet_accounts() -> Vec<AccountId> {
+    vec![
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        get_account_id_from_seed::<sr25519::Public>("Bob"),
+        get_account_id_from_seed::<sr25519::Public>("Charlie"),
+        get_account_id_from_seed::<sr25519::Public>("Dave"),
+        get_account_id_from_seed::<sr25519::Public>("Eve"),
+        get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+        get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+        get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+        get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+        get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+        get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+        get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+    ]
+}
+
+fn testnet_account_balance(account_id: &AccountId, balance: u128) -> Vec<(AccountId, CurrencyId, u128)> {
+    vec![
+        (
+            account_id.clone(),
+            CurrencyId::Token(TokenSymbol::WUSD),
+            balance,
+        ),
+        (
+            account_id.clone(),
+            CurrencyId::Token(TokenSymbol::NCAT),
+            balance,
+        ),
+        (
+            account_id.clone(),
+            CurrencyId::Token(TokenSymbol::PLKT),
+            balance,
+        ),
+        (
+            account_id.clone(),
+            CurrencyId::Token(TokenSymbol::BBOT),
+            balance,
+        ),
+    ]
+}
+
+fn testnet_trading_pairs() -> Vec<TradingPair> {
+    vec![
+        TradingPair::new(
+            CurrencyId::Token(TokenSymbol::BOLT),
+            CurrencyId::Token(TokenSymbol::WUSD),
+        ),
+        TradingPair::new(
+            CurrencyId::Token(TokenSymbol::NCAT),
+            CurrencyId::Token(TokenSymbol::WUSD),
+        ),
+        TradingPair::new(
+            CurrencyId::Token(TokenSymbol::PLKT),
+            CurrencyId::Token(TokenSymbol::WUSD),
+        ),
+        TradingPair::new(
+            CurrencyId::Token(TokenSymbol::BBOT),
+            CurrencyId::Token(TokenSymbol::WUSD),
+        ),
+    ]
 }
 
 /// Helper function to generate a crypto pair from seed
@@ -244,244 +668,7 @@ pub fn authority_keys_from_seed(
     )
 }
 
-/// Helper function to create GenesisConfig for testing
-pub fn testnet_genesis(
-    initial_authorities: Vec<(
-        AccountId,
-        AccountId,
-        GrandpaId,
-        BabeId,
-        ImOnlineId,
-        AuthorityDiscoveryId,
-    )>,
-    root_key: AccountId,
-    endowed_accounts: Option<Vec<AccountId>>,
-    _enable_println: bool,
-) -> GenesisConfig {
-    let mut endowed_accounts: Vec<AccountId> = endowed_accounts.unwrap_or_else(|| {
-        vec![
-            get_account_id_from_seed::<sr25519::Public>("Alice"),
-            get_account_id_from_seed::<sr25519::Public>("Bob"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie"),
-            get_account_id_from_seed::<sr25519::Public>("Dave"),
-            get_account_id_from_seed::<sr25519::Public>("Eve"),
-            get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-            get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-            get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-        ]
-    });
-    initial_authorities.iter().for_each(|x| {
-        if !endowed_accounts.contains(&x.0) {
-            endowed_accounts.push(x.0.clone())
-        }
-    });
 
-    let num_endowed_accounts = endowed_accounts.len();
-
-    const ENDOWMENT: Balance = 1_000_000 * BOLTS;
-    const STASH: Balance = 0;
-    const INITIAL_BALANCE: u128 = 1_000_000 * BOLTS;
-
-    GenesisConfig {
-        frame_system: Some(SystemConfig {
-            code: wasm_binary_unwrap().to_vec(),
-            changes_trie_config: Default::default(),
-        }),
-        pallet_balances: Some(BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .cloned()
-                .map(|x| (x, ENDOWMENT))
-                .collect(),
-        }),
-        pallet_indices: Some(IndicesConfig { indices: vec![] }),
-        pallet_session: Some(SessionConfig {
-            keys: initial_authorities
-                .iter()
-                .map(|x| {
-                    (
-                        x.0.clone(),
-                        x.0.clone(),
-                        session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        }),
-        pallet_staking: Some(StakingConfig {
-            force_era: pallet_staking::Forcing::ForceNone,
-            validator_count: initial_authorities.len() as u32 * 2,
-            minimum_validator_count: initial_authorities.len() as u32,
-            stakers: initial_authorities
-                .iter()
-                .map(|x| (x.0.clone(), x.1.clone(), STASH, StakerStatus::Validator))
-                .collect(),
-            invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-            slash_reward_fraction: Perbill::from_percent(10),
-            ..Default::default()
-        }),
-        pallet_democracy: Some(DemocracyConfig::default()),
-        pallet_elections_phragmen: Some(ElectionsConfig {
-            members: endowed_accounts
-                .iter()
-                .take((num_endowed_accounts + 1) / 2)
-                .cloned()
-                .map(|member| (member, STASH))
-                .collect(),
-        }),
-        pallet_collective_Instance1: Some(CouncilConfig::default()),
-        pallet_collective_Instance2: Some(TechnicalCommitteeConfig {
-            members: endowed_accounts
-                .iter()
-                .take((num_endowed_accounts + 1) / 2)
-                .cloned()
-                .collect(),
-            phantom: Default::default(),
-        }),
-        pallet_collective_Instance3: Some(BulletTrainEngineerConfig {
-            members: endowed_accounts
-                .iter()
-                .take((num_endowed_accounts + 1) / 2)
-                .cloned()
-                .collect(),
-            phantom: Default::default(),
-        }),
-        pallet_sudo: Some(SudoConfig {
-            key: root_key.clone(),
-        }),
-        pallet_babe: Some(BabeConfig {
-            authorities: vec![],
-        }),
-        pallet_im_online: Some(ImOnlineConfig { keys: vec![] }),
-        pallet_authority_discovery: Some(AuthorityDiscoveryConfig { keys: vec![] }),
-        pallet_grandpa: Some(GrandpaConfig {
-            authorities: vec![],
-        }),
-        pallet_membership_Instance1: Some(Default::default()),
-        pallet_treasury: Some(Default::default()),
-        pallet_society: Some(SocietyConfig {
-            members: endowed_accounts
-                .iter()
-                .take((num_endowed_accounts + 1) / 2)
-                .cloned()
-                .collect(),
-            pot: 0,
-            max_members: 999,
-        }),
-        pallet_vesting: Some(Default::default()),
-        orml_tokens: Some(TokensConfig {
-            endowed_accounts: endowed_accounts
-                .iter()
-                .flat_map(|x| {
-                    vec![
-                        (
-                            x.clone(),
-                            CurrencyId::Token(TokenSymbol::WUSD),
-                            INITIAL_BALANCE,
-                        ),
-                        (
-                            x.clone(),
-                            CurrencyId::Token(TokenSymbol::NCAT),
-                            INITIAL_BALANCE,
-                        ),
-                        (
-                            x.clone(),
-                            CurrencyId::Token(TokenSymbol::PLKT),
-                            INITIAL_BALANCE,
-                        ),
-                        (
-                            x.clone(),
-                            CurrencyId::Token(TokenSymbol::BBOT),
-                            INITIAL_BALANCE,
-                        ),
-                    ]
-                })
-                .collect(),
-        }),
-        pallet_dex: Some(DexConfig {
-            initial_listing_trading_pairs: vec![],
-            initial_enabled_trading_pairs: vec![
-                TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::BOLT),
-                    CurrencyId::Token(TokenSymbol::WUSD),
-                ),
-                TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::NCAT),
-                    CurrencyId::Token(TokenSymbol::WUSD),
-                ),
-                TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::PLKT),
-                    CurrencyId::Token(TokenSymbol::WUSD),
-                ),
-                TradingPair::new(
-                    CurrencyId::Token(TokenSymbol::BBOT),
-                    CurrencyId::Token(TokenSymbol::WUSD),
-                ),
-            ],
-            initial_added_liquidity_pools: vec![],
-        }),
-    }
-}
-
-fn development_config_genesis() -> GenesisConfig {
-    testnet_genesis(
-        vec![authority_keys_from_seed("Alice")],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
-        None,
-        true,
-    )
-}
-
-/// Development config (single validator Alice)
-pub fn development_config() -> ChainSpec {
-    let mut properties = Map::new();
-    properties.insert("tokenDecimals".into(), 10.into());
-
-    ChainSpec::from_genesis(
-        "Development",
-        "dev",
-        ChainType::Development,
-        development_config_genesis,
-        vec![],
-        None,
-        None,
-        Some(properties),
-        Default::default(),
-    )
-}
-
-fn local_testnet_genesis() -> GenesisConfig {
-    testnet_genesis(
-        vec![
-            authority_keys_from_seed("Alice"),
-            authority_keys_from_seed("Bob"),
-        ],
-        get_account_id_from_seed::<sr25519::Public>("Alice"),
-        None,
-        false,
-    )
-}
-
-/// Local testnet config (multivalidator Alice + Bob)
-pub fn local_testnet_config() -> ChainSpec {
-    let mut properties = Map::new();
-    properties.insert("tokenDecimals".into(), 10.into());
-
-    ChainSpec::from_genesis(
-        "Local Testnet",
-        "local_testnet",
-        ChainType::Local,
-        local_testnet_genesis,
-        vec![],
-        None,
-        None,
-        Some(properties),
-        Default::default(),
-    )
-}
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -490,8 +677,8 @@ pub(crate) mod tests {
     use sc_service_test;
     use sp_runtime::BuildStorage;
 
-    fn local_testnet_genesis_instant_single() -> GenesisConfig {
-        testnet_genesis(
+    fn local_testnet_genesis_instant_single() -> spanner::GenesisConfig {
+        spanner_testnet_genesis(
             vec![authority_keys_from_seed("Alice")],
             get_account_id_from_seed::<sr25519::Public>("Alice"),
             None,
@@ -500,8 +687,8 @@ pub(crate) mod tests {
     }
 
     /// Local testnet config (single validator - Alice)
-    pub fn integration_test_config_with_single_authority() -> ChainSpec {
-        ChainSpec::from_genesis(
+    pub fn integration_test_config_with_single_authority() -> SpannerChainSpec {
+        SpannerChainSpec::from_genesis(
             "Integration Test",
             "test",
             ChainType::Development,
@@ -515,12 +702,12 @@ pub(crate) mod tests {
     }
 
     /// Local testnet config (multivalidator Alice + Bob)
-    pub fn integration_test_config_with_two_authorities() -> ChainSpec {
-        ChainSpec::from_genesis(
+    pub fn integration_test_config_with_two_authorities() -> SpannerChainSpec {
+        SpannerChainSpec::from_genesis(
             "Integration Test",
             "test",
             ChainType::Development,
-            local_testnet_genesis,
+            spanner_local_testnet_genesis,
             vec![],
             None,
             None,
@@ -541,7 +728,7 @@ pub(crate) mod tests {
                     network,
                     transaction_pool,
                     ..
-                } = new_full_base::<spanner_runtime::RuntimeApi, node_executor::SpannerExecutor>(config)?;
+                } = new_full_base::<spanner::RuntimeApi, node_executor::SpannerExecutor>(config)?;
                 Ok(sc_service_test::TestNetComponents::new(
                     task_manager,
                     client,
@@ -551,7 +738,7 @@ pub(crate) mod tests {
             },
             |config| {
                 let (keep_alive, _, _, client, network, transaction_pool)
-                    = new_light_base::<spanner_runtime::RuntimeApi, node_executor::SpannerExecutor>(config)?;
+                    = new_light_base::<spanner::RuntimeApi, node_executor::SpannerExecutor>(config)?;
                 Ok(sc_service_test::TestNetComponents::new(
                     keep_alive,
                     client,
@@ -564,16 +751,16 @@ pub(crate) mod tests {
 
     #[test]
     fn test_create_development_chain_spec() {
-        development_config().build_storage().unwrap();
+        spanner_development_config().build_storage().unwrap();
     }
 
     #[test]
     fn test_create_local_testnet_chain_spec() {
-        local_testnet_config().build_storage().unwrap();
+        spanner_local_testnet_config().build_storage().unwrap();
     }
 
     #[test]
     fn test_staging_test_net_chain_spec() {
-        staging_testnet_config().build_storage().unwrap();
+        spanner_staging_testnet_config().build_storage().unwrap();
     }
 }

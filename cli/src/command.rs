@@ -50,11 +50,14 @@ impl SubstrateCli for Cli {
 		let spec =
 			match id {
 				"" => return Err("Please specify which chain you want to run, e.g. --dev or --chain=local".into()),
-				"dev" => Box::new(chain_spec::development_config()),
-				"local" => Box::new(chain_spec::local_testnet_config()),
-				"fir" | "flaming-fir" => Box::new(chain_spec::flaming_fir_config()?),
-				"staging" => Box::new(chain_spec::staging_testnet_config()),
-				path => Box::new(chain_spec::ChainSpec::from_json_file(
+				"spanner" => Box::new(chain_spec::spanner_config()?),
+				"spanner-dev" => Box::new(chain_spec::spanner_development_config()?),
+				"spanner-local" => Box::new(chain_spec::spanner_local_testnet_config()?),
+				"spanner-staging" => Box::new(chain_spec::spanner_staging_testnet_config()?),
+				"hammer" => Box::new(chain_spec::hammer_config()?),
+				"hammer-dev" => Box::new(chain_spec::hammer_development_config()?),
+				"hammer-local" => Box::new(chain_spec::hammer_local_testnet_config()?),
+				path => Box::new(chain_spec::SpannerChainSpec::from_json_file(
 					std::path::PathBuf::from(path),
 				)?),
 			};
@@ -94,6 +97,7 @@ pub fn run() -> Result<()> {
 			if cfg!(feature = "runtime-benchmarks") {
 				let runner = cli.create_runner(cmd)?;
 				let chain_spec = &runner.config().chain_spec;
+				ensure_dev(chain_spec)?;
 				if chain_spec.is_hammer() {
 					runner.sync_run(|config| cmd.run::<hammer_runtime::Block, HammerExecutor>(config))
 				} else {
@@ -152,5 +156,16 @@ pub fn run() -> Result<()> {
 				Ok((cmd.run(client, backend), task_manager))
 			})
 		},
+	}
+}
+
+const DEV_ONLY_ERROR_PATTERN: &'static str =
+	"can only use subcommand with --chain [spanner-dev, hammer-dev], got ";
+
+fn ensure_dev(spec: &Box<dyn sc_service::ChainSpec>) -> std::result::Result<(), String> {
+	if spec.is_dev() {
+		Ok(())
+	} else {
+		Err(format!("{}{}", DEV_ONLY_ERROR_PATTERN, spec.id()))
 	}
 }
