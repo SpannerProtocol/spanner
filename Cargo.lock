@@ -4022,7 +4022,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-transaction-pool",
- "spanner-runtime",
  "substrate-frame-rpc-system",
 ]
 
