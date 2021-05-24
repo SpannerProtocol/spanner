@@ -2229,7 +2229,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "static_assertions",
- "substrate-wasm-builder",
+ "substrate-wasm-builder 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3961,7 +3961,7 @@ dependencies = [
  "sp-state-machine",
  "sp-trie",
  "spanner-runtime",
- "substrate-test-client",
+ "substrate-test-client 2.0.0",
  "trie-root",
  "wat",
 ]
@@ -4078,7 +4078,7 @@ dependencies = [
  "sp-runtime",
  "sp-timestamp",
  "spanner-runtime",
- "substrate-test-client",
+ "substrate-test-client 2.0.0",
  "tempfile",
 ]
 
@@ -6339,7 +6339,7 @@ dependencies = [
  "sp-core",
  "sp-keyring 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
  "sp-keystore",
- "sp-panic-handler 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
+ "sp-panic-handler",
  "sp-runtime",
  "sp-utils 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
  "sp-version",
@@ -6566,7 +6566,7 @@ dependencies = [
  "sp-core",
  "sp-externalities",
  "sp-io",
- "sp-panic-handler 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
+ "sp-panic-handler",
  "sp-runtime-interface",
  "sp-serializer 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
  "sp-tasks",
@@ -7024,6 +7024,7 @@ dependencies = [
 [[package]]
 name = "sc-service-test"
 version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
 dependencies = [
  "fdlimit",
  "futures 0.1.29",
@@ -7044,15 +7045,15 @@ dependencies = [
  "sp-consensus",
  "sp-core",
  "sp-externalities",
- "sp-panic-handler 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-panic-handler",
  "sp-runtime",
  "sp-state-machine",
  "sp-storage",
  "sp-tracing",
  "sp-transaction-pool",
  "sp-trie",
- "substrate-test-runtime",
- "substrate-test-runtime-client",
+ "substrate-test-runtime 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
+ "substrate-test-runtime-client 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
  "tempfile",
  "tokio 0.1.22",
 ]
@@ -7803,6 +7804,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-consensus-aura"
+version = "0.9.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
+dependencies = [
+ "parity-scale-codec 2.0.0",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-consensus-slots 0.9.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std 3.0.0",
+ "sp-timestamp",
+]
+
+[[package]]
 name = "sp-consensus-babe"
 version = "0.9.0"
 source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
@@ -8059,15 +8075,6 @@ dependencies = [
 [[package]]
 name = "sp-panic-handler"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54702e109f1c8a870dd4065a497d2612d42cec5817126e96cc0658c5ea975784"
-dependencies = [
- "backtrace",
-]
-
-[[package]]
-name = "sp-panic-handler"
-version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
 dependencies = [
  "backtrace",
@@ -8188,7 +8195,7 @@ dependencies = [
  "smallvec 1.6.1",
  "sp-core",
  "sp-externalities",
- "sp-panic-handler 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
+ "sp-panic-handler",
  "sp-std 3.0.0",
  "sp-trie",
  "thiserror",
@@ -8412,7 +8419,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "static_assertions",
- "substrate-wasm-builder",
+ "substrate-wasm-builder 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -8638,6 +8645,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "substrate-test-client"
+version = "2.0.1"
+source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
+dependencies = [
+ "futures 0.1.29",
+ "futures 0.3.12",
+ "hash-db",
+ "hex",
+ "parity-scale-codec 2.0.0",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-consensus",
+ "sc-executor",
+ "sc-light",
+ "sc-service",
+ "serde",
+ "serde_json",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-keyring 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-state-machine",
+]
+
+[[package]]
 name = "substrate-test-runtime"
 version = "2.0.0"
 dependencies = [
@@ -8659,7 +8693,7 @@ dependencies = [
  "sp-api",
  "sp-application-crypto",
  "sp-block-builder",
- "sp-consensus-aura",
+ "sp-consensus-aura 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-consensus-babe",
  "sp-core",
  "sp-externalities",
@@ -8676,8 +8710,50 @@ dependencies = [
  "sp-transaction-pool",
  "sp-trie",
  "sp-version",
- "substrate-test-runtime-client",
- "substrate-wasm-builder",
+ "substrate-test-runtime-client 2.0.0",
+ "substrate-wasm-builder 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "trie-db",
+]
+
+[[package]]
+name = "substrate-test-runtime"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
+dependencies = [
+ "cfg-if 1.0.0",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "log",
+ "memory-db",
+ "pallet-babe",
+ "pallet-timestamp",
+ "parity-scale-codec 2.0.0",
+ "parity-util-mem",
+ "sc-service",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-block-builder",
+ "sp-consensus-aura 0.9.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-externalities",
+ "sp-finality-grandpa",
+ "sp-inherents",
+ "sp-io",
+ "sp-keyring 3.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-session",
+ "sp-state-machine",
+ "sp-std 3.0.0",
+ "sp-transaction-pool",
+ "sp-trie",
+ "sp-version",
+ "substrate-wasm-builder 4.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
  "trie-db",
 ]
 
@@ -8697,8 +8773,29 @@ dependencies = [
  "sp-consensus",
  "sp-core",
  "sp-runtime",
- "substrate-test-client",
- "substrate-test-runtime",
+ "substrate-test-client 2.0.0",
+ "substrate-test-runtime 2.0.0",
+]
+
+[[package]]
+name = "substrate-test-runtime-client"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
+dependencies = [
+ "futures 0.3.12",
+ "parity-scale-codec 2.0.0",
+ "sc-block-builder",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-light",
+ "sc-service",
+ "sp-api",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-runtime",
+ "substrate-test-client 2.0.1",
+ "substrate-test-runtime 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643)",
 ]
 
 [[package]]
@@ -8713,7 +8810,7 @@ dependencies = [
  "sp-blockchain",
  "sp-runtime",
  "sp-transaction-pool",
- "substrate-test-runtime-client",
+ "substrate-test-runtime-client 2.0.0",
 ]
 
 [[package]]
@@ -8721,6 +8818,21 @@ name = "substrate-wasm-builder"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93a3d51ad6abbc408b03ea962062bfcc959b438a318d7d4bedd181e1effd0610"
+dependencies = [
+ "ansi_term 0.12.1",
+ "atty",
+ "build-helper",
+ "cargo_metadata",
+ "tempfile",
+ "toml",
+ "walkdir",
+ "wasm-gc-api",
+]
+
+[[package]]
+name = "substrate-wasm-builder"
+version = "4.0.0"
+source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
 dependencies = [
  "ansi_term 0.12.1",
  "atty",
