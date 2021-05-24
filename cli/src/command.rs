@@ -47,9 +47,12 @@ impl SubstrateCli for Cli {
 	}
 
 	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-		let spec =
+		if id == "" {
+			return Err("Please specify which chain you want to run, e.g. --dev or --chain=local".into())
+		}
+		Ok(
 			match id {
-				"" => return Err("Please specify which chain you want to run, e.g. --dev or --chain=local".into()),
+				// "" => return Err("Please specify which chain you want to run, e.g. --dev or --chain=local".into()),
 				"spanner" => Box::new(chain_spec::spanner_config()?),
 				"spanner-dev" => Box::new(chain_spec::spanner_development_config()?),
 				"spanner-local" => Box::new(chain_spec::spanner_local_testnet_config()?),
@@ -60,8 +63,8 @@ impl SubstrateCli for Cli {
 				path => Box::new(chain_spec::SpannerChainSpec::from_json_file(
 					std::path::PathBuf::from(path),
 				)?),
-			};
-		Ok(spec)
+			}
+		)
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {

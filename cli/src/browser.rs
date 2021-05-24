@@ -43,7 +43,7 @@ async fn start_inner(
 	let chain_spec = match chain_spec {
 		Some(chain_spec) => SpannerChainSpec::from_json_bytes(chain_spec.as_bytes().to_vec())
 			.map_err(|e| format!("{:?}", e))?,
-		None => crate::chain_spec::spanner_development_config(),
+		None => crate::chain_spec::spanner_development_config()?,
 	};
 
 	let telemetry_handle = telemetry_worker.handle();
