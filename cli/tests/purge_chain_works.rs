@@ -38,6 +38,6 @@ fn purge_chain_works() {
 	assert!(status.success());
 
 	// Make sure that the `dev` chain folder exists, but the `db` is deleted.
-	assert!(base_path.path().join("chains/dev/").exists());
-	assert!(!base_path.path().join("chains/dev/db").exists());
+	assert!(base_path.path().join("chains/spanner_dev/").exists());
+	assert!(!base_path.path().join("chains/spanner_dev/db").exists());
 }
