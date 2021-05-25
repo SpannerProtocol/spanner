@@ -79,7 +79,7 @@ pub fn spanner_development_config() -> Result<SpannerChainSpec, String> {
     properties.insert("tokenDecimals".into(), 10.into());
 
     Ok(SpannerChainSpec::from_genesis(
-        "Development",
+        "Spanner Development",
         "spanner_dev",
         ChainType::Development,
         spanner_development_config_genesis,
@@ -238,7 +238,7 @@ pub fn hammer_development_config() -> Result<HammerChainSpec, String> {
     properties.insert("tokenDecimals".into(), 10.into());
 
     Ok(HammerChainSpec::from_genesis(
-        "Development",
+        "Hammer Development",
         "hammer_dev",
         ChainType::Development,
         hammer_development_config_genesis,
@@ -409,7 +409,7 @@ pub fn spanner_local_testnet_config() -> Result<SpannerChainSpec, String> {
     properties.insert("tokenDecimals".into(), 10.into());
 
     Ok(SpannerChainSpec::from_genesis(
-        "Local Testnet",
+        "Spanner Local Testnet",
         "spanner_local_testnet",
         ChainType::Local,
         spanner_local_testnet_genesis,
@@ -439,7 +439,7 @@ pub fn hammer_local_testnet_config() -> Result<HammerChainSpec, String> {
     properties.insert("tokenDecimals".into(), 10.into());
 
     Ok(HammerChainSpec::from_genesis(
-        "Local Testnet",
+        "Hammer Local Testnet",
         "hammer_local_testnet",
         ChainType::Local,
         hammer_local_testnet_genesis,
@@ -556,7 +556,7 @@ pub fn spanner_staging_testnet_config() -> Result<SpannerChainSpec, String> {
     properties.insert("tokenDecimals".into(), 10.into());
 
     Ok(SpannerChainSpec::from_genesis(
-        "Staging Testnet",
+        "Spanner Staging Testnet",
         "spanner_staging_testnet",
         ChainType::Live,
         spanner_staging_testnet_config_genesis,
