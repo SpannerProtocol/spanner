@@ -54,7 +54,7 @@ impl SubstrateCli for Cli {
 			match id {
 				// "" => return Err("Please specify which chain you want to run, e.g. --dev or --chain=local".into()),
 				"spanner" => Box::new(chain_spec::spanner_config()?),
-				"spanner-dev" => Box::new(chain_spec::spanner_development_config()?),
+				"spanner-dev" | "dev" => Box::new(chain_spec::spanner_development_config()?),
 				"spanner-local" => Box::new(chain_spec::spanner_local_testnet_config()?),
 				"spanner-staging" => Box::new(chain_spec::spanner_staging_testnet_config()?),
 				"hammer" => Box::new(chain_spec::hammer_config()?),
