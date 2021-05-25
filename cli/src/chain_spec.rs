@@ -42,7 +42,7 @@ pub use node_primitives::{AccountId, Balance, Signature, Block, TokenSymbol, Cur
 type AccountPublic = <Signature as Verify>::Signer;
 
 const SPANNER_STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
-const HAMMER_STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
+// const HAMMER_STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Node `ChainSpec` extensions.
 ///
@@ -63,10 +63,12 @@ pub type SpannerChainSpec = sc_service::GenericChainSpec<spanner::GenesisConfig,
 /// The `ChainSpec` parametrised for the spanner runtime.
 pub type HammerChainSpec = sc_service::GenericChainSpec<hammer::GenesisConfig, Extensions>;
 
+/// Spanner specification config
 pub fn spanner_config() -> Result<SpannerChainSpec, String> {
     SpannerChainSpec::from_json_bytes(&include_bytes!("../../network_spec/spanner_raw.json")[..])
 }
 
+/// Hammer specification config
 pub fn hammer_config() -> Result<HammerChainSpec, String> {
     HammerChainSpec::from_json_bytes(&include_bytes!("../../network_spec/hammer_raw.json")[..])
 }
