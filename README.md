@@ -18,6 +18,9 @@ cargo test -p pallet-balances --features runtime-benchmarks
 # run a temporary local node (no data is stored)
 target/release/substrate --dev --tmp
 
+# run a node with other spec, which can be `spanner-dev`, `hammer-dev`, etc.
+target/release/substrate --chain=hammer-dev --alice --tmp --rpc-cors=all
+
 # purge chain data
 cargo run -- --purch-chain --dev
 
@@ -31,12 +34,9 @@ cd spanner/cli
 cargo build --release --features runtime-benchmarks
 
 cd spanner
-./target/release/substrate benchmark --pallet "*" --extrinsic "*" --repeat 100
-./target/release/substrate benchmark --pallet pallet_bullet-train --extrinsic "*" --repeat 100 --output pallet/poc/src
-
 ./target/release/substrate \
    benchmark \
-   --chain=dev \
+   --chain=spanner-dev \
    --steps=50 \
    --repeat=20 \
    --pallet="*" \
@@ -44,11 +44,11 @@ cd spanner
    --execution=wasm \
    --wasm-execution=compiled \
    --heap-pages=4096 \
-   --output=./runtime/src/weights
+   --output=./spanner/runtime/src/weights
    
 ./target/release/substrate \
   benchmark \
-  --chain=dev \
+  --chain=spanner-dev \
   --steps=50 \
   --repeat=20 \
   --pallet=pallet_dex \
@@ -62,7 +62,7 @@ cd spanner
   
 ./target/release/substrate \
   benchmark \
-  --chain=dev \
+  --chain=spanner-dev \
   --steps=50 \
   --repeat=20 \
   --pallet=pallet_bullet_train \
@@ -74,7 +74,7 @@ cd spanner
   --template=./template.hbs
 
 # To export chain spec into .json file
-./target/release/substrate build-spec --chain local --disable-default-bootnode > spec/local.json
+./target/release/substrate build-spec --chain spanner-dev --disable-default-bootnode > spec/local.json
 
 # Produce WASM for forkless update
 cargo build --release -p node-runtime
