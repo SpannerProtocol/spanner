@@ -163,10 +163,10 @@ pub fn run() -> Result<()> {
 }
 
 const DEV_ONLY_ERROR_PATTERN: &'static str =
-	"can only use subcommand with --chain [spanner-dev, hammer-dev], got ";
+	"can only use subcommand with --chain=spanner-dev or --dev, got ";
 
 fn ensure_dev(spec: &Box<dyn sc_service::ChainSpec>) -> std::result::Result<(), String> {
-	if spec.is_dev() {
+	if spec.is_spanner() && spec.is_dev() {
 		Ok(())
 	} else {
 		Err(format!("{}{}", DEV_ONLY_ERROR_PATTERN, spec.id()))
