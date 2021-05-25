@@ -730,7 +730,7 @@ pub(crate) mod tests {
                     network,
                     transaction_pool,
                     ..
-                } = new_full_base::<spanner::RuntimeApi, node_executor::SpannerExecutor>(config)?;
+                } = new_full_base::<spanner::RuntimeApi, node_executor::SpannerExecutor, _>(config, |_, _| ())?;
                 Ok(sc_service_test::TestNetComponents::new(
                     task_manager,
                     client,
