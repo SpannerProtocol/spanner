@@ -1652,11 +1652,15 @@ impl<T: Config> Pallet<T> {
             }
             Target::Dpo(index, number_of_seats) => {
                 let target_dpo = Self::dpos(index).ok_or(Error::<T>::InvalidIndex)?;
-                // end block of this dpo must be before its target dpo
-                ensure!(
-                    dpo.expiry_blk < target_dpo.expiry_blk,
-                    Error::<T>::InvalidEndTime
-                );
+                // case 1: end block of a new dpo must be before its target dpo
+                // case 2: end block has no constraint when dpo changes its target cuz its state is active
+                if dpo.state != DpoState::ACTIVE {
+                    ensure!(
+                        dpo.expiry_blk < target_dpo.expiry_blk,
+                        Error::<T>::InvalidEndTime
+                    );
+                }
+
                 // if the dpo is aiming too many seats
                 ensure!(
                     number_of_seats <= T::DpoSeatCap::get(),

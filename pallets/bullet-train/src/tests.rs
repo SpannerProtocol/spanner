@@ -2761,6 +2761,77 @@ fn release_fare_from_dpo_including_unused_fund() {
     });
 }
 
+#[test]
+fn no_expiry_block_constraint_when_dpo_changes_target() {
+    ExtBuilder::default().build().execute_with(|| {
+        // cabin0
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            100000,
+            0,
+            10000,
+            10,
+            1
+        ));
+        // dpo0
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::TravelCabin(0),
+            10,
+            50,
+            800,
+            100,
+            None
+        ));
+        // dpo1
+        // dpo1 buy dpo0 (dpo0 expiry_block smaller)
+        assert_noop!(
+            BulletTrain::create_dpo(
+                Origin::signed(ALICE),
+                String::from("test").into_bytes(),
+                Target::Dpo(0, 30),
+                10,
+                50,
+                800,
+                101, // larger
+                None
+            ),
+            Error::<Test>::InvalidEndTime
+        );
+        // dpo1
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::TravelCabin(0),
+            10,
+            50,
+            800,
+            80, // smaller
+            None
+        ));
+        //fill dpo0
+        for i in 11..20 {
+            assert_ok!(Currencies::deposit(BOLT, &i, 10000));
+            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                Origin::signed(i),
+                0,
+                10,
+                None
+            ));
+            assert_eq!(Balances::free_balance(&i), 0);
+        }
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
+        //make cabin0 unavailable
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
+            Origin::signed(ALICE),
+            0
+        ));
+        assert_ok!(BulletTrain::dpo_buy_dpo_seats(Origin::signed(ALICE), 0, 1, 30)); // no constraint
+    });
+}
 
 #[test]
 fn get_travel_cabins_of_accounts() {
