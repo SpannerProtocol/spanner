@@ -459,7 +459,21 @@ fn create_dpo() {
             BulletTrain::create_dpo(
                 Origin::signed(BOB),
                 String::from("test").into_bytes(),
-                Target::Dpo(1, 1),
+                Target::Dpo(1, 2),
+                15,
+                0,
+                800,
+                4,
+                None
+            ),
+            Error::<Test>::PurchaseAtLeastThreeSeatForDpo
+        );
+
+        assert_noop!(
+            BulletTrain::create_dpo(
+                Origin::signed(BOB),
+                String::from("test").into_bytes(),
+                Target::Dpo(1, 3),
                 15,
                 0,
                 800,
@@ -545,22 +559,22 @@ fn passenger_buy_dpo_seats_test() {
             None
         ));
         //passenger purchase of dpo
-        //passenger cannot buy more tha 15
+        //passenger cannot buy more than 30
         assert_noop!(
-            BulletTrain::passenger_buy_dpo_seats(Origin::signed(BOB), 0, 21, None),
+            BulletTrain::passenger_buy_dpo_seats(Origin::signed(BOB), 0, 31, None),
             Error::<Test>::ExceededSeatCap
         );
-        //manager can buy 10 more, but not 11 more
+        //manager can buy 25 more, but not 26 more
         assert_ok!(BulletTrain::passenger_buy_dpo_seats(
             Origin::signed(ALICE),
             0,
-            5,
+            15,
             None
         ));
         assert_ok!(BulletTrain::passenger_buy_dpo_seats(
             Origin::signed(ALICE),
             0,
-            5,
+            10,
             None
         ));
         assert_noop!(
@@ -574,7 +588,7 @@ fn passenger_buy_dpo_seats_test() {
             10,
             None
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 75);
+        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 60);
 
         //create dpo 1 for dpo 0
         assert_ok!(BulletTrain::create_dpo(
@@ -711,7 +725,7 @@ fn dpo_withdraw_on_fail_test() {
 fn dpo_buy_dpo_seats_test() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
-        //alice create dpo 0, taking 10 seats
+        //alice create dpo 0, taking 15 seats
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
             BOLT,
@@ -732,6 +746,20 @@ fn dpo_buy_dpo_seats_test() {
             10,
             None
         ));
+        //carol fails to create dpo 1 to buy dpo 0 51 seats
+        assert_noop!(
+                BulletTrain::create_dpo(
+                Origin::signed(CAROL),
+                String::from("test").into_bytes(),
+                Target::Dpo(0, 51),
+                15,
+                50,
+                800,
+                9,
+                None
+            ),
+            Error::<Test>::ExceededSeatCap
+        );
         //carol creates a dpo 1 targeting 10 dpo0 seats
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(CAROL),
@@ -818,9 +846,9 @@ fn dpo_buy_dpo_seats_test() {
         ));
         assert!(System::events().iter().any(|a| a.event == expected_event));
 
-        //DYLAN out of quota. 10 + 15 > 15
+        //DYLAN out of quota. 10 + 21 > 30
         assert_noop!(
-            BulletTrain::passenger_buy_dpo_seats(Origin::signed(DYLAN), 1, 15, None),
+            BulletTrain::passenger_buy_dpo_seats(Origin::signed(DYLAN), 1, 21, None),
             Error::<Test>::ExceededSeatCap
         );
 
@@ -977,6 +1005,47 @@ fn dpo_buy_dpo_seats_test() {
         assert_eq!(Balances::free_balance(JILL), 499000);
         assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(JILL), 1)); //member 8 of dpo 1
         assert_eq!(Balances::free_balance(JILL), 500000);
+    });
+}
+
+#[test]
+fn dpo_management_fee() {
+    ExtBuilder::default().build().execute_with(|| {
+        run_to_block(1);
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            100000,
+            0,
+            2000,
+            10,
+            1
+        ));
+        // dpo 0
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::TravelCabin(0),
+            10,
+            50,
+            800,
+            10,
+            None
+        ));
+        // dpo 1
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::Dpo(0, 50),
+            30,
+            50,
+            800,
+            9,
+            None
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 150);
+        assert_eq!(BulletTrain::dpos(1).unwrap().fee, 200); // 30 seats, but fee cap 20%
     });
 }
 

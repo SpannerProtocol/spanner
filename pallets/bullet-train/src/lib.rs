@@ -269,6 +269,9 @@ pub mod module {
         type DpoSeatCap: Get<u8>;
 
         #[pallet::constant]
+        type DpoSeatMinimum: Get<u8>;
+
+        #[pallet::constant]
         type DpoSeats: Get<u8>;
 
         #[pallet::constant]
@@ -276,6 +279,9 @@ pub mod module {
 
         #[pallet::constant]
         type ManagerSlashPerThousand: Get<u32>;
+
+        #[pallet::constant]
+        type ManagementFeeCap: Get<u32>;
 
         type EngineerOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
@@ -312,6 +318,8 @@ pub mod module {
         NoPermission,
         /// must purchase at least 1 seat
         PurchaseAtLeastOneSeat,
+        /// must purchase at least 3 seats for DPO
+        PurchaseAtLeastThreeSeatForDpo,
         /// not at the right state. check argument requirement
         DpoWrongState,
         /// no contribution to withdraw
@@ -784,12 +792,14 @@ pub mod module {
 
             //construct the new dpo
             let current_dpo_idx = Self::dpo_count();
+            let mut fee = base_fee + (manager_seats as u32) * 10;
+            if fee > T::ManagementFeeCap::get() { fee = T::ManagementFeeCap::get() };
             let mut new_dpo = DpoInfo {
                 index: current_dpo_idx,
                 name,
                 target: target.clone(),
                 manager: manager.clone(),
-                fee: base_fee + (manager_seats * 10) as u32,
+                fee,
                 fee_slashed: false,
                 empty_seats: T::DpoSeats::get(),
                 expiry_blk: end,
@@ -1660,7 +1670,11 @@ impl<T: Config> Pallet<T> {
                         Error::<T>::InvalidEndTime
                     );
                 }
-
+                // ensure minimum seat
+                ensure!(
+                    number_of_seats >= T::DpoSeatMinimum::get(),
+                    Error::<T>::PurchaseAtLeastThreeSeatForDpo
+                );
                 // if the dpo is aiming too many seats
                 ensure!(
                     number_of_seats <= T::DpoSeatCap::get(),
@@ -1906,6 +1920,11 @@ impl<T: Config> Pallet<T> {
                 match target {
                     // (b-1) dpo buy dpo
                     Target::Dpo(target_dpo_idx, number_of_seats) => {
+                        //ensure minimum seat
+                        ensure!(
+                            number_of_seats >= T::DpoSeatMinimum::get(),
+                            Error::<T>::PurchaseAtLeastThreeSeatForDpo
+                        );
                         //ensure seat cap
                         ensure!(
                             number_of_seats <= T::DpoSeatCap::get(),

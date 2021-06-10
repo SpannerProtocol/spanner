@@ -110,10 +110,12 @@ parameter_types!{
     pub const ReleaseYieldGracePeriod: BlockNumber = 10;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 10;
     pub const TreasureHuntingGracePeriod: BlockNumber = 10;
-	pub const DpoSeatCap: u8 = 30;
+	pub const DpoSeatCap: u8 = 50;
+	pub const DpoSeatMinimum: u8 = 3;
 	pub const DpoSeats: u8 = 100;
-	pub const PassengerSeatCap: u8 = 15;
+	pub const PassengerSeatCap: u8 = 30;
 	pub const ManagerSlashPerThousand: u32 = 500;
+	pub const ManagementFeeCap: u32 = 200; // per thousand
 	pub const MilestoneRewardMinimum: Balance = 10;
 	pub const CabinYieldRewardMinimum: Balance = 0;
 	pub const CabinBonusRewardMinimum: Balance = 0;
@@ -129,9 +131,11 @@ impl Config for Test {
     type CabinYieldRewardMinimum = CabinYieldRewardMinimum;
     type CabinBonusRewardMinimum = CabinBonusRewardMinimum;
     type DpoSeatCap = DpoSeatCap;
+    type DpoSeatMinimum = DpoSeatMinimum;
     type DpoSeats = DpoSeats;
     type PassengerSeatCap = PassengerSeatCap;
     type ManagerSlashPerThousand = ManagerSlashPerThousand;
+    type ManagementFeeCap = ManagementFeeCap;
     type EngineerOrigin = EnsureSignedBy<Alice, AccountId>;
     type WeightInfo = weights::SubstrateWeight<Test>;
 }

@@ -1088,10 +1088,12 @@ parameter_types! {
     pub const MilestoneRewardMinimum: Balance = 10_000_000_000;
     pub const CabinYieldRewardMinimum: Balance = 10_000_000_000;
     pub const CabinBonusRewardMinimum: Balance = 10_000_000_000;
-    pub const DpoSeatCap: u8 = 30;
+    pub const DpoSeatCap: u8 = 50;
+    pub const DpoSeatMinimum: u8 = 3;
     pub const DpoSeats: u8 = 100;
-    pub const PassengerSeatCap: u8 = 15;
+    pub const PassengerSeatCap: u8 = 30;
     pub const ManagerSlashPerThousand: u32 = 500;
+    pub const ManagementFeeCap: u32 = 200; // per thousand
 }
 impl pallet_bullet_train::Config for Runtime {
     type Event = Event;
@@ -1104,9 +1106,11 @@ impl pallet_bullet_train::Config for Runtime {
     type CabinYieldRewardMinimum = CabinYieldRewardMinimum;
     type CabinBonusRewardMinimum = CabinBonusRewardMinimum;
     type DpoSeatCap = DpoSeatCap;
+    type DpoSeatMinimum = DpoSeatMinimum;
     type DpoSeats = DpoSeats;
     type PassengerSeatCap = PassengerSeatCap;
     type ManagerSlashPerThousand = ManagerSlashPerThousand;
+    type ManagementFeeCap = ManagementFeeCap;
     type EngineerOrigin = pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>;
     type WeightInfo = pallet_bullet_train::weights::SubstrateWeight<Runtime>;
 }
