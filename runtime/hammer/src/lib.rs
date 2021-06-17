@@ -1085,12 +1085,13 @@ parameter_types! {
     pub const MilestoneRewardMinimum: Balance = 10_000_000_000;
     pub const CabinYieldRewardMinimum: Balance = 10_000_000_000;
     pub const CabinBonusRewardMinimum: Balance = 10_000_000_000;
-    pub const DpoSeatCap: u8 = 50;
-    pub const DpoSeatMinimum: u8 = 3;
-    pub const DpoSeats: u8 = 100;
-    pub const PassengerSeatCap: u8 = 30;
+    pub const DpoSharePercentCap: (u8, u8) = (1, 2); // 50%
+    pub const DpoSharePercentMinimum: (u8, u8) = (3, 100); // 3%
+    pub const PassengerSharePercentCap: (u8, u8) = (3, 10); // 30%
+    pub const PassengerSharePercentMinimum: (u8, u8) = (1, 100); // 1%
     pub const ManagerSlashPerThousand: u32 = 500;
     pub const ManagementFeeCap: u32 = 200; // per thousand
+    pub const DpoYieldRewardMinimum: u8 = 100;
 }
 impl pallet_bullet_train::Config for Runtime {
     type Event = Event;
@@ -1102,12 +1103,13 @@ impl pallet_bullet_train::Config for Runtime {
     type MilestoneRewardMinimum = MilestoneRewardMinimum;
     type CabinYieldRewardMinimum = CabinYieldRewardMinimum;
     type CabinBonusRewardMinimum = CabinBonusRewardMinimum;
-    type DpoSeatCap = DpoSeatCap;
-    type DpoSeatMinimum = DpoSeatMinimum;
-    type DpoSeats = DpoSeats;
-    type PassengerSeatCap = PassengerSeatCap;
+    type DpoSharePercentCap = DpoSharePercentCap;
+    type DpoSharePercentMinimum = DpoSharePercentMinimum;
+    type PassengerSharePercentCap = PassengerSharePercentCap;
+    type PassengerSharePercentMinimum = PassengerSharePercentMinimum;
     type ManagerSlashPerThousand = ManagerSlashPerThousand;
     type ManagementFeeCap = ManagementFeeCap;
+    type DpoYieldRewardMinimum = DpoYieldRewardMinimum;
     type EngineerOrigin = pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>;
     type WeightInfo = pallet_bullet_train::weights::SubstrateWeight<Runtime>;
 }

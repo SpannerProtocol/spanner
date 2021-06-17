@@ -466,7 +466,7 @@ fn create_dpo() {
                 4,
                 None
             ),
-            Error::<Test>::PurchaseAtLeastThreeSeatForDpo
+            Error::<Test>::PurchaseAtLeastThreePercentForDpo
         );
 
         assert_noop!(

@@ -66,7 +66,7 @@ use serde::{Deserialize, Serialize};
 use sp_arithmetic::Percent;
 use sp_runtime::{
     traits::{AccountIdConversion, UniqueSaturatedInto, Zero},
-    DispatchError, ModuleId, Permill,
+    DispatchError, ModuleId, Permill, FixedU128, FixedPointNumber, FixedPointOperand,
 };
 use sp_std::prelude::*;
 
@@ -117,7 +117,7 @@ pub struct MilestoneRewardInfo<Balance> {
 pub enum DpoState {
     /// on_creation
     CREATED,
-    /// when all dpo seats have been purchased
+    /// when all dpo shares have been purchased
     ACTIVE,
     /// after the first yield is released from a dpo
     RUNNING,
@@ -134,15 +134,14 @@ impl Default for DpoState {
 }
 
 #[derive(Encode, Decode, PartialEq, Eq, Clone, Copy, Debug)]
-pub enum Target {
-    // dpo index, number of seats
-    Dpo(DpoIndex, u8),
+pub enum Target<Balance> {
+    Dpo(DpoIndex, Balance), // Balance: purchase token amount, e.g. 1000 BOLT
     TravelCabin(TravelCabinIndex),
 }
 
-impl Default for Target {
+impl<Balance> Default for Target<Balance> {
     fn default() -> Self {
-        Target::TravelCabin(0)
+        Target::<Balance>::TravelCabin(0)
     }
 }
 
@@ -168,14 +167,20 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     token_id: CurrencyId,
     manager: AccountId,
     //target
-    target: Target,
+    target: Target<Balance>,
     target_maturity: BlockNumber,
     target_amount: Balance,
+    target_residual_amount: Balance,
     target_yield_estimate: Balance,
     target_bonus_estimate: Balance,
-    amount_per_seat: Balance,
-    empty_seats: u8,
+    total_share: Balance, // dpo internal share, tokenization in the future
+    // rate=funded_amount/total_share, represents that one unit share be equivalent to the number
+    // of the target token, default rate=1
+    rate: (Balance, Balance),
     fifo: Vec<Buyer<AccountId>>,
+    base_fee: u32,
+    fee: u32, // fee rate, per thousand, target related
+    fee_slashed: bool,
     //money
     vault_deposit: Balance,
     vault_withdraw: Balance,
@@ -191,16 +196,13 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     state: DpoState,
     referrer: Option<AccountId>,
     fare_withdrawn: bool,
-    //rates
-    direct_referral_rate: u32, //per thousand
-    fee: u32,                  //per thousand
-    fee_slashed: bool,
+    direct_referral_rate: u32, // per thousand
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Copy, Debug)]
-pub struct DpoMemberInfo<AccountId> {
+pub struct DpoMemberInfo<AccountId, Balance> {
     buyer: Buyer<AccountId>,
-    number_of_seats: u8,
+    share: Balance, // dpo internal share, tokenization in the future
     referrer: Referrer<AccountId>,
 }
 
@@ -227,6 +229,8 @@ pub enum PaymentType {
     WithdrawOnCompletion,
     WithdrawOnFailure,
 }
+
+pub type Percentage = FixedU128;
 
 pub use module::*;
 
@@ -266,22 +270,25 @@ pub mod module {
         type CabinBonusRewardMinimum: Get<Balance>;
 
         #[pallet::constant]
-        type DpoSeatCap: Get<u8>;
+        type DpoSharePercentCap: Get<(u8, u8)>;
 
         #[pallet::constant]
-        type DpoSeatMinimum: Get<u8>;
+        type DpoSharePercentMinimum: Get<(u8, u8)>;
 
         #[pallet::constant]
-        type DpoSeats: Get<u8>;
+        type PassengerSharePercentCap: Get<(u8, u8)>;
 
         #[pallet::constant]
-        type PassengerSeatCap: Get<u8>;
+        type PassengerSharePercentMinimum: Get<(u8, u8)>;
 
         #[pallet::constant]
         type ManagerSlashPerThousand: Get<u32>;
 
         #[pallet::constant]
         type ManagementFeeCap: Get<u32>;
+
+        #[pallet::constant]
+        type DpoYieldRewardMinimum: Get<u8>;
 
         type EngineerOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
@@ -308,18 +315,18 @@ pub mod module {
         InvalidPaymentType,
         /// dpo end date must be later than now and before target dpo end date
         InvalidEndTime,
-        /// exceeded the allowed seat cap, 30 for DPO, 20 for manager, 10 for passenger
-        ExceededSeatCap,
+        /// exceeded the allowed share cap, 50% for DPO, 30% for manager and passenger
+        ExceededShareCap,
         /// exceeded the allowed base rate cap, 5%
         ExceededRateCap,
-        /// cannot fulfill requested seats as they have ran out
-        DpoNotEnoughSeats,
+        /// cannot fulfill requested share as they have ran out
+        DpoNotEnoughShare,
         /// the account has no permission to perform action
         NoPermission,
-        /// must purchase at least 1 seat
-        PurchaseAtLeastOneSeat,
-        /// must purchase at least 3 seats for DPO
-        PurchaseAtLeastThreeSeatForDpo,
+        /// must purchase at least 1%
+        PurchaseAtLeastOnePercent,
+        /// must purchase at least 3% for DPO
+        PurchaseAtLeastThreePercentForDpo,
         /// not at the right state. check argument requirement
         DpoWrongState,
         /// no contribution to withdraw
@@ -336,10 +343,12 @@ pub mod module {
         DefaultTargetAvailable,
         /// on retargeting, Target type must be the same
         InvalidTargetForDpo,
-        //setting reward for a past milestone
+        /// setting reward for a past milestone
         RewardMilestoneInvalid,
-        // must have at least one stockpile
+        /// must have at least one stockpile
         TooLittleIssued,
+        /// the type of dpo's target is not dpo
+        NoTargetDpo,
     }
 
     #[pallet::event]
@@ -356,7 +365,7 @@ pub mod module {
             TravelCabinIndex,
             TravelCabinInventoryIndex,
         ),
-        DpoTargetPurchased(T::AccountId, Buyer<T::AccountId>, DpoIndex, u8),
+        DpoTargetPurchased(T::AccountId, Buyer<T::AccountId>, DpoIndex, Balance),
         WithdrewFareFromDpo(T::AccountId, DpoIndex),
         YieldReleased(T::AccountId, DpoIndex),
         BonusReleased(T::AccountId, DpoIndex),
@@ -429,7 +438,7 @@ pub mod module {
         DpoIndex,
         Blake2_128Concat,
         Buyer<T::AccountId>,
-        DpoMemberInfo<T::AccountId>,
+        DpoMemberInfo<T::AccountId, Balance>,
         OptionQuery,
     >;
 
@@ -770,8 +779,8 @@ pub mod module {
         pub fn create_dpo(
             origin: OriginFor<T>,
             name: Vec<u8>,
-            target: Target,
-            manager_seats: u8,
+            target: Target<Balance>,
+            manager_purchase_amount: Balance, // target token amount, not internal share
             base_fee: u32,
             direct_referral_rate: u32,
             end: T::BlockNumber,
@@ -781,10 +790,11 @@ pub mod module {
             let now = <frame_system::Module<T>>::block_number();
             // ending of this dpo must be in the future
             ensure!(end > now, Error::<T>::InvalidEndTime);
-            // check if the number of seats over the cap
+            // check if the share over the cap
             ensure!(
-                manager_seats <= T::PassengerSeatCap::get(),
-                Error::<T>::ExceededSeatCap
+                Self::get_share_percent_for_target(manager_purchase_amount, &target)?
+                    <= Self::percentage_from_num_tuple(T::PassengerSharePercentCap::get()),
+                Error::<T>::ExceededShareCap
             );
             //check commission rate base does not exceed cap
             ensure!(base_fee <= BASE_FEE_CAP, Error::<T>::ExceededRateCap);
@@ -792,16 +802,14 @@ pub mod module {
 
             //construct the new dpo
             let current_dpo_idx = Self::dpo_count();
-            let mut fee = base_fee + (manager_seats as u32) * 10;
-            if fee > T::ManagementFeeCap::get() { fee = T::ManagementFeeCap::get() };
             let mut new_dpo = DpoInfo {
                 index: current_dpo_idx,
                 name,
                 target: target.clone(),
                 manager: manager.clone(),
-                fee,
+                rate: (1, 1), // default rate=1
+                base_fee,
                 fee_slashed: false,
-                empty_seats: T::DpoSeats::get(),
                 expiry_blk: end,
                 state: DpoState::CREATED,
                 fare_withdrawn: false,
@@ -809,28 +817,18 @@ pub mod module {
                 referrer: referrer.clone(),
                 ..Default::default()
             };
-            Self::refresh_dpo_target_info(&mut new_dpo)?;
-            //verbosely do one more check. it also check if target has later end block
-            Self::is_legit_target_for_dpo(&mut new_dpo, target)?;
-
-            // fill the seats and add the manager as a new member
+            // fill the token and share, and add the manager as a new member
             Self::insert_buyer_to_target_dpo(
                 &mut new_dpo,
-                manager_seats,
+                manager_purchase_amount,
                 Buyer::Passenger(manager.clone()),
                 referrer,
             )?;
+            // insert manager as buyer before refresh target info
+            Self::refresh_dpo_info_for_new_target(&mut new_dpo, &target)?;
+            //verbosely do one more check. it also check if target has later end block
+            Self::is_legit_target_for_dpo(&mut new_dpo, target)?;
 
-            // manager pays for remainder due to rounding, if any
-            let remainder = new_dpo.target_amount.saturating_sub(
-                new_dpo
-                    .amount_per_seat
-                    .saturating_mul(T::DpoSeats::get().into()),
-            );
-            let manager_purchase_amount = new_dpo
-                .amount_per_seat
-                .saturating_mul(manager_seats.into())
-                .saturating_add(remainder);
             Self::dpo_inflow(
                 &manager,
                 &mut new_dpo,
@@ -876,15 +874,15 @@ pub mod module {
 
         #[pallet::weight(<T as Config>::WeightInfo::passenger_buy_dpo_seats())]
         #[transactional]
-        pub fn passenger_buy_dpo_seats(
+        pub fn passenger_buy_dpo(
             origin: OriginFor<T>,
             target_dpo_idx: DpoIndex,
-            number_of_seats: u8,
+            share: Balance,
             referrer_account: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             let buyer = Buyer::Passenger(signer.clone());
-            let target = Target::Dpo(target_dpo_idx, number_of_seats);
+            let target = Target::Dpo(target_dpo_idx, share);
             Self::do_buy_a_target(signer, buyer, target, referrer_account)?;
             Ok(().into())
         }
@@ -893,14 +891,14 @@ pub mod module {
         /// any member can call after the grace period
         #[pallet::weight(<T as Config>::WeightInfo::dpo_buy_dpo_seats())]
         #[transactional]
-        pub fn dpo_buy_dpo_seats(
+        pub fn dpo_buy_dpo(
             origin: OriginFor<T>,
             buyer_dpo_idx: DpoIndex,
             target_dpo_idx: DpoIndex,
-            number_of_seats: u8,
+            share: Balance,
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
-            let target = Target::Dpo(target_dpo_idx, number_of_seats);
+            let target = Target::Dpo(target_dpo_idx, share);
             let buyer = Buyer::Dpo(buyer_dpo_idx);
             Self::do_buy_a_target(signer, buyer, target, None)?; //DPO has a referrer on creation
             Ok(().into())
@@ -924,32 +922,23 @@ pub mod module {
             }
             ensure!(dpo.state != DpoState::CREATED, Error::<T>::DpoWrongState);
 
-            let (amount_per_seat, payment_type) = match dpo.state {
+            let (total_amount, payment_type) = match dpo.state {
                 DpoState::COMPLETED => {
                     ensure!(!dpo.fare_withdrawn && dpo.vault_withdraw > Zero::zero(), Error::<T>::ZeroBalanceToWithdraw);
-                    // should be calculated by vault_withdraw
-                    // it may include unused fund
-                    let amount_each = dpo
-                        .vault_withdraw
-                        .checked_div(T::DpoSeats::get().into())
-                        .unwrap_or_else(Zero::zero);
-                    (amount_each, PaymentType::WithdrawOnCompletion)
+                    (dpo.vault_withdraw, PaymentType::WithdrawOnCompletion)
                 }
                 DpoState::FAILED => {
                     ensure!(!dpo.fare_withdrawn, Error::<T>::ZeroBalanceToWithdraw);
-                    (dpo.amount_per_seat, PaymentType::WithdrawOnFailure)
+                    (dpo.vault_deposit, PaymentType::WithdrawOnFailure)
                 }
                 DpoState::ACTIVE | DpoState::RUNNING => {
                     ensure!(dpo.vault_withdraw > Zero::zero(), Error::<T>::ZeroBalanceToWithdraw);
-                    let amount_each = dpo
-                        .vault_withdraw
-                        .checked_div(T::DpoSeats::get().into())
-                        .unwrap_or_else(Zero::zero);
-                    (amount_each, PaymentType::UnusedFund)
+                    (dpo.vault_withdraw, PaymentType::UnusedFund)
                 }
                 _ => Err(Error::<T>::DpoWrongState)?,
             };
-            Self::dpo_outflow_to_members_by_seats(&mut dpo, amount_per_seat, payment_type)?;
+
+            Self::dpo_outflow_to_members_by_share(&mut dpo, total_amount, payment_type)?;
             if dpo.state == DpoState::FAILED || dpo.state == DpoState::COMPLETED {
                 dpo.fare_withdrawn = true;
             }
@@ -974,7 +963,7 @@ pub mod module {
             }
 
             ensure!(
-                dpo.vault_yield >= T::DpoSeats::get().into(),
+                dpo.vault_yield >= T::DpoYieldRewardMinimum::get().into(),
                 Error::<T>::RewardValueTooSmall
             );
             Self::do_release_yield_from_dpo(who, &mut dpo)?;
@@ -1058,27 +1047,30 @@ impl<T: Config> Pallet<T> {
         Ok(inv_idx)
     }
     /// as a generic check to see if the target available
-    fn is_legit_target(target: &Target) -> DispatchResult {
+    fn is_legit_target(target: &Target<Balance>) -> DispatchResult {
         match target {
-            Target::Dpo(dpo_idx, number_of_seats) => {
-                let num_seats = *number_of_seats;
+            Target::Dpo(dpo_idx, amount) => {
+                let amount = *amount;
                 let dpo = Self::dpos(*dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
                 ensure!(dpo.state == DpoState::CREATED, Error::<T>::DpoWrongState);
-                //(a) target dpo not having enough seats
-                ensure!(num_seats <= dpo.empty_seats, Error::<T>::DpoNotEnoughSeats);
+                //(a) target dpo not having enough share
+                ensure!(amount <= dpo.target_residual_amount, Error::<T>::DpoNotEnoughShare);
                 //(b) target dpo value too small. Actually an existing dpo in storage must be valid
-                let new_target_amount = dpo.amount_per_seat.saturating_mul(num_seats.into());
                 ensure!(
-                    new_target_amount > Zero::zero(),
+                    amount > Zero::zero(),
                     Error::<T>::TargetValueTooSmall
                 );
-                //(c) ensure the number of seats >0 and < DPO cap. does not matter whether it is a dpo or what
+                //(c) ensure the share > 1 unit and < DPO cap. does not matter whether it is a dpo or what
+                let share_percent = Self::percentage_from_num_tuple((amount, dpo.target_amount));
                 ensure!(
-                    num_seats <= T::DpoSeatCap::get(),
-                    Error::<T>::ExceededSeatCap
+                    share_percent <= Self::percentage_from_num_tuple(T::DpoSharePercentCap::get()),
+                    Error::<T>::ExceededShareCap
                 );
-                //(d) at least taking 1 seats
-                ensure!(num_seats > 0, Error::<T>::PurchaseAtLeastOneSeat);
+                //(d) at least taking 1 unit share
+                ensure!(
+                    share_percent >= Self::percentage_from_num_tuple(T::PassengerSharePercentMinimum::get()),
+                    Error::<T>::PurchaseAtLeastOnePercent
+                );
             }
             Target::TravelCabin(idx) => {
                 let (inv_idx, inv_supply) =
@@ -1226,37 +1218,96 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// update target, estimate of yield and bonus, amount and seats
-    /// also the token_id just to be double sure
+    fn get_share_percent_for_target(
+        amount: Balance, target: &Target<Balance>
+    ) -> Result<Percentage, DispatchError> {
+        let total_target =  match target {
+            Target::Dpo(_, target_amount) => {
+                *target_amount
+            }
+            Target::TravelCabin(idx) => {
+                let travel_cabin = Self::travel_cabins(idx).ok_or(Error::<T>::InvalidIndex)?;
+                travel_cabin.deposit_amount
+            }
+        };
+        let percent = Self::percentage_from_num_tuple((amount, total_target));
+        Ok(percent)
+    }
+
+    fn percentage_from_num_tuple<N: FixedPointOperand, D: FixedPointOperand>(
+        (numerator, denominator): (N, D)
+    ) -> Percentage {
+        Percentage::checked_from_rational(numerator, denominator).unwrap_or_default()
+    }
+
+    /// dpo target may be outdated if its target dpo chagnes the target.
+    /// check if the target chagned or not and refresh the target info
     fn refresh_dpo_target_info(
         dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
     ) -> DispatchResult {
-        match dpo.target {
-            Target::Dpo(idx, number_of_seats) => {
+        let target = Self::get_dpo_latest_target_from_its_target_dpo(dpo)?;
+        if target != dpo.target { // new target, to refresh dpo target info
+            Self::refresh_dpo_info_for_new_target(dpo, &target)?;
+        }
+        Ok(())
+    }
+
+    /// update target, estimate of yield and bonus, amount and rate
+    /// also the token_id just to be double sure
+    fn refresh_dpo_info_for_new_target(
+        dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
+        new_target: &Target<Balance>,
+    ) -> DispatchResult {
+        let funded_amount = dpo.target_amount.saturating_sub(dpo.target_residual_amount);
+        let new_target_amount = match new_target {
+            Target::Dpo(idx, amount) => {
+                let amount = *amount;
                 let target_dpo = Self::dpos(idx).ok_or(Error::<T>::InvalidIndex)?;
-                dpo.target_amount = target_dpo
-                    .amount_per_seat
-                    .saturating_mul(number_of_seats.into());
                 let (yield_est, bonus_est) =
-                    Self::get_dpo_reward_estimates(&target_dpo, number_of_seats);
+                    Self::get_dpo_reward_estimates(&target_dpo, amount);
                 dpo.target_yield_estimate = yield_est;
                 dpo.target_bonus_estimate = bonus_est;
                 dpo.target_maturity = target_dpo.target_maturity;
                 dpo.token_id = target_dpo.token_id;
+                amount
             }
             Target::TravelCabin(idx) => {
                 let travel_cabin = Self::travel_cabins(idx).ok_or(Error::<T>::InvalidIndex)?;
-                dpo.target_amount = travel_cabin.deposit_amount;
                 dpo.target_yield_estimate = travel_cabin.yield_total;
                 dpo.target_bonus_estimate = travel_cabin.bonus_total;
                 dpo.target_maturity = travel_cabin.maturity;
                 dpo.token_id = travel_cabin.token_id;
+                travel_cabin.deposit_amount
             }
         };
-        dpo.amount_per_seat = dpo
-            .target_amount
-            .checked_div(T::DpoSeats::get().into())
-            .unwrap_or_else(Zero::zero);
+
+        // when changing to the new target smaller than already funded amount, rate needs to decrease
+        if funded_amount > new_target_amount {
+            dpo.rate = (funded_amount, dpo.total_share);
+            dpo.target_residual_amount = 0;
+        } else if new_target_amount > dpo.target_amount {
+            // if it is going to fund more, keep rate unchanged and recompute fee
+            // because the percent of manager share may decrease
+            dpo.target_residual_amount = new_target_amount.saturating_sub(funded_amount);
+
+            // recompute fee
+            let manager_info = Self::dpo_members(dpo.index, Buyer::Passenger(dpo.manager.clone()))
+                .ok_or(Error::<T>::InvalidIndex)?;
+            let manager_amount = Self::percentage_from_num_tuple(dpo.rate)
+                .saturating_mul_int(manager_info.share);
+            let mut fee = (
+                manager_amount
+                    .saturating_mul(1000)
+                    .checked_div(dpo.target_amount)
+                    .unwrap_or_else(Zero::zero)
+            ) as u32 + dpo.base_fee;
+            if fee > T::ManagementFeeCap::get() { fee = T::ManagementFeeCap::get() };
+            if dpo.fee_slashed { // keep to be slashed
+                fee = Permill::from_perthousand(T::ManagerSlashPerThousand::get()) * fee;
+            }
+            dpo.fee = fee;
+        }
+        dpo.target_amount = new_target_amount;
         Ok(())
     }
 
@@ -1319,6 +1370,30 @@ impl<T: Config> Pallet<T> {
             }
         }
         Ok(())
+    }
+
+    /// when target dpo changes its target, the target of child dpo may be outdated.
+    /// the latest target of child dpo can be got from the target dpo's member info.
+    fn get_dpo_latest_target_from_its_target_dpo(
+        dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
+    ) -> Result<Target<Balance>, DispatchError> {
+        return match dpo.target {
+            Target::Dpo(target_dpo_id, _) => {
+                let target_dpo = Self::dpos(target_dpo_id).ok_or(Error::<T>::InvalidIndex)?;
+                let member_dpo_info = Self::dpo_members(
+                    target_dpo_id,
+                    Buyer::Dpo(dpo.index)
+                ).ok_or(Error::<T>::InvalidIndex)?;
+
+                let latest_target_amount = Self::percentage_from_num_tuple(
+                    target_dpo.rate
+                ).saturating_mul_int(member_dpo_info.share);
+                Ok(Target::Dpo(target_dpo_id, latest_target_amount))
+            }
+            Target::TravelCabin(_) => {
+                Err(Error::<T>::NoTargetDpo)?
+            }
+        }
     }
 
     /// payment from dpo to member is processed by member type and payment type
@@ -1394,17 +1469,15 @@ impl<T: Config> Pallet<T> {
                         fee = Permill::from_perthousand(T::ManagerSlashPerThousand::get()) * fee
                     }
                 }
-                let reward_each = dpo
-                    .vault_yield
-                    .checked_div(T::DpoSeats::get().into())
-                    .unwrap_or_else(Zero::zero);
-                let commission_each = Permill::from_perthousand(fee) * reward_each;
-                let reward_each = reward_each - commission_each;
-                let total_reward_to_members = reward_each.saturating_mul(T::DpoSeats::get().into());
-                let manager_commission = dpo.vault_yield.saturating_sub(total_reward_to_members);
+                let manager_commission = Permill::from_perthousand(fee) * dpo.vault_yield;
+                let total_reward_to_members = dpo.vault_yield.saturating_mul(manager_commission);
 
                 // weighted release to user_members
-                Self::dpo_outflow_to_members_by_seats(dpo, reward_each, PaymentType::Yield)?;
+                Self::dpo_outflow_to_members_by_share(
+                    dpo,
+                    total_reward_to_members,
+                    PaymentType::Yield
+                )?;
                 // transfer the commission to manager.
                 Self::dpo_outflow_to_member_account(
                     dpo,
@@ -1422,20 +1495,24 @@ impl<T: Config> Pallet<T> {
 
     fn insert_buyer_to_target_dpo(
         target_dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
-        number_of_seats: u8,
+        amount: Balance,
         buyer: Buyer<T::AccountId>,
         referrer_account: Option<T::AccountId>,
     ) -> DispatchResult {
-        //do_dpo_fill_seats_unchecked
-        if number_of_seats > 0 {
-            target_dpo.empty_seats = target_dpo.empty_seats.saturating_sub(number_of_seats);
-            if target_dpo.empty_seats.is_zero() {
+        //do_dpo_fill_token_unchecked
+        if amount > 0 {
+            target_dpo.target_residual_amount = target_dpo.target_residual_amount.saturating_sub(amount);
+            if target_dpo.target_residual_amount.is_zero() {
                 target_dpo.state = DpoState::ACTIVE;
                 let now = <frame_system::Module<T>>::block_number();
                 target_dpo.blk_of_dpo_filled = Some(now);
             }
         }
 
+        // change token amount to share, share = token/rate
+        let rate = Self::percentage_from_num_tuple(target_dpo.rate);
+        let share = rate.reciprocal().unwrap_or_default().saturating_mul_int(amount);
+        target_dpo.total_share = target_dpo.total_share.saturating_add(share);
         match buyer.clone() {
             Buyer::Dpo(buyer_dpo_idx) => {
                 //must be a new member
@@ -1449,7 +1526,7 @@ impl<T: Config> Pallet<T> {
                     target_dpo,
                     buyer.clone(),
                     dpo_referrer,
-                    number_of_seats,
+                    share,
                 )?;
             }
             Buyer::Passenger(_) => {
@@ -1457,11 +1534,20 @@ impl<T: Config> Pallet<T> {
                 match member {
                     Some(mut member_info) => {
                         //an existing member
-                        member_info.number_of_seats += number_of_seats;
-                        //ensure seat cap
+                        member_info.share += share;
+                        //ensure share cap
+                        // share percent = (before_amount + new_amount) / dpo_target_amount
+                        // can not get the percent from share / total_share
+                        // because total_share may not be equivalent to total_share
+                        let member_total_amount = amount.saturating_add(
+                            rate.saturating_mul_int(share)
+                        );
+                        let share_percent = Self::percentage_from_num_tuple(
+                            (member_total_amount, target_dpo.target_amount)
+                        );
                         ensure!(
-                            member_info.number_of_seats <= T::PassengerSeatCap::get(),
-                            Error::<T>::ExceededSeatCap
+                            share_percent <= Self::percentage_from_num_tuple(T::PassengerSharePercentCap::get()),
+                            Error::<T>::ExceededShareCap
                         );
                         DpoMembers::<T>::insert(target_dpo.index, buyer.clone(), member_info);
                     }
@@ -1471,7 +1557,7 @@ impl<T: Config> Pallet<T> {
                             target_dpo,
                             buyer,
                             referrer_account,
-                            number_of_seats,
+                            share,
                         )?;
                     }
                 }
@@ -1491,26 +1577,24 @@ impl<T: Config> Pallet<T> {
         let manager_info = Self::dpo_members(dpo.index, Buyer::Passenger(dpo.manager.clone()))
             .ok_or(Error::<T>::InvalidIndex)?;
 
-        // step 1 (divide): bonus are firstly given to each receiving seat (if targeting a cabin, then 100 seats. Otherwise, remove the Manager's)
-        let (is_lead_dpo, total_receivable_seats) = match dpo.target {
-            Target::Dpo(_, _) => (false, T::DpoSeats::get() - manager_info.number_of_seats),
-            Target::TravelCabin(_) => (true, T::DpoSeats::get()),
+        // step 1 (divide): bonus are firstly given to each receiving share (if targeting a cabin, then 100% share. Otherwise, remove the Manager's)
+        let (is_lead_dpo, total_receivable_share) = match dpo.target {
+            Target::Dpo(_, _) => (false, dpo.total_share.saturating_sub(manager_info.share)),
+            Target::TravelCabin(_) => (true, dpo.total_share),
         };
-        let bonus_each_seat = dpo
-            .vault_bonus
-            .checked_div(total_receivable_seats.into())
-            .unwrap_or_else(Zero::zero);
 
         // step 2 (emit): compute the distributable bonus (if the member is a dpo, only its managers portion (in parent dpo). Otherwise, all of them)
         let dpo_members = DpoMembers::<T>::iter_prefix_values(dpo.index);
+        let mut bonus_remainder = dpo.vault_bonus;
         for member_info in dpo_members.into_iter() {
             // this is the only case that requires special handling
             if Self::is_buyer_manager(dpo, &member_info.buyer) {
                 if is_lead_dpo {
                     // just wire manager's portion to him
-                    let mut manager_portion =
-                        bonus_each_seat.saturating_mul(manager_info.number_of_seats.into());
-
+                    let mut manager_portion = Self::percentage_from_num_tuple(
+                        (manager_info.share, total_receivable_share)
+                    ).saturating_mul_int(dpo.vault_bonus);
+                    bonus_remainder = bonus_remainder.saturating_sub(manager_portion);
                     if let Referrer::External(ext_acc, _) = member_info.referrer {
                         let external_bonus = Percent::from_percent(30) * manager_portion;
                         Self::dpo_outflow_to_external_account(
@@ -1532,18 +1616,19 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            let mut emit_bonus = bonus_each_seat.saturating_mul(member_info.number_of_seats.into());
+            let mut emit_bonus = Self::percentage_from_num_tuple(
+                (member_info.share, total_receivable_share)
+            ).saturating_mul_int(dpo.vault_bonus);
+            bonus_remainder = bonus_remainder.saturating_sub(emit_bonus);
 
             if let Buyer::Dpo(member_dpo_idx) = member_info.buyer {
                 let member_dpo = Self::dpos(member_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
                 let member_manager_info =
                     Self::dpo_members(member_dpo_idx, Buyer::Passenger(member_dpo.manager))
                         .ok_or(Error::<T>::InvalidIndex)?;
-
-                let reserve_bonus = Percent::from_rational_approximation(
-                    T::DpoSeats::get() - member_manager_info.number_of_seats,
-                    T::DpoSeats::get(),
-                ) * emit_bonus;
+                let reserve_bonus = Self::percentage_from_num_tuple(
+                    (member_dpo.total_share.saturating_sub(member_manager_info.share), member_dpo.total_share)
+                ).saturating_mul_int(emit_bonus);
 
                 Self::dpo_outflow_to_member_account(
                     dpo,
@@ -1605,6 +1690,15 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // give the remainder bonus to the manager
+        if bonus_remainder > 0 {
+            Self::dpo_outflow_to_member_account(
+                dpo,
+                manager_info.buyer,
+                bonus_remainder,
+                PaymentType::Bonus,
+            )?;
+        }
         Self::deposit_event(Event::BonusReleased(who, dpo.index));
 
         Ok(())
@@ -1613,26 +1707,25 @@ impl<T: Config> Pallet<T> {
     /// reward of this dpo
     fn get_dpo_reward_estimates(
         target_dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
-        target_seats: u8,
+        amount: Balance,
     ) -> (Balance, Balance) {
         let target_yield_after_commission =
             Permill::from_perthousand(1000 - target_dpo.fee) * target_dpo.target_yield_estimate;
         let target_yield_estimate = target_yield_after_commission
-            .saturating_mul(target_seats.into())
-            .checked_div(T::DpoSeats::get().into())
+            .saturating_mul(amount)
+            .checked_div(target_dpo.target_amount)
             .unwrap_or_else(Zero::zero);
-        let target_bonus_estimate_each = target_dpo
-            .target_bonus_estimate
-            .checked_div(T::DpoSeats::get().into())
+        let target_bonus_estimate = target_dpo.target_bonus_estimate
+            .saturating_mul(amount)
+            .checked_div(target_dpo.target_amount)
             .unwrap_or_else(Zero::zero);
-        let target_bonus_estimate = target_bonus_estimate_each.saturating_mul(target_seats.into());
         (target_yield_estimate, target_bonus_estimate)
     }
 
     /// check if the target is legit for the dpo.
     fn is_legit_target_for_dpo(
         dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
-        intended_target: Target,
+        intended_target: Target<Balance>,
     ) -> DispatchResult {
         // (a) first check if the target is a legit one in general
         Self::is_legit_target(&intended_target)?;
@@ -1660,7 +1753,7 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::InvalidTargetForDpo
                 );
             }
-            Target::Dpo(index, number_of_seats) => {
+            Target::Dpo(index, new_target_amount) => {
                 let target_dpo = Self::dpos(index).ok_or(Error::<T>::InvalidIndex)?;
                 // case 1: end block of a new dpo must be before its target dpo
                 // case 2: end block has no constraint when dpo changes its target cuz its state is active
@@ -1670,20 +1763,20 @@ impl<T: Config> Pallet<T> {
                         Error::<T>::InvalidEndTime
                     );
                 }
-                // ensure minimum seat
-                ensure!(
-                    number_of_seats >= T::DpoSeatMinimum::get(),
-                    Error::<T>::PurchaseAtLeastThreeSeatForDpo
+                let share_percent = Self::percentage_from_num_tuple(
+                    (new_target_amount, target_dpo.target_amount)
                 );
-                // if the dpo is aiming too many seats
+                // ensure minimum share
                 ensure!(
-                    number_of_seats <= T::DpoSeatCap::get(),
-                    Error::<T>::ExceededSeatCap
+                    share_percent >= Self::percentage_from_num_tuple(T::DpoSharePercentMinimum::get()),
+                    Error::<T>::PurchaseAtLeastThreePercentForDpo
+                );
+                // if the dpo is aiming too many share
+                ensure!(
+                    share_percent <= Self::percentage_from_num_tuple(T::DpoSharePercentCap::get()),
+                    Error::<T>::ExceededShareCap
                 );
                 // if dpo can afford the target
-                let new_target_amount = target_dpo
-                    .amount_per_seat
-                    .saturating_mul(number_of_seats.into());
                 ensure!(
                     dpo.target_amount >= new_target_amount,
                     Error::<T>::TargetValueTooBig
@@ -1694,7 +1787,7 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::TargetValueTooSmall
                 );
                 // if dpo can split the reward evenly
-                let (yield_est, _) = Self::get_dpo_reward_estimates(&target_dpo, number_of_seats);
+                let (yield_est, _) = Self::get_dpo_reward_estimates(&target_dpo, new_target_amount);
                 // if the target dpo is of the same token
                 ensure!(
                     yield_est >= TARGET_AMOUNT_MINIMUM,
@@ -1711,16 +1804,28 @@ impl<T: Config> Pallet<T> {
     }
 
     /// helper function for distributing weighted AMOUNT to dpo memebers
-    fn dpo_outflow_to_members_by_seats(
+    fn dpo_outflow_to_members_by_share(
         dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
-        amount_for_each_seat: Balance,
+        total_amount: Balance,
         payment_type: PaymentType,
     ) -> DispatchResult {
+        let mut remainder = total_amount;
         let dpo_members = DpoMembers::<T>::iter_prefix_values(dpo.index);
         for member_info in dpo_members.into_iter() {
-            let amount = amount_for_each_seat.saturating_mul(member_info.number_of_seats.into());
+            if Self::is_buyer_manager(dpo, &member_info.buyer) { continue };
+            let percent = Self::percentage_from_num_tuple(
+                (member_info.share, dpo.total_share)
+            );
+            let amount = percent.saturating_mul_int(total_amount);
             Self::dpo_outflow_to_member_account(dpo, member_info.buyer, amount, payment_type)?;
+            remainder = remainder.saturating_sub(amount);
         }
+        Self::dpo_outflow_to_member_account(
+            dpo,
+            Buyer::Passenger(dpo.manager.clone()),
+            remainder,
+            payment_type
+        )?;
         Ok(())
     }
 
@@ -1790,7 +1895,7 @@ impl<T: Config> Pallet<T> {
     fn do_dpo_pre_buy_check(
         who: T::AccountId,
         buyer_dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
-        target: Target,
+        target: Target<Balance>,
     ) -> DispatchResult {
         // (a) if the buyer_dpo in a correct state
         ensure!(
@@ -1815,17 +1920,19 @@ impl<T: Config> Pallet<T> {
     /// return Ok() if all check out. Throw error otherwise
     fn do_dpo_post_buy_check(
         buyer_dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
-        target: Target,
+        target: Target<Balance>,
     ) -> DispatchResult {
-        let original_amount = buyer_dpo.target_amount;
-        // (a) update target related information such as yield, bonus and seat price
-        buyer_dpo.target = target;
-        Self::refresh_dpo_target_info(buyer_dpo)?;
+        if buyer_dpo.target != target { // change to new target
+            let original_amount = buyer_dpo.target_amount;
+            // (a) update target related information such as yield, bonus and rate...
+            Self::refresh_dpo_info_for_new_target(buyer_dpo, &target)?;
 
-        // (b) check if there is unused amount. if any, pay back instantly
-        let unused_total = original_amount.saturating_sub(buyer_dpo.target_amount);
-        if unused_total > Zero::zero() {
-            Self::update_dpo_inflow(buyer_dpo, unused_total, PaymentType::UnusedFund)?;
+            // (b) check if there is unused amount. if any, pay back instantly
+            // TODO: funded amount - new target amount
+            let unused_total = original_amount.saturating_sub(buyer_dpo.target_amount);
+            if unused_total > Zero::zero() {
+                Self::update_dpo_inflow(buyer_dpo, unused_total, PaymentType::UnusedFund)?;
+            }
         }
         Ok(())
     }
@@ -1836,7 +1943,7 @@ impl<T: Config> Pallet<T> {
         dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         buyer: Buyer<T::AccountId>,
         referrer_account: Option<T::AccountId>,
-        number_of_seats: u8,
+        share: Balance,
     ) -> DispatchResult {
         //non-manager member has to have an internal referrer
         let typed_referrer = match referrer_account {
@@ -1887,7 +1994,7 @@ impl<T: Config> Pallet<T> {
             buyer.clone(),
             DpoMemberInfo {
                 buyer: buyer.clone(),
-                number_of_seats,
+                share,
                 referrer: typed_referrer,
             },
         );
@@ -1897,7 +2004,7 @@ impl<T: Config> Pallet<T> {
     fn do_buy_a_target(
         signer: T::AccountId,
         buyer: Buyer<T::AccountId>,
-        target: Target,
+        target: Target<Balance>,
         referrer_account: Option<T::AccountId>,
     ) -> DispatchResult {
         if let Buyer::InvalidBuyer = buyer {
@@ -1919,27 +2026,14 @@ impl<T: Config> Pallet<T> {
                 // (b) pay for the target, and receive bonus
                 match target {
                     // (b-1) dpo buy dpo
-                    Target::Dpo(target_dpo_idx, number_of_seats) => {
-                        //ensure minimum seat
-                        ensure!(
-                            number_of_seats >= T::DpoSeatMinimum::get(),
-                            Error::<T>::PurchaseAtLeastThreeSeatForDpo
-                        );
-                        //ensure seat cap
-                        ensure!(
-                            number_of_seats <= T::DpoSeatCap::get(),
-                            Error::<T>::ExceededSeatCap
-                        );
-                        // pay the seats to the target dpo
+                    Target::Dpo(target_dpo_idx, target_amount) => {
                         let mut target_dpo =
                             Self::dpos(target_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-                        let total_price = target_dpo
-                            .amount_per_seat
-                            .saturating_mul(number_of_seats.into());
+                        // pay the share to the target dpo
                         Self::dpo_outflow_to_dpo(
                             &mut buyer_dpo,
                             &mut target_dpo,
-                            total_price,
+                            target_amount,
                             PaymentType::Deposit,
                         )?;
                         Dpos::<T>::insert(target_dpo_idx, &target_dpo);
@@ -1974,21 +2068,25 @@ impl<T: Config> Pallet<T> {
             }
             Buyer::Passenger(_) => {
                 match target {
-                    Target::Dpo(target_dpo_idx, number_of_seats) => {
-                        //ensure seat cap
-                        ensure!(
-                            number_of_seats <= T::PassengerSeatCap::get(),
-                            Error::<T>::ExceededSeatCap
-                        );
+                    Target::Dpo(target_dpo_idx, amount) => {
                         let mut target_dpo =
                             Self::dpos(target_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-                        let total_price = target_dpo
-                            .amount_per_seat
-                            .saturating_mul(number_of_seats.into());
+                        //ensure share cap
+                        let share_percent = Self::percentage_from_num_tuple(
+                            (amount, target_dpo.target_amount)
+                        );
+                        ensure!(
+                            share_percent >= Self::percentage_from_num_tuple(T::PassengerSharePercentMinimum::get()),
+                            Error::<T>::PurchaseAtLeastOnePercent
+                        );
+                        ensure!(
+                            share_percent <= Self::percentage_from_num_tuple(T::PassengerSharePercentCap::get()),
+                            Error::<T>::ExceededShareCap
+                        );
                         Self::dpo_inflow(
                             &signer,
                             &mut target_dpo,
-                            total_price,
+                            amount,
                             PaymentType::Deposit,
                         )?;
                         Dpos::<T>::insert(target_dpo_idx, &target_dpo);
@@ -2023,11 +2121,11 @@ impl<T: Config> Pallet<T> {
         // the 2nd pass, process by the target type
         // do post-post processing
         match target {
-            Target::Dpo(target_dpo_idx, number_of_seats) => {
+            Target::Dpo(target_dpo_idx, amount) => {
                 let mut target_dpo = Self::dpos(target_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
                 Self::insert_buyer_to_target_dpo(
                     &mut target_dpo,
-                    number_of_seats,
+                    amount,
                     buyer.clone(),
                     referrer_account,
                 )?;
@@ -2036,7 +2134,7 @@ impl<T: Config> Pallet<T> {
                     signer,
                     buyer,
                     target_dpo_idx,
-                    number_of_seats,
+                    amount,
                 ));
             }
             Target::TravelCabin(travel_cabin_idx) => {
