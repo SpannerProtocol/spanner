@@ -1281,9 +1281,11 @@ impl<T: Config> Pallet<T> {
             }
         };
 
-        // when changing to the new target smaller than already funded amount, rate needs to decrease
+        // when changing to the new target smaller than already funded amount
+        // it means that the dpo is to be at active state and total_share is equivalent
+        // to new_target_amount, and the unused fund will be returned when buying
         if funded_amount > new_target_amount {
-            dpo.rate = (funded_amount, dpo.total_share);
+            dpo.rate = (new_target_amount, dpo.total_share);
             dpo.target_residual_amount = 0;
         } else if new_target_amount > dpo.target_amount {
             // if it is going to fund more, keep rate unchanged and recompute fee
