@@ -877,12 +877,12 @@ pub mod module {
         pub fn passenger_buy_dpo(
             origin: OriginFor<T>,
             target_dpo_idx: DpoIndex,
-            share: Balance,
+            amount: Balance,
             referrer_account: Option<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             let buyer = Buyer::Passenger(signer.clone());
-            let target = Target::Dpo(target_dpo_idx, share);
+            let target = Target::Dpo(target_dpo_idx, amount);
             Self::do_buy_a_target(signer, buyer, target, referrer_account)?;
             Ok(().into())
         }
@@ -895,10 +895,10 @@ pub mod module {
             origin: OriginFor<T>,
             buyer_dpo_idx: DpoIndex,
             target_dpo_idx: DpoIndex,
-            share: Balance,
+            amount: Balance,
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
-            let target = Target::Dpo(target_dpo_idx, share);
+            let target = Target::Dpo(target_dpo_idx, amount);
             let buyer = Buyer::Dpo(buyer_dpo_idx);
             Self::do_buy_a_target(signer, buyer, target, None)?; //DPO has a referrer on creation
             Ok(().into())
