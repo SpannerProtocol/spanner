@@ -146,6 +146,13 @@ impl<Balance> Default for Target<Balance> {
 }
 
 #[derive(Encode, Decode, PartialEq, Eq, Clone, Copy, Debug)]
+pub enum TargetCompare {
+    Same, // two targets are entirely same
+    SameDpo, // for Target::Dpo, 2 targets with same dpo, different target amount
+    Different // completely different
+}
+
+#[derive(Encode, Decode, PartialEq, Eq, Clone, Copy, Debug)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub enum Buyer<AccountId> {
     Dpo(DpoIndex),
@@ -347,8 +354,12 @@ pub mod module {
         RewardMilestoneInvalid,
         /// must have at least one stockpile
         TooLittleIssued,
-        /// the type of dpo's target is not dpo
-        NoTargetDpo,
+        /// new target should be be other dpo or cabin
+        NewTargetToSameDpo,
+        /// not allowed to change new target
+        NotAllowedToChangeTarget,
+        /// the action is only allowed to be done by the manager
+        OnlyDoneByDpoManager,
     }
 
     #[pallet::event]
@@ -827,7 +838,7 @@ pub mod module {
             // insert manager as buyer before refresh target info
             Self::refresh_dpo_info_for_new_target(&mut new_dpo, &target)?;
             //verbosely do one more check. it also check if target has later end block
-            Self::is_legit_target_for_dpo(&mut new_dpo, target)?;
+            Self::is_legit_target_for_dpo(&mut new_dpo, target, false)?;
 
             Self::dpo_inflow(
                 &manager,
@@ -901,6 +912,60 @@ pub mod module {
             let target = Target::Dpo(target_dpo_idx, amount);
             let buyer = Buyer::Dpo(buyer_dpo_idx);
             Self::do_buy_a_target(signer, buyer, target, None)?; //DPO has a referrer on creation
+            Ok(().into())
+        }
+
+        /// dpo can change its target at any time when the target is unavailable
+        #[pallet::weight(0)]// TODO: benchmark weight
+        #[transactional]
+        fn dpo_change_target(
+            origin: OriginFor<T>,
+            buyer_dpo_idx: DpoIndex,
+            new_target: Target<Balance>,
+        ) -> DispatchResultWithPostInfo {
+            let signer = ensure_signed(origin)?;
+            let mut buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
+
+            // (a) change the target by the manager
+            ensure!(
+                Self::is_buyer_manager(&buyer_dpo, &Buyer::Passenger(signer)),
+                Error::<T>::OnlyDoneByDpoManager
+            );
+
+            // (b) if the buyer_dpo in a correct state
+            ensure!(
+                buyer_dpo.state == DpoState::CREATED ||
+                    buyer_dpo.state == DpoState::ACTIVE,
+                Error::<T>::DpoWrongState
+            );
+
+            // (c) ensure new target legit, dpo must change a completely different target
+            Self::is_legit_target_for_dpo(&buyer_dpo, new_target.clone(), true)?;
+
+            // (d) refresh target info
+            let funded_amount = buyer_dpo.target_amount.saturating_sub(buyer_dpo.target_residual_amount);
+            Self::refresh_dpo_info_for_new_target(&mut buyer_dpo, &new_target)?;
+
+            // (e) update dpo state and pay back to members if having unused fund
+            let new_target_amount = buyer_dpo.target_amount;
+            if funded_amount >= new_target_amount {
+                let unused_total = funded_amount.saturating_sub(new_target_amount);
+                if unused_total > Zero::zero() {
+                    Self::update_dpo_inflow(&mut buyer_dpo, unused_total, PaymentType::UnusedFund)?;
+                }
+                if buyer_dpo.state == DpoState::CREATED {
+                    buyer_dpo.state = DpoState::ACTIVE;
+                    let now = <frame_system::Module<T>>::block_number();
+                    buyer_dpo.blk_of_dpo_filled = Some(now);
+                }
+            } else {
+                // if changing to a larger target, change state to CREATED from Active
+                if buyer_dpo.state == DpoState::ACTIVE {
+                    buyer_dpo.state = DpoState::CREATED;
+                    buyer_dpo.blk_of_dpo_filled = None;
+                }
+            }
+            // no event because all info can be got from extrinsic
             Ok(().into())
         }
 
@@ -1240,12 +1305,12 @@ impl<T: Config> Pallet<T> {
         Percentage::checked_from_rational(numerator, denominator).unwrap_or_default()
     }
 
-    /// dpo target may be outdated if its target dpo chagnes the target.
-    /// check if the target chagned or not and refresh the target info
+    /// dpo target's amount may be outdated if its target dpo changes the target.
+    /// check if the target changed or not and refresh the target info
     fn refresh_dpo_target_info(
         dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
     ) -> DispatchResult {
-        let target = Self::get_dpo_latest_target_from_its_target_dpo(dpo)?;
+        let target = Self::get_dpo_latest_target_from_its_target(dpo)?;
         if target != dpo.target { // new target, to refresh dpo target info
             Self::refresh_dpo_info_for_new_target(dpo, &target)?;
         }
@@ -1374,12 +1439,12 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// when target dpo changes its target, the target of child dpo may be outdated.
-    /// the latest target of child dpo can be got from the target dpo's member info.
-    fn get_dpo_latest_target_from_its_target_dpo(
+    /// the dpo target's amount may be outdated if its ancestor dpo retargeted.
+    fn get_dpo_latest_target_from_its_target(
         dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
     ) -> Result<Target<Balance>, DispatchError> {
         return match dpo.target {
+            // dpo A targets to dpo B. The latest target of A can be got from B's member info.
             Target::Dpo(target_dpo_id, _) => {
                 let target_dpo = Self::dpos(target_dpo_id).ok_or(Error::<T>::InvalidIndex)?;
                 let member_dpo_info = Self::dpo_members(
@@ -1392,8 +1457,9 @@ impl<T: Config> Pallet<T> {
                 ).saturating_mul_int(member_dpo_info.share);
                 Ok(Target::Dpo(target_dpo_id, latest_target_amount))
             }
+            // return the cabin target directly
             Target::TravelCabin(_) => {
-                Err(Error::<T>::NoTargetDpo)?
+                Ok(dpo.target)
             }
         }
     }
@@ -1725,19 +1791,42 @@ impl<T: Config> Pallet<T> {
     }
 
     /// check if the target is legit for the dpo.
+    /// target_changed indicates whether dpo is to change entirely different target or not
+    /// if true, ensure the original target is unavailable and the new target should not be to the same dpo
+    /// otherwise, intended_target should be the same, or with the same dpo
     fn is_legit_target_for_dpo(
         dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         intended_target: Target<Balance>,
+        target_changed: bool,
     ) -> DispatchResult {
         // (a) first check if the target is a legit one in general
         Self::is_legit_target(&intended_target)?;
 
-        // (b) ensure the default target is sold out, if the intended target is not the same
-        if dpo.target != intended_target {
+        // (b) if true, ensure the original target is unavailable and the new target should not be to the same dpo
+        // otherwise, intended_target should be the same, or with the same dpo
+        let target_compare = Self::compare_targets(&intended_target, &dpo.target);
+        if target_changed {
+            // original target unavailable
             ensure!(
                 Self::is_legit_target(&dpo.target).is_err(),
                 Error::<T>::DefaultTargetAvailable
             );
+            // not retarget to the same dpo
+            ensure!(
+                target_compare == TargetCompare::Different,
+                Error::<T>::NewTargetToSameDpo
+            );
+        } else { // can't change
+            ensure!(
+                target_compare != TargetCompare::Different,
+                Error::<T>::NotAllowedToChangeTarget
+            );
+            if target_compare == TargetCompare::SameDpo {
+                ensure!(
+                    Self::is_legit_target(&dpo.target).is_err(),
+                    Error::<T>::DefaultTargetAvailable
+                );
+            }
         }
 
         // (c) then check if the target is legit given the dpo bound
@@ -1905,8 +1994,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DpoWrongState
         );
 
-        // (b) new target legit
-        Self::is_legit_target_for_dpo(buyer_dpo, target)?;
+        // (b) the target should be the same to the original (dpo),
+        // or to the one with same dpo with different target amount
+        Self::is_legit_target_for_dpo(buyer_dpo, target, false)?;
 
         // (c) if the who has right and if we should slash the manager. but no double slashing
         let should_slash_manager = Self::if_should_slash_manager_on_buying(&buyer_dpo, who)?;
@@ -1924,7 +2014,7 @@ impl<T: Config> Pallet<T> {
         buyer_dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         target: Target<Balance>,
     ) -> DispatchResult {
-        if buyer_dpo.target != target { // change to new target
+        if buyer_dpo.target != target { // change to new target, new target must be to same dpo and less amount
             let original_amount = buyer_dpo.target_amount;
             // (a) update target related information such as yield, bonus and rate...
             Self::refresh_dpo_info_for_new_target(buyer_dpo, &target)?;
@@ -2015,10 +2105,10 @@ impl<T: Config> Pallet<T> {
         // check if the target is available in general
         Self::is_legit_target(&target)?;
 
-        // 1st pass, process majorly buyer type
         // (a) pre buy (only dpo)
         // (b) buy
         // (c) post_buy
+        // (d) deposit events
         match buyer.clone() {
             Buyer::Dpo(buyer_dpo_idx) => {
                 let mut buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
@@ -2062,10 +2152,7 @@ impl<T: Config> Pallet<T> {
                         }
                     }
                 }
-
-                // (c) post buy
-                Self::do_dpo_post_buy_check(&mut buyer_dpo, target)?;
-                //final storage update
+                // storage update
                 Dpos::<T>::insert(buyer_dpo_idx, &buyer_dpo);
             }
             Buyer::Passenger(_) => {
@@ -2120,8 +2207,8 @@ impl<T: Config> Pallet<T> {
             _ => Err(Error::<T>::InvalidBuyerType)?,
         }
 
-        // the 2nd pass, process by the target type
-        // do post-post processing
+        // (b) insert and update target record
+        let mut purchased_inv_idx = 0u16; // for event
         match target {
             Target::Dpo(target_dpo_idx, amount) => {
                 let mut target_dpo = Self::dpos(target_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
@@ -2132,6 +2219,26 @@ impl<T: Config> Pallet<T> {
                     referrer_account,
                 )?;
                 Dpos::<T>::insert(target_dpo_idx, &target_dpo);
+            }
+            Target::TravelCabin(travel_cabin_idx) => {
+                purchased_inv_idx =
+                    Self::insert_cabin_purchase_record(travel_cabin_idx, buyer.clone())?;
+            }
+        }
+
+        // (c) post buy, refresh target info and return unused fund if needed
+        // dpo_post_buy_check should be called after insert_buyer_to_target_dpo because
+        // dpo target info refresh may rely on parent dpo member info
+        if let Buyer::Dpo(buyer_dpo_idx) = buyer.clone() {
+            let mut buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
+            Self::do_dpo_post_buy_check(&mut buyer_dpo, target.clone())?;
+            // storage update
+            Dpos::<T>::insert(buyer_dpo_idx, &buyer_dpo);
+        }
+
+        // (d) deposit event
+        match target {
+            Target::Dpo(target_dpo_idx, amount) => {
                 Self::deposit_event(Event::DpoTargetPurchased(
                     signer,
                     buyer,
@@ -2140,8 +2247,6 @@ impl<T: Config> Pallet<T> {
                 ));
             }
             Target::TravelCabin(travel_cabin_idx) => {
-                let purchased_inv_idx =
-                    Self::insert_cabin_purchase_record(travel_cabin_idx, buyer.clone())?;
                 Self::deposit_event(Event::TravelCabinTargetPurchased(
                     signer,
                     buyer,
@@ -2195,5 +2300,27 @@ impl<T: Config> Pallet<T> {
             }
         }
         return false;
+    }
+
+    fn compare_targets(t1: &Target<Balance>, t2: &Target<Balance>) -> TargetCompare {
+        if t1 == t2 {return TargetCompare::Same} // TODO: == work??
+        if let Target::TravelCabin(_) = t1 {
+            return TargetCompare::Different
+        }
+        if let Target::TravelCabin(_) = t2 {
+            return TargetCompare::Different
+        }
+        return if let (
+            Target::Dpo(t1_id, _),
+            Target::Dpo(t2_id, _)
+        ) = (t1, t2) {
+            if t1_id == t2_id {
+                TargetCompare::SameDpo
+            } else {
+                TargetCompare::Different
+            }
+        } else {
+            TargetCompare::Different
+        }
     }
 }
