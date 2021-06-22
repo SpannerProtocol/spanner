@@ -225,7 +225,7 @@ fn create_milestone_reward() {
         ));
         for i in 101..110 {
             assert_ok!(Currencies::deposit(PLKT, &i, 10));
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -371,7 +371,7 @@ fn create_dpo() {
             String::from("test").into_bytes(),
             10000,
             0,
-            2000,
+            10000, // yield
             10,
             1
         ));
@@ -380,7 +380,7 @@ fn create_dpo() {
                 Origin::signed(ALICE),
                 String::from("test").into_bytes(),
                 Target::Dpo(0, 1),
-                5,
+                500, // 5%
                 50,
                 800,
                 10,
@@ -393,8 +393,21 @@ fn create_dpo() {
                 Origin::signed(ALICE),
                 String::from("test").into_bytes(),
                 Target::TravelCabin(0),
-                5,
-                51,
+                3001, // > 30%
+                50,
+                800,
+                10,
+                None
+            ),
+            Error::<Test>::ExceededShareCap
+        );
+        assert_noop!(
+            BulletTrain::create_dpo(
+                Origin::signed(ALICE),
+                String::from("test").into_bytes(),
+                Target::TravelCabin(0),
+                500, // 5%
+                51, // >5%
                 800,
                 10,
                 None
@@ -406,9 +419,9 @@ fn create_dpo() {
                 Origin::signed(ALICE),
                 String::from("test").into_bytes(),
                 Target::TravelCabin(0),
-                5,
+                500, // 5%
                 50,
-                1001,
+                1001, // >100%
                 10,
                 None
             ),
@@ -419,7 +432,7 @@ fn create_dpo() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            5,
+            500, // 5%
             50,
             800,
             10,
@@ -428,29 +441,29 @@ fn create_dpo() {
         assert_eq!(BulletTrain::dpo_count(), 1);
         assert_eq!(Balances::free_balance(ALICE), 999500);
 
-        //new dpo must end before target dpo
         assert_noop!(
             BulletTrain::create_dpo(
                 Origin::signed(BOB),
                 String::from("test").into_bytes(),
-                Target::Dpo(0, 3),
-                15,
+                Target::Dpo(0, 5001), // > 50%
+                150,
                 50,
                 800,
-                10,
+                11, // longer than dpo 0
                 None
             ),
-            Error::<Test>::InvalidEndTime
+            Error::<Test>::ExceededShareCap
         );
 
+        //create dpo1 with end time 11
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(BOB),
             String::from("test").into_bytes(),
-            Target::Dpo(0, 10),
-            15,
+            Target::Dpo(0, 1000),
+            150, // 15%
             50,
             800,
-            5,
+            11, // longer than dpo 0
             None
         ));
         assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::CREATED);
@@ -459,8 +472,8 @@ fn create_dpo() {
             BulletTrain::create_dpo(
                 Origin::signed(BOB),
                 String::from("test").into_bytes(),
-                Target::Dpo(1, 2),
-                15,
+                Target::Dpo(1, 20), // 2%
+                1,
                 0,
                 800,
                 4,
@@ -473,8 +486,8 @@ fn create_dpo() {
             BulletTrain::create_dpo(
                 Origin::signed(BOB),
                 String::from("test").into_bytes(),
-                Target::Dpo(1, 3),
-                15,
+                Target::Dpo(1, 30), // 3%
+                4,
                 0,
                 800,
                 4,
@@ -486,7 +499,7 @@ fn create_dpo() {
 }
 
 #[test]
-fn passenger_buy_dpo_seats_emits_events_correctly() {
+fn passenger_buy_dpo_emits_events_correctly() {
     ExtBuilder::default().build().execute_with(|| {
         // Set block number to 1 because events are not emitted on block 0.
         System::set_block_number(1);
@@ -518,7 +531,7 @@ fn passenger_buy_dpo_seats_emits_events_correctly() {
         let expected_event = Event::pallet_bullet_train(crate::Event::CreatedDpo(ALICE, 0));
         assert!(System::events().iter().any(|a| a.event == expected_event));
 
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(BOB),
             0,
             10,
@@ -535,7 +548,7 @@ fn passenger_buy_dpo_seats_emits_events_correctly() {
 }
 
 #[test]
-fn passenger_buy_dpo_seats_test() {
+fn passenger_buy_dpo_test() {
     ExtBuilder::default().build().execute_with(|| {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
@@ -561,34 +574,34 @@ fn passenger_buy_dpo_seats_test() {
         //passenger purchase of dpo
         //passenger cannot buy more than 30
         assert_noop!(
-            BulletTrain::passenger_buy_dpo_seats(Origin::signed(BOB), 0, 31, None),
-            Error::<Test>::ExceededSeatCap
+            BulletTrain::passenger_buy_dpo(Origin::signed(BOB), 0, 31, None),
+            Error::<Test>::ExceededShareCap
         );
         //manager can buy 25 more, but not 26 more
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ALICE),
             0,
             15,
             None
         ));
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ALICE),
             0,
             10,
             None
         ));
         assert_noop!(
-            BulletTrain::passenger_buy_dpo_seats(Origin::signed(ALICE), 0, 1, None),
-            Error::<Test>::ExceededSeatCap
+            BulletTrain::passenger_buy_dpo(Origin::signed(ALICE), 0, 1, None),
+            Error::<Test>::ExceededShareCap
         );
 
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(BOB),
             0,
             10,
             None
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 60);
+        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 60);
 
         //create dpo 1 for dpo 0
         assert_ok!(BulletTrain::create_dpo(
@@ -602,13 +615,13 @@ fn passenger_buy_dpo_seats_test() {
             None
         ));
         // BOB buys 10 seats at dpo1.
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(BOB),
             1,
             10,
             None
         ));
-        assert_eq!(BulletTrain::dpos(1).unwrap().empty_seats, 80);
+        // assert_eq!(BulletTrain::dpos(1).unwrap().empty_seats, 80);
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 2000);
     });
 }
@@ -652,14 +665,14 @@ fn dpo_withdraw_on_fail_test() {
         ));
         // join dpo 1 to fill it full
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             1,
             5,
@@ -671,7 +684,7 @@ fn dpo_withdraw_on_fail_test() {
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
         //dpo1 buys dpo 0 seats, emptying the deposit vault
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+        assert_ok!(BulletTrain::dpo_buy_dpo(
             Origin::signed(ALICE),
             1,
             0,
@@ -722,7 +735,7 @@ fn dpo_withdraw_on_fail_test() {
 }
 
 #[test]
-fn dpo_buy_dpo_seats_test() {
+fn dpo_buy_dpo_test() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
         //alice create dpo 0, taking 15 seats
@@ -758,7 +771,7 @@ fn dpo_buy_dpo_seats_test() {
                 9,
                 None
             ),
-            Error::<Test>::ExceededSeatCap
+            Error::<Test>::ExceededShareCap
         );
         //carol creates a dpo 1 targeting 10 dpo0 seats
         assert_ok!(BulletTrain::create_dpo(
@@ -771,7 +784,7 @@ fn dpo_buy_dpo_seats_test() {
             9,
             None
         ));
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(BOB),
             0,
             10,
@@ -787,14 +800,14 @@ fn dpo_buy_dpo_seats_test() {
         ));
         //prepare dpo purchase of dpo. this should fail as the seats are not full
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_seats(Origin::signed(CAROL), 1, 0, 10),
+            BulletTrain::dpo_buy_dpo(Origin::signed(CAROL), 1, 0, 10),
             Error::<Test>::DpoWrongState
         );
         let dpo_1 = BulletTrain::dpos(1).unwrap();
         assert_eq!(dpo_1.target_yield_estimate, 160);
 
         //DYLAN buy once, taking 5
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(DYLAN),
             1,
             5,
@@ -804,13 +817,13 @@ fn dpo_buy_dpo_seats_test() {
             BulletTrain::dpo_members(1, Buyer::Passenger(DYLAN)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(DYLAN),
-                number_of_seats: 5,
+                share: 5,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(CAROL)), // manager
             }
         );
 
         //DYLAN buy twice taking 2
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(DYLAN),
             1,
             2,
@@ -820,12 +833,12 @@ fn dpo_buy_dpo_seats_test() {
             BulletTrain::dpo_members(1, Buyer::Passenger(DYLAN)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(DYLAN),
-                number_of_seats: 7,
+                share: 7,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(CAROL)), // manager
             }
         );
         //DYLAN buy again taking 3
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(DYLAN),
             1,
             3,
@@ -835,7 +848,7 @@ fn dpo_buy_dpo_seats_test() {
             BulletTrain::dpo_members(1, Buyer::Passenger(DYLAN)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(DYLAN),
-                number_of_seats: 10,
+                share: 10,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(CAROL)), // manager
             }
         );
@@ -848,8 +861,8 @@ fn dpo_buy_dpo_seats_test() {
 
         //DYLAN out of quota. 10 + 21 > 30
         assert_noop!(
-            BulletTrain::passenger_buy_dpo_seats(Origin::signed(DYLAN), 1, 21, None),
-            Error::<Test>::ExceededSeatCap
+            BulletTrain::passenger_buy_dpo(Origin::signed(DYLAN), 1, 21, None),
+            Error::<Test>::ExceededShareCap
         );
 
         //there must not be such an event, which is nested in the buy_dpo_seats function
@@ -859,21 +872,21 @@ fn dpo_buy_dpo_seats_test() {
         assert!(!System::events().iter().any(|a| a.event == expected_event));
 
         //fill dpo 1
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ALICE),
             1,
             10,
             None
         ));
         for i in ELSA..10 {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             1,
             5,
@@ -886,12 +899,12 @@ fn dpo_buy_dpo_seats_test() {
 
         // acc 120 not a member buying
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_seats(Origin::signed(120), 1, 0, 10),
+            BulletTrain::dpo_buy_dpo(Origin::signed(120), 1, 0, 10),
             Error::<Test>::NoPermission
         );
 
         //still within grace period, dpo1 commit to dpo0
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+        assert_ok!(BulletTrain::dpo_buy_dpo(
             Origin::signed(CAROL),
             1,
             0,
@@ -904,14 +917,14 @@ fn dpo_buy_dpo_seats_test() {
             10,
         ));
         assert!(System::events().iter().any(|a| a.event == expected_event));
-        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 65);
+        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 65);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 35000);
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 0);
 
         // fill remaining
         for i in CAROL..HUGH {
             // assert!(matches!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED));
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -919,7 +932,7 @@ fn dpo_buy_dpo_seats_test() {
             ));
         }
         //filling the final 15
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(IVAN),
             0,
             15,
@@ -1100,7 +1113,7 @@ fn nested_dpo_bonus_test() {
             let dpo_id = 5 - l;
             //8 more people filling the seats
             for i in BOB..JILL {
-                assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                assert_ok!(BulletTrain::passenger_buy_dpo(
                     Origin::signed(i),
                     dpo_id,
                     10,
@@ -1109,7 +1122,7 @@ fn nested_dpo_bonus_test() {
             }
             //for the last dpo, jill needs to buy it as well
             if l == 0 {
-                assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+                assert_ok!(BulletTrain::passenger_buy_dpo(
                     Origin::signed(JILL),
                     dpo_id,
                     10,
@@ -1118,7 +1131,7 @@ fn nested_dpo_bonus_test() {
             }
             //then the dpo should be fully filled. now commits to the target
             //manager buy
-            assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+            assert_ok!(BulletTrain::dpo_buy_dpo(
                 Origin::signed(ALICE),
                 dpo_id,
                 dpo_id - 1,
@@ -1128,7 +1141,7 @@ fn nested_dpo_bonus_test() {
 
         // for dpo 0, buy the seats and commit to the cabin
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -1184,21 +1197,21 @@ fn dpo_buy_travel_cabin() {
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             0,
             5,
             None
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
-        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
+        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
         //manager call purchase of travel_cabin
         assert_ok!(BulletTrain::dpo_buy_travel_cabin(
             Origin::signed(ALICE),
@@ -1281,14 +1294,14 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             None
         ));
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             1,
             5,
@@ -1297,7 +1310,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
         //overtime
         run_to_block(11);
         //manager buy
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+        assert_ok!(BulletTrain::dpo_buy_dpo(
             Origin::signed(ALICE),
             1,
             0,
@@ -1343,14 +1356,14 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             None
         ));
         for i in CAROL..10 {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             1,
             5,
@@ -1359,7 +1372,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
         //dpo1 overtime
         run_to_block(11);
         //member buy
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+        assert_ok!(BulletTrain::dpo_buy_dpo(
             Origin::signed(CAROL),
             1,
             0,
@@ -1368,20 +1381,20 @@ fn buy_dpo_seats_after_grace_period_by_member() {
         assert_eq!(BulletTrain::dpos(1).unwrap().fee, 100);
 
         for i in DYLAN..HUGH {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(HUGH),
             0,
             15,
             None
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
+        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
         //dpo0 overtime
         run_to_block(22);
@@ -1435,14 +1448,14 @@ fn buy_dpo_seats_after_grace_period_by_external() {
         ));
         // join dpo 1 to fill it full
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             1,
             5,
@@ -1453,15 +1466,15 @@ fn buy_dpo_seats_after_grace_period_by_external() {
         run_to_block(11);
         //11 is external member. cant buy
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_seats(Origin::signed(11), 1, 0, 30),
+            BulletTrain::dpo_buy_dpo(Origin::signed(11), 1, 0, 30),
             Error::<Test>::NoPermission
         );
         //default target dpo0 30 seats. request for 20 will fail
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_seats(Origin::signed(ALICE), 1, 0, 20),
+            BulletTrain::dpo_buy_dpo(Origin::signed(ALICE), 1, 0, 20),
             Error::<Test>::DefaultTargetAvailable
         );
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+        assert_ok!(BulletTrain::dpo_buy_dpo(
             Origin::signed(ALICE),
             1,
             0,
@@ -1495,14 +1508,14 @@ fn buy_travel_cabin_after_grace_period_by_manager() {
             None
         ));
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             0,
             5,
@@ -1544,14 +1557,14 @@ fn buy_travel_cabin_after_grace_period_by_member() {
             None
         ));
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             0,
             5,
@@ -1589,14 +1602,14 @@ fn buy_travel_cabin_after_grace_period_by_external() {
             None
         ));
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             0,
             5,
@@ -1638,14 +1651,14 @@ fn yield_commission_test() {
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 200);
         for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
                 None
             ));
         }
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             0,
             5,
@@ -1862,7 +1875,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(ALICE)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(ALICE),
-                number_of_seats: 15,
+                share: 15,
                 referrer: Referrer::None, //top of iceberg
             }
         );
@@ -1871,7 +1884,7 @@ fn dpo_referral() {
         // member len: 0, assigned to manager
         //fifo queueby account: [1]
         assert_eq!(BulletTrain::dpos(0).unwrap().fifo, vec![]); // fifo empty
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(BOB),
             0,
             10,
@@ -1885,14 +1898,14 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(BOB)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(BOB),
-                number_of_seats: 10,
+                share: 10,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(ALICE)), // manager
             }
         );
 
         //member len: 1, no referrer, assigned to 1
         //fifo queue by account [1] -> [2]
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(CAROL),
             0,
             10,
@@ -1906,14 +1919,14 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(CAROL)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(CAROL),
-                number_of_seats: 10,
+                share: 10,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(BOB)),
             }
         );
 
         //member len: 2, no referrer, assigned to 2
         //fifo queue by account [2] -> [3]
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(DYLAN),
             0,
             10,
@@ -1927,14 +1940,14 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(DYLAN)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(DYLAN),
-                number_of_seats: 10,
+                share: 10,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(CAROL)),
             }
         );
 
         //member len: 3, referrer 1
         //fifo queue by account [3] -> [4, 3]
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ELSA),
             0,
             10,
@@ -1948,14 +1961,14 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(ELSA)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(ELSA),
-                number_of_seats: 10,
+                share: 10,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(BOB)),
             }
         );
 
         //member len: 4, no referrer, assign to 3
         //fifo queue by account [4, 3] -> [5 ,4]
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(FRED),
             0,
             10,
@@ -1969,7 +1982,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(FRED)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(FRED),
-                number_of_seats: 10,
+                share: 10,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(DYLAN)),
             }
         );
@@ -1977,7 +1990,7 @@ fn dpo_referral() {
         //referrer is the manager of another dpo, which is external to the dpo
         //member len: 5, assign to 4
         //fifo queue by account [5 ,4] -> [6, 5]
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(GREG),
             0,
             10,
@@ -1991,13 +2004,13 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(GREG)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(GREG),
-                number_of_seats: 10,
+                share: 10,
                 referrer: Referrer::External(JILL, Buyer::Passenger(ELSA)),
             }
         );
 
         //referrer is manager
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(HUGH),
             0,
             10,
@@ -2007,24 +2020,24 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(HUGH)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(HUGH),
-                number_of_seats: 10,
+                share: 10,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(ALICE)), // manager
             }
         );
 
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(IVAN),
             0,
             10,
             None
         ));
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(ADAM),
             0,
             5,
             None
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
+        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
 
         assert_eq!(BulletTrain::dpos(0).unwrap().fifo.len(), 3);
     });
@@ -2061,7 +2074,7 @@ fn do_release_bonus_from_dpo() {
         assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000); //
         //BCDE taking 10 each, spending 10,000
         for i in BOB..FRED {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -2069,7 +2082,7 @@ fn do_release_bonus_from_dpo() {
             ));
         }
         //F taking 15, spending 15,000
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(FRED),
             0,
             15,
@@ -2088,7 +2101,7 @@ fn do_release_bonus_from_dpo() {
         ));
         //BCEDFGH taking 10 each, spending 3000
         for i in BOB..IVAN {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
@@ -2096,13 +2109,13 @@ fn do_release_bonus_from_dpo() {
             ));
         }
         //I taking 15, spending 4500
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(IVAN),
             1,
             15,
             None
         ));
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+        assert_ok!(BulletTrain::dpo_buy_dpo(
             Origin::signed(JILL),
             1,
             0,
@@ -2132,7 +2145,7 @@ fn do_release_bonus_from_dpo() {
             BulletTrain::dpo_members(0, Buyer::Dpo(1)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Dpo(1),
-                number_of_seats: 30,
+                share: 30,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(FRED)),
             }
         );
@@ -2210,7 +2223,7 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
         assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000); //
         //BCDE taking 10 each, spending 10,000
         for i in BOB..FRED {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -2218,7 +2231,7 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
             ));
         }
         //F taking 15, spending 15,000
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(FRED),
             0,
             15,
@@ -2237,7 +2250,7 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
         ));
         //BCEDFGH taking 10 each, spending 3000
         for i in BOB..IVAN {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
@@ -2245,13 +2258,13 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
             ));
         }
         //I taking 15, spending 4500
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(IVAN),
             1,
             15,
             None
         ));
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+        assert_ok!(BulletTrain::dpo_buy_dpo(
             Origin::signed(JILL),
             1,
             0,
@@ -2281,7 +2294,7 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
             BulletTrain::dpo_members(0, Buyer::Dpo(1)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Dpo(1),
-                number_of_seats: 30,
+                share: 30,
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(FRED)),
             }
         );
@@ -2337,7 +2350,7 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
         ));
         //BCDE taking 10 each, spending 10,000
         for i in BOB..10 {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -2408,7 +2421,7 @@ fn dpo_buy_non_default_carbin_test() {
         //fill dpo
         for i in 11..20 {
             assert_ok!(Currencies::deposit(BOLT, &i, 10000));
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -2416,7 +2429,7 @@ fn dpo_buy_non_default_carbin_test() {
             ));
             assert_eq!(Balances::free_balance(&i), 0);
         }
-        assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
+        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
 
         assert_noop!(
             BulletTrain::dpo_buy_travel_cabin(Origin::signed(ALICE), 0, 1),
@@ -2465,7 +2478,7 @@ fn dpo_buy_non_default_carbin_test() {
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 10000);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 1000);
         assert_eq!(BulletTrain::dpos(0).unwrap().target_amount, 10000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().amount_per_seat, 100);
+        // assert_eq!(BulletTrain::dpos(0).unwrap().amount_per_seat, 100);
         assert_ok!(BulletTrain::release_yield_from_dpo(
             Origin::signed(ALICE),
             0
@@ -2578,7 +2591,7 @@ fn dpo_buy_non_default_dpo_test() {
         //fill dpo3
         for i in 11..20 {
             assert_ok!(Currencies::deposit(BOLT, &i, 3000));
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 3,
                 10,
@@ -2589,12 +2602,12 @@ fn dpo_buy_non_default_dpo_test() {
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::ACTIVE);
         // dpo3 buy dpo1 seats (dpo0 still available)
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 1, 10),
+            BulletTrain::dpo_buy_dpo(Origin::signed(10), 3, 1, 10),
             Error::<Test>::DefaultTargetAvailable
         );
         // fill dpo0
         for i in BOB..10 {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -2604,18 +2617,18 @@ fn dpo_buy_non_default_dpo_test() {
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
         // dpo3 buy dpo0 seats (already taken)
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 0, 10),
+            BulletTrain::dpo_buy_dpo(Origin::signed(10), 3, 0, 10),
             Error::<Test>::DpoWrongState
         );
         // dpo3 buy dpo2 seats (not affordable)
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 2, 30),
+            BulletTrain::dpo_buy_dpo(Origin::signed(10), 3, 2, 30),
             Error::<Test>::TargetValueTooBig
         );
         // dpo3 buy dpo1 seats (spends 27000 less)
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 3, 1, 30));
-        assert_eq!(BulletTrain::dpos(1).unwrap().amount_per_seat, 100);
-        assert_eq!(BulletTrain::dpos(3).unwrap().amount_per_seat, 30);
+        assert_ok!(BulletTrain::dpo_buy_dpo(Origin::signed(10), 3, 1, 30));
+        // assert_eq!(BulletTrain::dpos(1).unwrap().amount_per_seat, 100);
+        // assert_eq!(BulletTrain::dpos(3).unwrap().amount_per_seat, 30);
         // unused fund (27000) should be moved from vault_deposit into vault_withdraw
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 27000);
@@ -2629,7 +2642,7 @@ fn dpo_buy_non_default_dpo_test() {
         }
         // fill remaining 60 seats of dpo1
         for i in BOB..HUGH {
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
@@ -2774,7 +2787,7 @@ fn release_fare_from_dpo_including_unused_fund() {
         //fill dpo1
         for i in 11..20 {
             assert_ok!(Currencies::deposit(BOLT, &i, 3000));
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 1,
                 10,
@@ -2783,11 +2796,11 @@ fn release_fare_from_dpo_including_unused_fund() {
             assert_eq!(Balances::free_balance(&i), 0);
         }
         // dpo 1 buy dpo 0
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(Origin::signed(10), 1, 0, 30));
+        assert_ok!(BulletTrain::dpo_buy_dpo(Origin::signed(10), 1, 0, 30));
         //fill dpo0
         for i in 21..27 {
             assert_ok!(Currencies::deposit(BOLT, &i, 10000));
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -2884,7 +2897,7 @@ fn no_expiry_block_constraint_when_dpo_changes_target() {
         //fill dpo0
         for i in 11..20 {
             assert_ok!(Currencies::deposit(BOLT, &i, 10000));
-            assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+            assert_ok!(BulletTrain::passenger_buy_dpo(
                 Origin::signed(i),
                 0,
                 10,
@@ -2898,7 +2911,7 @@ fn no_expiry_block_constraint_when_dpo_changes_target() {
             Origin::signed(ALICE),
             0
         ));
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(Origin::signed(ALICE), 0, 1, 30)); // no constraint
+        assert_ok!(BulletTrain::dpo_buy_dpo(Origin::signed(ALICE), 0, 1, 30)); // no constraint
     });
 }
 
@@ -2995,13 +3008,13 @@ fn get_dpos_of_accounts() {
             None
         ));
 
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(BOB),
             0,
             10,
             None
         ));
-        assert_ok!(BulletTrain::passenger_buy_dpo_seats(
+        assert_ok!(BulletTrain::passenger_buy_dpo(
             Origin::signed(BOB),
             1,
             10,

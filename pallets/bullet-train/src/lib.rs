@@ -86,6 +86,7 @@ use weights::WeightInfo;
 //per thousand
 pub const BASE_FEE_CAP: u32 = 50;
 pub const TARGET_AMOUNT_MINIMUM: Balance = 100;
+pub const DPO_YIELD_REWARD_MINIMUM: Balance = 100;
 
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Debug)]
 pub struct TravelCabinInfo<Balance, AccountId, BlockNumber> {
@@ -302,9 +303,6 @@ pub mod module {
 
         #[pallet::constant]
         type ManagementFeeCap: Get<u32>;
-
-        #[pallet::constant]
-        type DpoYieldRewardMinimum: Get<u8>;
 
         type EngineerOrigin: EnsureOrigin<Self::Origin, Success=Self::AccountId>;
 
@@ -1033,7 +1031,7 @@ pub mod module {
             }
 
             ensure!(
-                dpo.vault_yield >= T::DpoYieldRewardMinimum::get().into(),
+                dpo.vault_yield >= DPO_YIELD_REWARD_MINIMUM,
                 Error::<T>::RewardValueTooSmall
             );
             Self::do_release_yield_from_dpo(who, &mut dpo)?;
@@ -1281,7 +1279,8 @@ impl<T: Config> Pallet<T> {
         amount: Balance, target: &Target<Balance>,
     ) -> Result<Percentage, DispatchError> {
         let total_target = match target {
-            Target::Dpo(_, target_amount) => {
+            Target::Dpo(target_dpo_id, target_amount) => {
+                Self::dpos(target_dpo_id).ok_or(Error::<T>::InvalidIndex)?; // check exist
                 *target_amount
             }
             Target::TravelCabin(idx) => {
