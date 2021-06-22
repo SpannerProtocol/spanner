@@ -893,7 +893,7 @@ pub mod module {
 
         #[pallet::weight(< T as Config >::WeightInfo::passenger_buy_dpo_seats())]
         #[transactional]
-        pub fn passenger_buy_dpo(
+        pub fn passenger_buy_dpo_share(
             origin: OriginFor<T>,
             target_dpo_idx: DpoIndex,
             amount: Balance,
@@ -910,7 +910,7 @@ pub mod module {
         /// any member can call after the grace period
         #[pallet::weight(< T as Config >::WeightInfo::dpo_buy_dpo_seats())]
         #[transactional]
-        pub fn dpo_buy_dpo(
+        pub fn dpo_buy_dpo_share(
             origin: OriginFor<T>,
             buyer_dpo_idx: DpoIndex,
             target_dpo_idx: DpoIndex,
@@ -1584,13 +1584,12 @@ impl<T: Config> Pallet<T> {
         let member = Self::dpo_members(target_dpo.index, buyer.clone());
         match member {
             Some(mut member_info) => { //an existing member
-                member_info.share += share;
                 //ensure share cap
                 // share percent = (before_amount + new_amount) / dpo_target_amount
-                // can not get the percent from share / total_share
+                // can not get the percent from (share / total_share)
                 // because total_share is not equivalent to target_amount before dpo becomes active
                 let member_total_amount = amount.saturating_add(
-                    rate.saturating_mul_int(share)
+                    rate.saturating_mul_int(member_info.share)
                 );
                 let share_percent = Self::percentage_from_num_tuple(
                     (member_total_amount, target_dpo.target_amount)
@@ -1602,6 +1601,7 @@ impl<T: Config> Pallet<T> {
                     Buyer::InvalidBuyer => Err(Error::<T>::InvalidBuyerType)?,
                 };
                 ensure!(share_percent <= share_cap, Error::<T>::ExceededShareCap);
+                member_info.share = member_info.share.saturating_add(share);
                 DpoMembers::<T>::insert(target_dpo.index, buyer.clone(), member_info);
             }
             None => { //new member
@@ -2216,7 +2216,7 @@ impl<T: Config> Pallet<T> {
                     );
                     let share_percent_min = Self::percentage_from_num_tuple(T::PassengerSharePercentMinimum::get());
                     // if the dpo's remaining share is less than min requirement, the last passenger
-                    // buy has to buy all the remaining share.
+                    // buyer has to buy all the remaining share.
                     if remainder_percent > share_percent_min {
                         let share_percent = Self::percentage_from_num_tuple(
                             (amount, target_dpo.target_amount)
