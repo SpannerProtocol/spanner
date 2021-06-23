@@ -12,6 +12,7 @@ members = [
 	"testing",
 
 	'pallets/bullet-train',
+	'pallets/voting',
 	'pallets/dex',
 	'pallets/rewards',
 

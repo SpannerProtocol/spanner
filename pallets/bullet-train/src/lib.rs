@@ -233,6 +233,7 @@ pub use module::*;
 #[frame_support::pallet]
 pub mod module {
     use super::*;
+    use frame_support::dispatch::Dispatchable;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -280,6 +281,10 @@ pub mod module {
         type EngineerOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
         type WeightInfo: WeightInfo;
+
+        type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
+
+        type Voting: Voting<Self::Origin, Self::AccountId, Self::Proposal>;
     }
 
     #[pallet::error]
@@ -916,7 +921,10 @@ pub mod module {
 
             let (amount_per_seat, payment_type) = match dpo.state {
                 DpoState::COMPLETED => {
-                    ensure!(!dpo.fare_withdrawn && dpo.vault_withdraw > Zero::zero(), Error::<T>::ZeroBalanceToWithdraw);
+                    ensure!(
+                        !dpo.fare_withdrawn && dpo.vault_withdraw > Zero::zero(),
+                        Error::<T>::ZeroBalanceToWithdraw
+                    );
                     // should be calculated by vault_withdraw
                     // it may include unused fund
                     let amount_each = dpo
@@ -930,7 +938,10 @@ pub mod module {
                     (dpo.amount_per_seat, PaymentType::WithdrawOnFailure)
                 }
                 DpoState::ACTIVE | DpoState::RUNNING => {
-                    ensure!(dpo.vault_withdraw > Zero::zero(), Error::<T>::ZeroBalanceToWithdraw);
+                    ensure!(
+                        dpo.vault_withdraw > Zero::zero(),
+                        Error::<T>::ZeroBalanceToWithdraw
+                    );
                     let amount_each = dpo
                         .vault_withdraw
                         .checked_div(T::DpoSeats::get().into())
@@ -1863,7 +1874,9 @@ impl<T: Config> Pallet<T> {
 
         //push to user member list, only if the new member is a passenger, except for the manager
         match buyer.clone() {
-            Buyer::Passenger(_) if !Self::is_buyer_manager(dpo, &buyer) => dpo.fifo.push(buyer.clone()),
+            Buyer::Passenger(_) if !Self::is_buyer_manager(dpo, &buyer) => {
+                dpo.fifo.push(buyer.clone())
+            }
             _ => {}
         }
 
@@ -2076,5 +2089,13 @@ impl<T: Config> Pallet<T> {
             }
         }
         return false;
+    }
+
+    // TESTING VOTING
+    pub fn testing_members(
+        section: VotingSectionIndex,
+        group: VotingGroupIndex,
+    ) -> Result<Vec<T::AccountId>, DispatchError> {
+        return T::Voting::members(section, group);
     }
 }

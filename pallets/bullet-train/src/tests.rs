@@ -2947,3 +2947,12 @@ fn get_dpos_of_accounts() {
             .any(|&i| i == 1));
     });
 }
+
+#[test]
+fn new_voting_group() {
+    ExtBuilder::default().build().execute_with(|| {
+        assert_ok!(Votings::new_section(Origin::signed(ALICE)));
+        assert_ok!(Votings::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_eq!(BulletTrain::testing_members(0, 0).unwrap(), vec![1, 2, 3]);
+    });
+}
