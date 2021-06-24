@@ -8,7 +8,14 @@ pub type DpoIndex = u32;
 
 pub type VotingSectionIndex = u32;
 pub type VotingGroupIndex = u32;
-pub trait Voting<Origin, AccountId, Call> {
+pub type ProposalIndex = u32;
+pub type MemberCount = u32;
+pub trait Voting<Origin, AccountId, Proposal, Hash, BlockNumber> {
+    fn new_group(
+        origin: Origin,
+        section: VotingSectionIndex,
+        members: Vec<AccountId>,
+    ) -> DispatchResult;
     fn set_members(
         origin: Origin,
         section: VotingSectionIndex,
@@ -19,7 +26,16 @@ pub trait Voting<Origin, AccountId, Call> {
         origin: Origin,
         section: VotingSectionIndex,
         group: VotingGroupIndex,
-        call: Call
+        call: Box<Proposal>,
+        threshold: MemberCount,
+        duration: BlockNumber,
+    ) -> DispatchResult;
+    fn close(
+        origin: Origin,
+        section: VotingSectionIndex,
+        group: VotingGroupIndex,
+        proposal_hash: Hash,
+        index: ProposalIndex,
     ) -> DispatchResult;
     fn members(
         section: VotingSectionIndex,

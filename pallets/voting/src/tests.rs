@@ -13,7 +13,7 @@ fn new_voting_group() {
             Votings::voting_group((0, 0)).unwrap().members,
             vec![1, 2, 3]
         );
-        assert_ok!(Votings::set_members(Origin::root(), 0, 0, vec![2, 3]));
+        assert_ok!(Votings::set_members(Origin::signed(ALICE), 0, 0, vec![2, 3]));
         assert_eq!(Votings::voting_group((0, 0)).unwrap().members, vec![2, 3]);
     });
 }

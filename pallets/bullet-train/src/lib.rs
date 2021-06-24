@@ -284,7 +284,13 @@ pub mod module {
 
         type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
 
-        type Voting: Voting<Self::Origin, Self::AccountId, Self::Proposal>;
+        type Voting: Voting<
+            Self::Origin,
+            Self::AccountId,
+            Self::Proposal,
+            Self::Hash,
+            Self::BlockNumber,
+        >;
     }
 
     #[pallet::error]
