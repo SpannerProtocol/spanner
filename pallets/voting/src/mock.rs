@@ -20,7 +20,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		Voting: pallet_voting::{Module, Call, Storage, Event<T>},
+		Votings: pallet_voting::{Module, Call, Storage, Event<T>},
 	}
 );
 
@@ -61,9 +61,16 @@ ord_parameter_types! {
 impl pallet_voting::Config for Test {
     type Event = Event;
     type EngineerOrRootOrigin = EnsureSignedBy<Alice, AccountId>;
+    type Proposal = Call;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+}
+
+pub fn run_to_block(n: u64) {
+    while System::block_number() < n {
+        System::set_block_number(System::block_number() + 1);
+    }
 }

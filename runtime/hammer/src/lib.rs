@@ -1078,6 +1078,16 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_voting::Config for Runtime {
+    type Event = Event;
+    type EngineerOrRootOrigin = EnsureOneOf<
+        AccountId,
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>,
+    >;
+    type Proposal = Call;
+}
+
 parameter_types! {
     pub const ReleaseYieldGracePeriod: BlockNumber = 7 * DAYS;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 7 * DAYS;
