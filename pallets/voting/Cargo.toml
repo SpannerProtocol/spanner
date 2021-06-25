@@ -22,9 +22,11 @@ primitives = { package = "node-primitives", path = "../../primitives", default-f
 pallet-bullet-train-primitives = { version = "2.0.0", default-features = false, path = "../bullet-train/common" }
 sp-core = { version = '3.0.0', default-features = false }
 sp-runtime = { version = '3.0.0', default-features = false }
+log = { version = "0.4.14", default-features = false }
 
 [dev-dependencies]
 sp-io = { version = '3.0.0', default-features = false }
+hex-literal = "0.3.1"
 
 [features]
 default = ['std']
@@ -37,4 +39,5 @@ std = [
     'sp-runtime/std',
     'primitives/std',
     "pallet-bullet-train-primitives/std",
+    "log/std",
 ]
