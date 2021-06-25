@@ -2064,66 +2064,66 @@ fn do_release_bonus_from_dpo() {
         ));
         assert_eq!(Balances::free_balance(ALICE), 1000000);
         //
-        //alice creates dpo 0 and take 15 seats spending 15,000, referred by adam
+        //alice creates dpo 0 and take 15% spending 15,000, referred by adam
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            15000, // 15%
             50,
             800,
             10,
             Some(ADAM)
         ));
-        assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000); //
-        //BCDE taking 10 each, spending 10,000
+        assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000);
+        //BCDE taking 10% each, spending 10,000
         for i in BOB..FRED {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                10000, // 10%
                 None
             ));
         }
-        //F taking 15, spending 15,000
+        //F taking 15%, spending 15,000
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(FRED),
             0,
-            15,
+            15000, // 15%
             None
         ));
-        // JILL takes 30 via DPO 1, taking 15 of DPO1, spending 30000 * 15% = 4500
+        // JILL takes 30% via DPO 1, taking 15% of DPO1, spending 30000 * 15% = 4500
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(JILL),
             String::from("test").into_bytes(),
-            Target::Dpo(0, 30),
-            15,
+            Target::Dpo(0, 30000), // 30%
+            4500, // 15%
             50,
             800,
             9,
             None
         ));
-        //BCEDFGH taking 10 each, spending 3000
+        //BCEDFGH taking 10% each, spending 3000
         for i in BOB..IVAN {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 1,
-                10,
+                3000, // 10%
                 None
             ));
         }
-        //I taking 15, spending 4500
+        //I taking 15%, spending 4500
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(IVAN),
             1,
-            15,
+            4500, // 15%
             None
         ));
         assert_ok!(BulletTrain::dpo_buy_dpo_share(
             Origin::signed(JILL),
             1,
             0,
-            30
+            30000, // 30%
         ));
         assert_ok!(BulletTrain::dpo_buy_travel_cabin(
             Origin::signed(ALICE),
@@ -2149,7 +2149,7 @@ fn do_release_bonus_from_dpo() {
             BulletTrain::dpo_members(0, Buyer::Dpo(1)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Dpo(1),
-                share: 30,
+                share: 30000, // 30%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(FRED)),
             }
         );
@@ -2212,41 +2212,41 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
         ));
         assert_eq!(Balances::free_balance(ALICE), 1000000);
         //
-        //alice creates dpo 0 and take 15 seats spending 15,000, referred by adam
+        //alice creates dpo 0 and take 15% spending 15,000, referred by adam
         //direct referral rate 0
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            15000, // 15%
             50,
             0,
             10,
             Some(ADAM)
         ));
-        assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000); //
-        //BCDE taking 10 each, spending 10,000
+        assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000);
+        //BCDE taking 10% each, spending 10,000
         for i in BOB..FRED {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                10000, // 10%
                 None
             ));
         }
-        //F taking 15, spending 15,000
+        //F taking 15%, spending 15,000
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(FRED),
             0,
-            15,
+            15000, // 15%
             None
         ));
-        // JILL takes 30 via DPO 1, taking 15 of DPO1, spending 30000 * 15% = 4500
+        // JILL takes 30% via DPO 1, taking 15% of DPO1, spending 30000 * 15% = 4500
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(JILL),
             String::from("test").into_bytes(),
-            Target::Dpo(0, 30),
-            15,
+            Target::Dpo(0, 30000), // 30%
+            4500, // 15%
             50,
             800,
             9,
@@ -2257,22 +2257,22 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 1,
-                10,
+                3000, // 10%
                 None
             ));
         }
-        //I taking 15, spending 4500
+        //I taking 15%, spending 4500
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(IVAN),
             1,
-            15,
+            4500, // 15%
             None
         ));
         assert_ok!(BulletTrain::dpo_buy_dpo_share(
             Origin::signed(JILL),
             1,
             0,
-            30
+            30000, // 30%
         ));
         assert_ok!(BulletTrain::dpo_buy_travel_cabin(
             Origin::signed(ALICE),
@@ -2298,7 +2298,7 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
             BulletTrain::dpo_members(0, Buyer::Dpo(1)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Dpo(1),
-                share: 30,
+                share: 30000, // 30%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(FRED)),
             }
         );
@@ -2341,23 +2341,23 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
             20,
             1
         ));
-        //alice creates dpo 0 and take 10 seats spending 10,000
+        //alice creates dpo 0 and take 10% spending 10,000
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            10,
+            10000, // 10%
             50,
             800,
             10,
             Some(110) //referrer of ALICE
         ));
-        //BCDE taking 10 each, spending 10,000
+        //BCDE taking 10% each, spending 10,000
         for i in BOB..10 {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                10000, // 10%
                 None
             ));
         }
