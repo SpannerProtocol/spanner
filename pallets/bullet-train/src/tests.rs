@@ -1192,7 +1192,7 @@ fn dpo_buy_travel_cabin() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            150, // 15%
             50,
             800,
             10,
@@ -1203,14 +1203,14 @@ fn dpo_buy_travel_cabin() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                100, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             0,
-            5,
+            50, // 5%
             None
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
@@ -1280,7 +1280,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            150, // 15%
             50,
             800,
             100,
@@ -1289,8 +1289,8 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
-            Target::Dpo(0, 30),
-            15,
+            Target::Dpo(0, 300), // 30%
+            45, // 15%
             50,
             800,
             99,
@@ -1300,14 +1300,14 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 1,
-                10,
+                30, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             1,
-            5,
+            15, // 5%
             None
         ));
         //overtime
@@ -1317,7 +1317,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
             Origin::signed(ALICE),
             1,
             0,
-            30
+            300, // 30%
         ));
         assert_eq!(BulletTrain::dpos(1).unwrap().fee, 200);
     });
@@ -1341,7 +1341,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            150, // 15%
             50,
             800,
             100,
@@ -1351,8 +1351,8 @@ fn buy_dpo_seats_after_grace_period_by_member() {
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(BOB),
             String::from("test").into_bytes(),
-            Target::Dpo(0, 30),
-            15,
+            Target::Dpo(0, 300), // 30%
+            45, // 15%
             50,
             800,
             99,
@@ -1362,14 +1362,14 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 1,
-                10,
+                30, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             1,
-            5,
+            15, // 5%
             None
         ));
         //dpo1 overtime
@@ -1379,7 +1379,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             Origin::signed(CAROL),
             1,
             0,
-            30
+            300, // 30%
         ));
         assert_eq!(BulletTrain::dpos(1).unwrap().fee, 100);
 
@@ -1387,14 +1387,14 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                100, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(HUGH),
             0,
-            15,
+            150, // 15%
             None
         ));
         // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
@@ -1432,18 +1432,18 @@ fn buy_dpo_seats_after_grace_period_by_external() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            150, // 15%
             50,
             800,
             100,
             None
         ));
-        //create dpo1 to target 30 seats of dpo 0
+        //create dpo1 to target 30% of dpo 0
         assert_ok!(BulletTrain::create_dpo(
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
-            Target::Dpo(0, 30),
-            15,
+            Target::Dpo(0, 300), // 30%
+            45, // 15%
             50,
             800,
             99,
@@ -1454,14 +1454,14 @@ fn buy_dpo_seats_after_grace_period_by_external() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 1,
-                10,
+                30, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             1,
-            5,
+            15, // 5%
             None
         ));
 
@@ -1469,19 +1469,19 @@ fn buy_dpo_seats_after_grace_period_by_external() {
         run_to_block(11);
         //11 is external member. cant buy
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_share(Origin::signed(11), 1, 0, 30),
+            BulletTrain::dpo_buy_dpo_share(Origin::signed(11), 1, 0, 300), // 30%
             Error::<Test>::NoPermission
         );
-        //default target dpo0 30 seats. request for 20 will fail
+        //default target dpo0 30%. request for 20%
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_share(Origin::signed(ALICE), 1, 0, 20),
+            BulletTrain::dpo_buy_dpo_share(Origin::signed(ALICE), 1, 0, 200), // 20%
             Error::<Test>::DefaultTargetAvailable
         );
         assert_ok!(BulletTrain::dpo_buy_dpo_share(
             Origin::signed(ALICE),
             1,
             0,
-            30
+            300 // 30%
         ));
         assert_eq!(BulletTrain::dpos(1).unwrap().fee, 200);
     });
@@ -1504,7 +1504,7 @@ fn buy_travel_cabin_after_grace_period_by_manager() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            150, // 15%
             50,
             800,
             100,
@@ -1514,14 +1514,14 @@ fn buy_travel_cabin_after_grace_period_by_manager() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                100, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             0,
-            5,
+            50, // 5%
             None
         ));
         //overtime
@@ -1553,7 +1553,7 @@ fn buy_travel_cabin_after_grace_period_by_member() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            150, // 15%
             50,
             800,
             100,
@@ -1563,14 +1563,14 @@ fn buy_travel_cabin_after_grace_period_by_member() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                100, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             0,
-            5,
+            50, // 5%
             None
         ));
         //overtime
@@ -1598,7 +1598,7 @@ fn buy_travel_cabin_after_grace_period_by_external() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            150, // 15%
             50,
             800,
             100,
@@ -1608,14 +1608,14 @@ fn buy_travel_cabin_after_grace_period_by_external() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                100, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             0,
-            5,
+            50, // 5%
             None
         ));
         //overtime
@@ -1646,7 +1646,7 @@ fn yield_commission_test() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            15000, // 15%
             50,
             800,
             10,
@@ -1657,14 +1657,14 @@ fn yield_commission_test() {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
                 0,
-                10,
+                10000, // 10%
                 None
             ));
         }
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             0,
-            5,
+            5000, // 5%
             None
         ));
         assert_ok!(BulletTrain::dpo_buy_travel_cabin(
@@ -1673,7 +1673,7 @@ fn yield_commission_test() {
             0
         ));
 
-        // 20% mgmt fee. giving 100k reward over 100 blocks, 1k each. 10 for each seat
+        // 20% mgmt fee. giving 100k reward over 100 blocks, 1k each. 10 for one percent
         // by default ALICE the manager will get 200 + 120 = 320 per block, BOB will get 80
         // in the case of treasure hunting, ALICE the manager will get 198 + 119 = 317 per block, BOB will get 79, and the hunter 10
         // in case of slashing yield, ALICE the manager will get 100 + 130 = 280 per block, BOB will get 90
