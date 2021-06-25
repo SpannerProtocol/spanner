@@ -1090,6 +1090,7 @@ parameter_types! {
     pub const CabinBonusRewardMinimum: Balance = 10_000_000_000;
     pub const DpoSharePercentCap: (u8, u8) = (1, 2); // 50%
     pub const DpoSharePercentMinimum: (u8, u8) = (3, 100); // 3%
+    pub const DpoPartialBuySharePercentMin: (u8, u8) = (1, 100); // 1%
     pub const PassengerSharePercentCap: (u8, u8) = (3, 10); // 30%
     pub const PassengerSharePercentMinimum: (u8, u8) = (1, 100); // 1%
     pub const ManagerSlashPerThousand: u32 = 500;
@@ -1107,6 +1108,7 @@ impl pallet_bullet_train::Config for Runtime {
     type CabinBonusRewardMinimum = CabinBonusRewardMinimum;
     type DpoSharePercentCap = DpoSharePercentCap;
     type DpoSharePercentMinimum = DpoSharePercentMinimum;
+    type DpoPartialBuySharePercentMin = DpoPartialBuySharePercentMin;
     type PassengerSharePercentCap = PassengerSharePercentCap;
     type PassengerSharePercentMinimum = PassengerSharePercentMinimum;
     type ManagerSlashPerThousand = ManagerSlashPerThousand;

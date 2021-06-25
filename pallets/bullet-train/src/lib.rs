@@ -293,6 +293,9 @@ pub mod module {
         type DpoSharePercentMinimum: Get<(u8, u8)>;
 
         #[pallet::constant]
+        type DpoPartialBuySharePercentMin: Get<(u8, u8)>;
+
+        #[pallet::constant]
         type PassengerSharePercentCap: Get<(u8, u8)>;
 
         #[pallet::constant]
@@ -367,8 +370,6 @@ pub mod module {
         NewTargetToSameDpo,
         /// not allowed to change new target
         NotAllowedToChangeTarget,
-        /// the action is only allowed to be done by the manager
-        OnlyDoneByDpoManager,
     }
 
     #[pallet::event]
@@ -810,14 +811,24 @@ pub mod module {
             // ending of this dpo must be in the future
             ensure!(end > now, Error::<T>::InvalidEndTime);
             // check if the share over the cap
+            let target_amount = Self::get_target_amount(&target)?;
+            let percent = Self::percentage_from_num_tuple(
+                (manager_purchase_amount, target_amount)
+            );
             ensure!(
-                Self::get_share_percent_for_target(manager_purchase_amount, &target)?
-                    <= Self::percentage_from_num_tuple(T::PassengerSharePercentCap::get()),
+                percent <= Self::percentage_from_num_tuple(T::PassengerSharePercentCap::get()),
                 Error::<T>::ExceededShareCap
             );
             //check commission rate base does not exceed cap
             ensure!(base_fee <= BASE_FEE_CAP, Error::<T>::ExceededRateCap);
             ensure!(direct_referral_rate <= 1000, Error::<T>::ExceededRateCap);
+
+            let fee = Self::calculate_fee(
+                base_fee,
+                manager_purchase_amount,
+                target_amount,
+                false
+            );
 
             //construct the new dpo
             let current_dpo_idx = Self::dpo_count();
@@ -828,6 +839,7 @@ pub mod module {
                 manager: manager.clone(),
                 rate: (1, 1), // default rate=1
                 base_fee,
+                fee,
                 fee_slashed: false,
                 expiry_blk: end,
                 state: DpoState::CREATED,
@@ -937,14 +949,14 @@ pub mod module {
             // (a) change the target by the manager
             ensure!(
                 Self::is_buyer_manager(&buyer_dpo, &Buyer::Passenger(signer)),
-                Error::<T>::OnlyDoneByDpoManager
+                Error::<T>::NoPermission
             );
 
-            // (b) if the buyer_dpo in a correct state
+            // (b) ensure the buyer_dpo in a correct state and no partial purchase
+            let funded_amount = buyer_dpo.target_amount.saturating_sub(buyer_dpo.target_remainder);
             ensure!(
-                buyer_dpo.state == DpoState::CREATED ||
-                    (buyer_dpo.state == DpoState::ACTIVE
-                        && buyer_dpo.vault_deposit == buyer_dpo.target_amount), // no partial commit
+                (buyer_dpo.state == DpoState::CREATED || buyer_dpo.state == DpoState::ACTIVE)
+                        && buyer_dpo.vault_deposit == funded_amount,
                 Error::<T>::DpoWrongState
             );
 
@@ -952,7 +964,6 @@ pub mod module {
             Self::is_legit_new_target_for_dpo_to_change(&buyer_dpo, new_target.clone())?;
 
             // (d) refresh target info
-            let funded_amount = buyer_dpo.target_amount.saturating_sub(buyer_dpo.target_remainder);
             Self::refresh_dpo_info_for_new_target(&mut buyer_dpo, &new_target)?;
 
             // (e) update dpo state and pay back to members if having unused fund
@@ -1107,7 +1118,8 @@ impl<T: Config> Pallet<T> {
         // (b) update the inventory count
         TravelCabinInventory::<T>::insert(travel_cabin_idx, (inv_idx + 1, inv_supply));
 
-        //  (c) update the milestone record if any
+        // TODO: buy post?
+        // (c) update the milestone record if any
         if let Some(mut milestone_reward_info) = Self::milestone_reward(travel_cabin.token_id) {
             milestone_reward_info.deposited += travel_cabin.deposit_amount;
             MilestoneReward::<T>::insert(travel_cabin.token_id, milestone_reward_info);
@@ -1115,7 +1127,7 @@ impl<T: Config> Pallet<T> {
         Ok(inv_idx)
     }
     /// as a generic check to see if the target available
-    fn is_legit_target(target: &Target<Balance>) -> DispatchResult {
+    fn is_target_available(target: &Target<Balance>) -> DispatchResult {
         match target {
             Target::Dpo(dpo_idx, amount) => {
                 let amount = *amount;
@@ -1135,7 +1147,7 @@ impl<T: Config> Pallet<T> {
                 ensure!(inv_idx < inv_supply, Error::<T>::CabinNotAvailable);
             }
         }
-        Ok(()) // invalid target
+        Ok(())
     }
 
     /// find out all the triggered milestone drops and do it one by one
@@ -1275,9 +1287,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn get_share_percent_for_target(
-        amount: Balance, target: &Target<Balance>,
-    ) -> Result<Percentage, DispatchError> {
+    fn get_target_amount(target: &Target<Balance>) -> Result<Balance, DispatchError> {
         let total_target = match target {
             Target::Dpo(target_dpo_id, target_amount) => {
                 Self::dpos(target_dpo_id).ok_or(Error::<T>::InvalidIndex)?; // check exist
@@ -1288,8 +1298,7 @@ impl<T: Config> Pallet<T> {
                 travel_cabin.deposit_amount
             }
         };
-        let percent = Self::percentage_from_num_tuple((amount, total_target));
-        Ok(percent)
+        Ok(total_target)
     }
 
     fn percentage_from_num_tuple<N: FixedPointOperand, D: FixedPointOperand>(
@@ -1355,20 +1364,36 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::InvalidIndex)?;
             let manager_amount = Self::percentage_from_num_tuple(dpo.rate)
                 .saturating_mul_int(manager_info.share);
-            let mut fee = (
-                manager_amount
-                    .saturating_mul(1000)
-                    .checked_div(dpo.target_amount)
-                    .unwrap_or_else(Zero::zero)
-            ) as u32 + dpo.base_fee;
-            if fee > T::ManagementFeeCap::get() { fee = T::ManagementFeeCap::get() };
-            if dpo.fee_slashed { // keep to be slashed
-                fee = Permill::from_perthousand(T::ManagerSlashPerThousand::get()) * fee;
-            }
+            let fee = Self::calculate_fee(
+                dpo.base_fee,
+                manager_amount,
+                new_target_amount,
+                dpo.fee_slashed,
+            );
+            // TODO: new fee <= old fee?
             dpo.fee = fee;
         }
         dpo.target_amount = new_target_amount;
         Ok(())
+    }
+
+    fn calculate_fee(
+        base_fee: u32,
+        manager_amount: Balance,
+        target_amount: Balance,
+        is_slashed: bool,
+    ) -> u32 {
+        let mut fee = (
+            manager_amount
+                .saturating_mul(1000)
+                .checked_div(target_amount)
+                .unwrap_or_else(Zero::zero)
+        ) as u32 + base_fee;
+        if fee > T::ManagementFeeCap::get() { fee = T::ManagementFeeCap::get() };
+        if is_slashed { // keep to be slashed
+            fee = Permill::from_perthousand(T::ManagerSlashPerThousand::get()) * fee;
+        }
+        fee
     }
 
     /// update dpo (receiver) book. the book may include time information.
@@ -1548,7 +1573,7 @@ impl<T: Config> Pallet<T> {
                     }
                 }
                 let manager_commission = Permill::from_perthousand(fee) * dpo.vault_yield;
-                let total_reward_to_members = dpo.vault_yield.saturating_mul(manager_commission);
+                let total_reward_to_members = dpo.vault_yield.saturating_sub(manager_commission);
 
                 // weighted release to user_members
                 Self::dpo_outflow_to_members_by_share(
@@ -1584,7 +1609,7 @@ impl<T: Config> Pallet<T> {
         let member = Self::dpo_members(target_dpo.index, buyer.clone());
         match member {
             Some(mut member_info) => { //an existing member
-                //ensure share cap
+                // ensure share cap
                 // share percent = (before_amount + new_amount) / dpo_target_amount
                 // can not get the percent from (share / total_share)
                 // because total_share is not equivalent to target_amount before dpo becomes active
@@ -1600,6 +1625,7 @@ impl<T: Config> Pallet<T> {
                     Buyer::Passenger(_) => Self::percentage_from_num_tuple(T::PassengerSharePercentCap::get()),
                     Buyer::InvalidBuyer => Err(Error::<T>::InvalidBuyerType)?,
                 };
+                // TODO: do this outside?
                 ensure!(share_percent <= share_cap, Error::<T>::ExceededShareCap);
                 member_info.share = member_info.share.saturating_add(share);
                 DpoMembers::<T>::insert(target_dpo.index, buyer.clone(), member_info);
@@ -1646,6 +1672,7 @@ impl<T: Config> Pallet<T> {
 
         // step 2 (emit): compute the distributable bonus (if the member is a dpo, only its managers portion (in parent dpo). Otherwise, all of them)
         let dpo_members = DpoMembers::<T>::iter_prefix_values(dpo.index);
+        let total_bonus = dpo.vault_bonus;
         let mut bonus_remainder = dpo.vault_bonus;
         for member_info in dpo_members.into_iter() {
             // this is the only case that requires special handling
@@ -1654,7 +1681,7 @@ impl<T: Config> Pallet<T> {
                     // just wire manager's portion to him
                     let mut manager_portion = Self::percentage_from_num_tuple(
                         (manager_info.share, total_receivable_share)
-                    ).saturating_mul_int(dpo.vault_bonus);
+                    ).saturating_mul_int(total_bonus);
                     bonus_remainder = bonus_remainder.saturating_sub(manager_portion);
                     if let Referrer::External(ext_acc, _) = member_info.referrer {
                         let external_bonus = Percent::from_percent(30) * manager_portion;
@@ -1677,9 +1704,11 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            let mut emit_bonus = Self::percentage_from_num_tuple(
-                (member_info.share, total_receivable_share)
-            ).saturating_mul_int(dpo.vault_bonus);
+            // let mut emit_bonus = Self::percentage_from_num_tuple(
+            //     (member_info.share, total_receivable_share)
+            // ).saturating_mul_int(total_bonus);
+            let mut emit_bonus = Permill::from_rational_approximation(member_info.share, total_receivable_share) * total_bonus;
+
             bonus_remainder = bonus_remainder.saturating_sub(emit_bonus);
 
             if let Buyer::Dpo(member_dpo_idx) = member_info.buyer {
@@ -1789,7 +1818,7 @@ impl<T: Config> Pallet<T> {
         new_target: Target<Balance>,
     ) -> DispatchResult {
         // (a) first check if the new target is available
-        Self::is_legit_target(&new_target)?;
+        Self::is_target_available(&new_target)?;
 
         // (b) not retarget to the same dpo
         let target_compare = Self::compare_targets(&new_target, &dpo.target);
@@ -1800,12 +1829,12 @@ impl<T: Config> Pallet<T> {
 
         // (c) original target unavailable
         ensure!(
-            Self::is_legit_target(&dpo.target).is_err(),
+            Self::is_target_available(&dpo.target).is_err(),
             Error::<T>::DefaultTargetAvailable
         );
 
         // (d) then check if the new target is legit given the dpo bound
-        Self::verify_dpo_target_amount(dpo, new_target)?;
+        Self::verify_dpo_target_amount(dpo, new_target, false)?;
         Ok(())
     }
 
@@ -1815,7 +1844,7 @@ impl<T: Config> Pallet<T> {
         intended_target: Target<Balance>,
     ) -> DispatchResult {
         // (a) first check if the target is a legit one in general
-        Self::is_legit_target(&intended_target)?;
+        Self::is_target_available(&intended_target)?;
 
         // (b) same target or to same dpo
         let target_compare = Self::compare_targets(&intended_target, &dpo.target);
@@ -1824,16 +1853,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotAllowedToChangeTarget
         );
 
-        // (c) when dpo is in active state, it should buy the original target completely,
+        // (c) when dpo becomes active, it should buy the original target completely,
         // instead of buying partially, unless the target is unavailable
-        if dpo.state == DpoState::ACTIVE && target_compare == TargetCompare::SameDpo {
+        let is_share_remainder = dpo.state == DpoState::ACTIVE
+            && target_compare == TargetCompare::SameDpo;
+        if is_share_remainder {
             match intended_target.clone() {
                 // should pay all deposit for the target, unless it is unavailable
                 // check vault_deposit instead of target_amount cuz dpo has purchased partial target.
                 Target::Dpo(target_dpo_id, amount) if dpo.vault_deposit != amount => {
                     ensure!(
                         // original target unavailable
-                        Self::is_legit_target(
+                        Self::is_target_available(
                             &Target::Dpo(target_dpo_id, dpo.vault_deposit)
                         ).is_err(),
                         Error::<T>::DefaultTargetAvailable
@@ -1844,14 +1875,24 @@ impl<T: Config> Pallet<T> {
         }
 
         // (d) then check if the target is legit given the dpo bound
-        Self::verify_dpo_target_amount(dpo, intended_target)?;
-        Ok(())
+        let is_partial_buy = target_compare != TargetCompare::Same;
+        let result = Self::verify_dpo_target_amount(dpo, intended_target, is_partial_buy);
+        // special case: when the dpo bought target dpo partially, the remaining share
+        // may be less than the minimum requirement (1%) of the target dpo
+        match result {
+            Err(err) if err == DispatchError::from(Error::<T>::PurchaseAtLeastOnePercent)
+                && is_share_remainder => Ok(()),
+            _ => result
+        }
     }
 
     fn verify_dpo_target_amount(
         dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         target: Target<Balance>,
+        is_partial_buy: bool,
     ) -> DispatchResult {
+        // TODO: check dpo deposit vs target amount
+        // create_dpo vs buy target (partially) vs change target
         match target {
             Target::TravelCabin(index) => {
                 let travel_cabin = Self::travel_cabins(index).ok_or(Error::<T>::InvalidIndex)?;
@@ -1874,16 +1915,27 @@ impl<T: Config> Pallet<T> {
                 let share_percent = Self::percentage_from_num_tuple(
                     (new_target_amount, target_dpo.target_amount)
                 );
+
                 // ensure minimum share
-                ensure!(
-                    share_percent >= Self::percentage_from_num_tuple(T::DpoSharePercentMinimum::get()),
-                    Error::<T>::PurchaseAtLeastThreePercentForDpo
-                );
+                let (min_share_percent, err) = if is_partial_buy {
+                    (
+                        Self::percentage_from_num_tuple(T::DpoPartialBuySharePercentMin::get()),
+                        Error::<T>::PurchaseAtLeastOnePercent
+                    )
+                } else {
+                    (
+                        Self::percentage_from_num_tuple(T::DpoSharePercentMinimum::get()),
+                        Error::<T>::PurchaseAtLeastThreePercentForDpo
+                    )
+                };
+                ensure!(share_percent >= min_share_percent, err);
+
                 // if the dpo is aiming too many share
                 ensure!(
                     share_percent <= Self::percentage_from_num_tuple(T::DpoSharePercentCap::get()),
                     Error::<T>::ExceededShareCap
                 );
+
                 // if dpo can afford the cabin
                 // active dpo can not change to larger target
                 if dpo.state == DpoState::ACTIVE {
@@ -1892,18 +1944,21 @@ impl<T: Config> Pallet<T> {
                         Error::<T>::TargetValueTooBig
                     );
                 }
+
                 // if dpo can split the target evenly
                 ensure!(
                     new_target_amount >= TARGET_AMOUNT_MINIMUM,
                     Error::<T>::TargetValueTooSmall
                 );
+
                 // if dpo can split the reward evenly
                 let (yield_est, _) = Self::get_dpo_reward_estimates(&target_dpo, new_target_amount);
-                // if the target dpo is of the same token
                 ensure!(
                     yield_est >= TARGET_AMOUNT_MINIMUM,
                     Error::<T>::TargetValueTooSmall
                 );
+
+                // if the target dpo is of the same token
                 ensure!(
                     dpo.token_id == target_dpo.token_id,
                     Error::<T>::InvalidTargetForDpo
@@ -2018,9 +2073,16 @@ impl<T: Config> Pallet<T> {
 
         // (b) the target should be the same to the original (dpo),
         // or to the one with same dpo with different target amount
-        Self::is_legit_target_for_dpo_to_buy(buyer_dpo, target)?;
+        Self::is_legit_target_for_dpo_to_buy(buyer_dpo, target.clone())?;
 
-        // (c) if the who has right and if we should slash the manager. but no double slashing
+        // (c) ensure the dpo has enough balance to buy
+        let target_amount = Self::get_target_amount(&target)?;
+        ensure!(
+            buyer_dpo.vault_deposit >= target_amount,
+            Error::<T>::TargetValueTooBig
+        );
+
+        // (d) if the who has right and if we should slash the manager. but no double slashing
         if buyer_dpo.state == DpoState::ACTIVE {
             let should_slash_manager = Self::if_should_slash_manager_on_buying(&buyer_dpo, who)?;
             if should_slash_manager && !buyer_dpo.fee_slashed {
@@ -2204,7 +2266,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         if let Buyer::Passenger(_) = buyer {
             // check if the target is available in general
-            Self::is_legit_target(&target)?;
+            Self::is_target_available(&target)?;
             let mut purchased_inv_idx = None; // just for event
             match target {
                 Target::Dpo(target_dpo_idx, amount) => {
