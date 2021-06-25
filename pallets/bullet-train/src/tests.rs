@@ -1856,7 +1856,7 @@ fn dpo_referral() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            15000, // 15%
             50,
             800,
             10,
@@ -1866,7 +1866,7 @@ fn dpo_referral() {
             Origin::signed(JILL),
             String::from("test").into_bytes(),
             Target::TravelCabin(0),
-            15,
+            15000, // 15%
             50,
             800,
             10,
@@ -1878,7 +1878,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(ALICE)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(ALICE),
-                share: 15,
+                share: 15000, // 15%
                 referrer: Referrer::None, //top of iceberg
             }
         );
@@ -1891,7 +1891,7 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(BOB),
             0,
-            10,
+            10000, // 10%
             None
         ));
         assert_eq!(
@@ -1902,7 +1902,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(BOB)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(BOB),
-                share: 10,
+                share: 10000, // 10%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(ALICE)), // manager
             }
         );
@@ -1912,7 +1912,7 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(CAROL),
             0,
-            10,
+            10000, // 10%
             None
         ));
         assert_eq!(
@@ -1923,7 +1923,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(CAROL)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(CAROL),
-                share: 10,
+                share: 10000, // 10%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(BOB)),
             }
         );
@@ -1933,7 +1933,7 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(DYLAN),
             0,
-            10,
+            10000, // 10%
             None
         ));
         assert_eq!(
@@ -1944,7 +1944,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(DYLAN)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(DYLAN),
-                share: 10,
+                share: 10000, // 10%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(CAROL)),
             }
         );
@@ -1954,7 +1954,7 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ELSA),
             0,
-            10,
+            10000, // 10%
             Some(BOB)
         ));
         assert_eq!(
@@ -1965,7 +1965,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(ELSA)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(ELSA),
-                share: 10,
+                share: 10000, // 10%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(BOB)),
             }
         );
@@ -1975,7 +1975,7 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(FRED),
             0,
-            10,
+            10000, // 10%
             None
         ));
         assert_eq!(
@@ -1986,7 +1986,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(FRED)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(FRED),
-                share: 10,
+                share: 10000, // 10%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(DYLAN)),
             }
         );
@@ -1997,7 +1997,7 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(GREG),
             0,
-            10,
+            10000, // 10%
             Some(JILL)
         ));
         assert_eq!(
@@ -2008,7 +2008,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(GREG)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(GREG),
-                share: 10,
+                share: 10000, // 10%
                 referrer: Referrer::External(JILL, Buyer::Passenger(ELSA)),
             }
         );
@@ -2017,14 +2017,14 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(HUGH),
             0,
-            10,
+            10000, // 10%
             Some(ALICE)
         ));
         assert_eq!(
             BulletTrain::dpo_members(0, Buyer::Passenger(HUGH)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(HUGH),
-                share: 10,
+                share: 10000, // 10%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(ALICE)), // manager
             }
         );
@@ -2032,16 +2032,16 @@ fn dpo_referral() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(IVAN),
             0,
-            10,
+            10000, // 10%
             None
         ));
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ADAM),
             0,
-            5,
+            5000, // 5%
             None
         ));
-        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_remainder, 0);
 
         assert_eq!(BulletTrain::dpos(0).unwrap().fifo.len(), 3);
     });
