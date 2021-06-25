@@ -1744,6 +1744,7 @@ fn yield_commission_test() {
         let expected_event =
             Event::pallet_bullet_train(crate::Event::TreasureHunted(ALICE, 0, 0, 1000 * 20 / 100));
         assert!(System::events().iter().any(|a| a.event == expected_event));
+        assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 2 + 320 * 5 + 1000 * 20 / 100);
 
         run_to_block(47);
         assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(27));
@@ -1771,17 +1772,16 @@ fn yield_commission_test() {
         let expected_event = Event::pallet_bullet_train(crate::Event::YieldReleased(BOB, 0));
         assert!(System::events().iter().any(|a| a.event == expected_event));
         // alice gets treasure hunting reward and slashed
-        // slight mismatch to above due to rounding
-        // 19800 in vault, 198 per slot, 198*0.1 (slashed) = 20 as fee, 178 as reward
-        // alice will get 10 * 20 + 20 * 100 + 178 * 15
-        assert_eq!(
-            Balances::free_balance(ALICE),
-            985000 + 320 * 7 + 10 * 20 + 20 * 100 + 178 * 15
-        );
-        // bob will get 178 * 10
+        // bob will get 19800 * (1 - 10%) / 10 = 1782
         assert_eq!(
             Balances::free_balance(BOB),
-            490000 + 160 + 80 * 5 + 178 * 10
+            490000 + 160 + 80 * 5 + 1782
+        );
+
+        // alice will get 19800 * 10% + (19800 * 90% - 8 * 1782 - 891) = 4653
+        assert_eq!(
+            Balances::free_balance(ALICE),
+            985000 + 320 * 7 + 10 * 20 + 4653
         );
 
         //case: released by external member (+ 20 blocks), after the grace period 10 blocks
@@ -1822,7 +1822,7 @@ fn yield_commission_test() {
             BulletTrain::dpos(0).unwrap().vault_yield,
             1000 * 20 * 99 / 100
         );
-        run_to_block(67);
+        run_to_block(67); // 47 -> 67
         assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(389), 0));
         assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
@@ -1830,11 +1830,11 @@ fn yield_commission_test() {
         assert!(System::events().iter().any(|a| a.event == expected_event));
         assert_eq!(
             Balances::free_balance(ALICE),
-            985000 + 320 * 7 + (10 * 20 + 20 * 100 + 178 * 15) * 2
+            985000 + 320 * 7 + (10 * 20 + 4653) * 2
         );
         assert_eq!(
             Balances::free_balance(BOB),
-            490000 + 160 + 80 * 5 + (178 * 10) * 2
+            490000 + 160 + 80 * 5 + 1782 * 2
         );
     });
 }
