@@ -980,6 +980,7 @@ pub mod module {
                 }
             }
             // no event because all info can be got from extrinsic
+            Dpos::<T>::insert(buyer_dpo.index, &buyer_dpo);
             Ok(().into())
         }
 
@@ -1374,6 +1375,7 @@ impl<T: Config> Pallet<T> {
             dpo.fee = fee;
         }
         dpo.target_amount = new_target_amount;
+        dpo.target = new_target.clone();
         Ok(())
     }
 
