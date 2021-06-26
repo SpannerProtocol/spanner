@@ -184,12 +184,11 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     target: Target<Balance>,
     target_maturity: BlockNumber,
     target_amount: Balance,
-    target_remainder: Balance,
     target_yield_estimate: Balance,
     target_bonus_estimate: Balance,
     // dpo internal share, tokenization in the future
     total_share: Balance,
-    // rate=funded_amount/total_share, represents that one unit share be equivalent to the number
+    // rate=total_fund/total_share, represents that one unit share be equivalent to the number
     // of the target token, default rate=1
     rate: (Balance, Balance),
     fifo: Vec<Buyer<AccountId>>,
@@ -202,6 +201,8 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     vault_withdraw: Balance,
     vault_yield: Balance,
     vault_bonus: Balance,
+    // total amount the dpo crowdfunded
+    total_fund: Balance,
     total_yield_received: Balance,
     total_bonus_received: Balance,
     total_milestone_received: Balance,
@@ -953,10 +954,9 @@ pub mod module {
             );
 
             // (b) ensure the buyer_dpo in a correct state and no partial purchase
-            let funded_amount = buyer_dpo.target_amount.saturating_sub(buyer_dpo.target_remainder);
             ensure!(
                 (buyer_dpo.state == DpoState::CREATED || buyer_dpo.state == DpoState::ACTIVE)
-                        && buyer_dpo.vault_deposit == funded_amount,
+                        && buyer_dpo.vault_deposit == buyer_dpo.total_fund,
                 Error::<T>::DpoWrongState
             );
 
@@ -966,21 +966,16 @@ pub mod module {
             // (d) refresh target info
             Self::refresh_dpo_info_for_new_target(&mut buyer_dpo, &new_target)?;
 
-            // (e) update dpo state and pay back to members if having unused fund
-            let new_target_amount = buyer_dpo.target_amount;
-            if funded_amount >= new_target_amount {
-                let unused_total = funded_amount.saturating_sub(new_target_amount);
-                if unused_total > Zero::zero() {
-                    Self::update_dpo_inflow(&mut buyer_dpo, unused_total, PaymentType::UnusedFund)?;
-                }
-                if buyer_dpo.state == DpoState::CREATED {
-                    buyer_dpo.state = DpoState::ACTIVE;
-                    let now = <frame_system::Module<T>>::block_number();
-                    buyer_dpo.blk_of_dpo_filled = Some(now);
-                }
+            // (e) update dpo state if fund is enough
+            if buyer_dpo.total_fund >= buyer_dpo.target_amount
+                && buyer_dpo.state == DpoState::CREATED {
+                // TODO: activate dpo
+                buyer_dpo.state = DpoState::ACTIVE;
+                let now = <frame_system::Module<T>>::block_number();
+                buyer_dpo.blk_of_dpo_filled = Some(now);
             }
-            // no event because all info can be got from extrinsic
             Dpos::<T>::insert(buyer_dpo.index, &buyer_dpo);
+            // TODO: event
             Ok(().into())
         }
 
@@ -1135,7 +1130,10 @@ impl<T: Config> Pallet<T> {
                 let dpo = Self::dpos(*dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
                 ensure!(dpo.state == DpoState::CREATED, Error::<T>::DpoWrongState);
                 //(a) target dpo not having enough share
-                ensure!(amount <= dpo.target_remainder, Error::<T>::DpoNotEnoughShare);
+                ensure!(
+                    amount <= dpo.target_amount.saturating_sub(dpo.total_fund),
+                    Error::<T>::DpoNotEnoughShare
+                );
                 //(b) target dpo value too small. Actually an existing dpo in storage must be valid
                 ensure!(
                     amount > Zero::zero(),
@@ -1326,7 +1324,6 @@ impl<T: Config> Pallet<T> {
         dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         new_target: &Target<Balance>,
     ) -> DispatchResult {
-        let funded_amount = dpo.target_amount.saturating_sub(dpo.target_remainder);
         let new_target_amount = match new_target {
             Target::Dpo(idx, amount) => {
                 let amount = *amount;
@@ -1348,18 +1345,10 @@ impl<T: Config> Pallet<T> {
                 travel_cabin.deposit_amount
             }
         };
+        dpo.target_amount = new_target_amount;
+        dpo.target = new_target.clone();
 
-        // when changing to the new target smaller than already funded amount
-        // it means that the dpo is to be at active state and total_share is equivalent
-        // to new_target_amount, and the unused fund will be returned when buying
-        if funded_amount > new_target_amount {
-            dpo.rate = (new_target_amount, dpo.total_share);
-            dpo.target_remainder = 0;
-        } else if new_target_amount > dpo.target_amount {
-            // if it is going to fund more, keep rate unchanged and recompute fee
-            // because the percent of manager share may decrease
-            dpo.target_remainder = new_target_amount.saturating_sub(funded_amount);
-
+        if new_target_amount > dpo.total_fund {
             // recompute fee
             let manager_info = Self::dpo_members(dpo.index, Buyer::Passenger(dpo.manager.clone()))
                 .ok_or(Error::<T>::InvalidIndex)?;
@@ -1374,8 +1363,6 @@ impl<T: Config> Pallet<T> {
             // TODO: new fee <= old fee?
             dpo.fee = fee;
         }
-        dpo.target_amount = new_target_amount;
-        dpo.target = new_target.clone();
         Ok(())
     }
 
@@ -1407,8 +1394,9 @@ impl<T: Config> Pallet<T> {
         match payment_type {
             PaymentType::Deposit => {
                 dpo.vault_deposit = dpo.vault_deposit.saturating_add(amount);
-                dpo.target_remainder = dpo.target_remainder.saturating_sub(amount);
-                if dpo.target_remainder.is_zero() {
+                dpo.total_fund = dpo.total_fund.saturating_add(amount);
+                if dpo.total_fund >= dpo.target_amount {
+                    // TODO: dpo activate
                     dpo.state = DpoState::ACTIVE;
                     let now = <frame_system::Module<T>>::block_number();
                     dpo.blk_of_dpo_filled = Some(now);
@@ -1453,6 +1441,7 @@ impl<T: Config> Pallet<T> {
                 Self::refresh_dpo_target_info(dpo)?;
                 // when the target dpo that this dpo has bought partially becomes active,
                 // this dpo should also become active
+                // TODO: activate dpo
                 if dpo.state == DpoState::CREATED {
                     dpo.state = DpoState::ACTIVE;
                 }
@@ -1460,8 +1449,10 @@ impl<T: Config> Pallet<T> {
                 // vault_deposit into vault_withdraw.
                 // case 2: if unused fund comes from parent dpo, vault_deposit of child dpo has already
                 // been 0. It is still 0 after saturating_sub.
-                dpo.vault_deposit = dpo.vault_deposit.saturating_sub(amount.clone());
-                dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount)
+                dpo.vault_deposit = dpo.vault_deposit.saturating_sub(amount);
+                dpo.total_fund = dpo.total_fund.saturating_sub(amount);
+                dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount);
+                dpo.rate = (dpo.total_fund, dpo.total_share); // refresh rate
             }
             PaymentType::WithdrawOnCompletion => {
                 dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount);
@@ -1487,7 +1478,7 @@ impl<T: Config> Pallet<T> {
                 let member_dpo_info = Self::dpo_members(
                     target_dpo_id,
                     Buyer::Dpo(dpo.index),
-                ).ok_or(Error::<T>::InvalidIndex)?;
+                ).ok_or(Error::<T>::InvalidIndex)?; // TODO: if not exist?
 
                 let latest_target_amount = Self::percentage_from_num_tuple(
                     target_dpo.rate
@@ -1893,8 +1884,6 @@ impl<T: Config> Pallet<T> {
         target: Target<Balance>,
         is_partial_buy: bool,
     ) -> DispatchResult {
-        // TODO: check dpo deposit vs target amount
-        // create_dpo vs buy target (partially) vs change target
         match target {
             Target::TravelCabin(index) => {
                 let travel_cabin = Self::travel_cabins(index).ok_or(Error::<T>::InvalidIndex)?;
@@ -2096,18 +2085,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// return Ok() if all check out. Throw error otherwise
-    fn do_dpo_post_buy_dpo_check(
+    fn do_dpo_post_buy_dpo(
         buyer_dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         target_dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         target: Target<Balance>,
     ) -> DispatchResult {
-        // if the target is not equal to the original target, it should be the part of the original one with the same dpo
-        // when the buyer_dpo bought partially the target_dpo and the target_dpo is in active
-        // the unused fund (vault_deposit) should be returned back.
-        if buyer_dpo.target != target &&
+        // two cases in that unused fund should be returned back
+        // case 1: buy dpo target completely and vault_deposit > 0
+        let mut have_unused_fund = buyer_dpo.vault_deposit > 0 &&
+            buyer_dpo.target_amount == buyer_dpo.total_fund.saturating_sub(buyer_dpo.vault_deposit);
+        // case 2: buy dpo target partially but the dpo becomes active,
+        // and still vault_deposit > 0
+        have_unused_fund = have_unused_fund || (buyer_dpo.target != target &&
             target_dpo.state == DpoState::ACTIVE &&
-            buyer_dpo.vault_deposit > 0 {
+            buyer_dpo.vault_deposit > 0);
+        if have_unused_fund {
             Self::update_dpo_inflow(
                 buyer_dpo,
                 buyer_dpo.vault_deposit,
@@ -2215,7 +2207,7 @@ impl<T: Config> Pallet<T> {
                     // (c) post buy, refresh target info and return unused fund if needed
                     // dpo_post_buy_check should be called after insert_buyer_to_target_dpo because
                     // dpo target info refresh may rely on parent dpo member info
-                    Self::do_dpo_post_buy_dpo_check(
+                    Self::do_dpo_post_buy_dpo(
                         &mut buyer_dpo,
                         &target_dpo,
                         target.clone(),
@@ -2240,6 +2232,15 @@ impl<T: Config> Pallet<T> {
                             &mut buyer_dpo,
                             travel_cabin.bonus_total,
                             PaymentType::Bonus,
+                        )?;
+                    }
+                    // return unused fund
+                    if buyer_dpo.vault_deposit > Zero::zero() {
+                        let amount = buyer_dpo.vault_deposit.clone();
+                        Self::update_dpo_inflow(
+                            &mut buyer_dpo,
+                            amount,
+                            PaymentType::UnusedFund,
                         )?;
                     }
                     purchased_inv_idx = Some(
@@ -2275,8 +2276,9 @@ impl<T: Config> Pallet<T> {
                     let mut target_dpo =
                         Self::dpos(target_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
                     //ensure share min and cap
+                    let target_remainder = target_dpo.target_amount.saturating_sub(target_dpo.total_fund);
                     let remainder_percent = Self::percentage_from_num_tuple(
-                        (target_dpo.target_remainder, target_dpo.target_amount)
+                        (target_remainder, target_dpo.target_amount)
                     );
                     let share_percent_min = Self::percentage_from_num_tuple(T::PassengerSharePercentMinimum::get());
                     // if the dpo's remaining share is less than min requirement, the last passenger
@@ -2291,7 +2293,7 @@ impl<T: Config> Pallet<T> {
                             Error::<T>::ExceededShareCap
                         );
                     } else {
-                        ensure!(amount == target_dpo.target_remainder, Error::<T>::PurchaseAllRemainder);
+                        ensure!(amount == target_remainder, Error::<T>::PurchaseAllRemainder);
                     }
 
                     Self::dpo_inflow(
