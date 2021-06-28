@@ -1080,8 +1080,8 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
 }
 
 parameter_types! {
-    pub const MaxProposals: ProposalIndex = 10;
-	pub const MaxMembers: MemberCount = 100;
+    pub const VotingMaxProposals: ProposalIndex = 10;
+	pub const VotingMaxMembers: MemberCount = 100;
 }
 impl pallet_voting::Config for Runtime {
     type Event = Event;
@@ -1091,8 +1091,8 @@ impl pallet_voting::Config for Runtime {
         pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>,
     >;
     type Proposal = Call;
-    type MaxProposals = MaxProposals;
-    type MaxMembers = MaxMembers;
+    type MaxProposals = VotingMaxProposals;
+    type MaxMembers = VotingMaxMembers;
 }
 
 parameter_types! {
