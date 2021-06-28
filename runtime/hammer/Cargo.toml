@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 # spanner dependencies
 pallet-voting = { path = '../../pallets/voting', default-features = false, version = '2.0.0' }
 pallet-bullet-train = { path = '../../pallets/bullet-train', default-features = false, version = '2.0.0' }
-pallet-bullet-train-primitives = { path = '../../pallets/bullet-train/common', default-features = false, version = '2.0.0' }
+pallet-support = { path = '../../pallets/support', default-features = false, version = '2.0.0' }
 #pallet-bullet-train-rpc-runtime-api = { path = '../pallets/bullet-train/rpc/runtime-api', default-features = false, version = '2.0.0' }
 pallet-dex = { path = '../../pallets/dex', default-features = false, version = '2.0.0' }
 pallet-rewards = { path = '../../pallets/rewards', default-features = false, version = '2.0.0' }
@@ -162,7 +162,7 @@ std = [
 	"pallet-voting/std",
 	"pallet-bullet-train/std",
 #	"pallet-bullet-train-rpc-runtime-api/std",
-	"pallet-bullet-train-primitives/std",
+	"pallet-support/std",
 	"pallet-dex/std",
 	"pallet-rewards/std",
 

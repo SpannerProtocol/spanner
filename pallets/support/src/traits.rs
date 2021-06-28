@@ -1,18 +1,8 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-
+use crate::*;
+use sp_std::prelude::*;
 use sp_runtime::{DispatchError, DispatchResult};
 
-//todo: move to pallet/support lib.rs and traits.rs
-
-pub type TravelCabinIndex = u32;
-pub type TravelCabinInventoryIndex = u16;
-pub type DpoIndex = u32;
-
-pub type VotingSectionIndex = u32;
-pub type VotingGroupIndex = u32;
-pub type ProposalIndex = u32;
-pub type MemberCount = u32;
-pub trait Voting<Origin, AccountId, Proposal, Hash, BlockNumber> {
+pub trait VotingActions<Origin, AccountId, Proposal, Hash, BlockNumber> {
     fn new_group(
         origin: Origin,
         section: VotingSectionIndex,

@@ -9,8 +9,10 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use pallet_bullet_train_primitives::{
-    MemberCount, ProposalIndex, Voting, VotingChangeMembers, VotingGroupIndex, VotingSectionIndex,
+use sp_std::prelude::*;
+use pallet_support::{
+    traits::{VotingActions, VotingChangeMembers},
+    MemberCount, ProposalIndex, VotingGroupIndex, VotingSectionIndex,
 };
 
 #[cfg(test)]
@@ -53,11 +55,8 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type EngineerOrRootOrigin: EnsureOrigin<
-            <Self as frame_system::Config>::Origin,
-            Success = Self::AccountId,
-        >;
-        type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
+        type EngineerOrRootOrigin: EnsureOrigin<Self::Origin>;
+        type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<frame_system::Call<Self>>;
     }
 
     #[pallet::pallet]
@@ -588,7 +587,7 @@ impl<T: Config> VotingChangeMembers<T::AccountId> for Pallet<T> {
     }
 }
 
-impl<T: Config> Voting<T::Origin, T::AccountId, T::Proposal, T::Hash, T::BlockNumber>
+impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::BlockNumber>
     for Pallet<T>
 {
     fn new_group(

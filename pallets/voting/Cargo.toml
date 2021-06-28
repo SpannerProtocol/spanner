@@ -19,9 +19,10 @@ serde = { version = "1.0.101", optional = true }
 frame-support = { version = '3.0.0', default-features = false }
 frame-system = { version = '3.0.0', default-features = false }
 primitives = { package = "node-primitives", path = "../../primitives", default-features = false }
-pallet-bullet-train-primitives = { version = "2.0.0", default-features = false, path = "../bullet-train/common" }
+pallet-support = { version = "2.0.0", default-features = false, path = "../support" }
 sp-core = { version = '3.0.0', default-features = false }
 sp-runtime = { version = '3.0.0', default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
 log = { version = "0.4.14", default-features = false }
 
 [dev-dependencies]
@@ -37,7 +38,8 @@ std = [
     'parity-scale-codec/std',
     'sp-core/std',
     'sp-runtime/std',
+    "sp-std/std",
     'primitives/std',
-    "pallet-bullet-train-primitives/std",
+    "pallet-support/std",
     "log/std",
 ]

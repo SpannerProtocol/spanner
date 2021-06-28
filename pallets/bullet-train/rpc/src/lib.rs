@@ -6,7 +6,7 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-use pallet_bullet_train_primitives::*;
+use pallet_support::*;
 pub use pallet_bullet_train_rpc_runtime_api::BulletTrainApi as BulletTrainRuntimeApi;
 use sp_std::vec::Vec;
 

@@ -1081,6 +1081,16 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_voting::Config for Runtime {
+    type Event = Event;
+    type EngineerOrRootOrigin = EnsureOneOf<
+        AccountId,
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>,
+    >;
+    type Proposal = Call;
+}
+
 parameter_types! {
     pub const ReleaseYieldGracePeriod: BlockNumber = 7 * DAYS;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 7 * DAYS;
@@ -1109,6 +1119,8 @@ impl pallet_bullet_train::Config for Runtime {
     type ManagerSlashPerThousand = ManagerSlashPerThousand;
     type EngineerOrigin = pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>;
     type WeightInfo = pallet_bullet_train::weights::SubstrateWeight<Runtime>;
+    type Proposal = Call;
+    type Voting = Voting;
 }
 
 parameter_types! {
@@ -1172,6 +1184,7 @@ construct_runtime!(
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         // spanner added pallets
         BulletTrain: pallet_bullet_train::{Module, Call, Storage, Event<T>},
+        Voting: pallet_voting::{Module, Call, Storage, Event<T>},
         Dex: pallet_dex::{Module, Call, Storage, Event<T>, Config<T>},
         Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
         Currencies: orml_currencies::{Module, Call, Event<T>},
@@ -1388,13 +1401,13 @@ impl_runtime_apis! {
     // impl pallet_bullet_train_rpc_runtime_api::BulletTrainApi<Block, AccountId> for Runtime {
     //     fn get_travel_cabins_of_account(
     //         origin: AccountId,
-    //     ) -> Vec<(pallet_bullet_train_primitives::TravelCabinIndex, pallet_bullet_train_primitives::TravelCabinInventoryIndex)> {
+    //     ) -> Vec<(pallet_support::TravelCabinIndex, pallet_support::TravelCabinInventoryIndex)> {
     //         BulletTrain::get_travel_cabins_of_account(&origin)
     //     }
     //
     //     fn get_dpos_of_account(
     //         origin: AccountId,
-    //     ) -> Vec<pallet_bullet_train_primitives::DpoIndex> {
+    //     ) -> Vec<pallet_support::DpoIndex> {
     //         BulletTrain::get_dpos_of_account(origin)
     //     }
     // }

@@ -31,7 +31,7 @@ orml-traits = { path = "../../orml/traits", default-features = false }
 orml-currencies = { path = "../../orml/currencies", default-features = false }
 orml-tokens = { path = "../../orml/tokens", default-features = false }
 primitives = { package = "node-primitives", path = "../../primitives", default-features = false }
-pallet-bullet-train-primitives = { version = "2.0.0", default-features = false, path = "common" }
+pallet-support = { version = "2.0.0", default-features = false, path = "../support" }
 
 [dev-dependencies]
 sp-core = { version = '3.0.0', default-features = false }
@@ -55,7 +55,7 @@ std = [
     'orml-currencies/std',
     'orml-tokens/std',
     'primitives/std',
-    "pallet-bullet-train-primitives/std",
+    "pallet-support/std",
 ]
 
 runtime-benchmarks = [

@@ -1,10 +1,9 @@
 [package]
 authors = ['Spanner Developers']
-description = 'Node-specific RPC methods for interaction with bullet-train.'
 edition = '2018'
 homepage = 'https://www.spanner.network/'
 license = 'Unlicense'
-name = 'pallet-bullet-train-primitives'
+name = 'pallet-support'
 readme = "README.md"
 repository = ''
 version = '2.0.0'

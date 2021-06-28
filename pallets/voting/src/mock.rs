@@ -20,7 +20,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		Votings: pallet_voting::{Module, Call, Storage, Event<T>},
+		Voting: pallet_voting::{Module, Call, Storage, Event<T>},
 	}
 );
 

@@ -58,7 +58,8 @@ use frame_support::{
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use orml_traits::{MultiCurrency, MultiCurrencyExtended};
-use pallet_bullet_train_primitives::*;
+use pallet_support::traits::VotingActions;
+use pallet_support::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{Balance, CurrencyId};
 #[cfg(feature = "std")]
@@ -284,7 +285,7 @@ pub mod module {
 
         type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
 
-        type Voting: Voting<
+        type Voting: VotingActions<
             Self::Origin,
             Self::AccountId,
             Self::Proposal,

@@ -104,7 +104,6 @@ impl orml_tokens::Config for Test {
 ord_parameter_types! {
 	pub const Alice: AccountId = 0;
 }
-
 impl pallet_voting::Config for Test {
     type Event = Event;
     type EngineerOrRootOrigin = EnsureSignedBy<Alice, AccountId>;
@@ -140,7 +139,7 @@ impl Config for Test {
     type ManagerSlashPerThousand = ManagerSlashPerThousand;
     type EngineerOrigin = EnsureSignedBy<Alice, AccountId>;
     type WeightInfo = weights::SubstrateWeight<Test>;
-    type Voting = Votings;
+    type Voting = Voting;
     type Proposal = Call;
 }
 
@@ -158,7 +157,7 @@ construct_runtime!(
 		Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
 		Currencies: orml_currencies::{Module, Call, Event<T>},
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-		Votings: pallet_voting::{Module, Call, Storage, Event<T>},
+		Voting: pallet_voting::{Module, Call, Storage, Event<T>},
 	}
 );
 

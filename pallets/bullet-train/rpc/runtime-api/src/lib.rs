@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::{Codec};
 use sp_std::vec::Vec;
-use pallet_bullet_train_primitives::*;
+use pallet_support::*;
 
 sp_api::decl_runtime_apis! {
     pub trait BulletTrainApi<AccountId> where
