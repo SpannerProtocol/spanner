@@ -1,0 +1,9 @@
+target
+**/.git*
+Dockerfile
+*.md
+*.json
+*.hbs
+*.yml
+.idea
+**/.DS_Store
