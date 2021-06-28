@@ -9,11 +9,11 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use sp_std::prelude::*;
 use pallet_support::{
     traits::{VotingActions, VotingChangeMembers},
     MemberCount, ProposalIndex, VotingGroupIndex, VotingSectionIndex,
 };
+use sp_std::prelude::*;
 
 #[cfg(test)]
 mod mock;
@@ -59,7 +59,9 @@ pub mod pallet {
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type EngineerOrRootOrigin: EnsureOrigin<Self::Origin>;
-        type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<frame_system::Call<Self>>;
+        type Proposal: Parameter
+            + Dispatchable<Origin = Self::Origin>
+            + From<frame_system::Call<Self>>;
 
         #[pallet::constant]
         type MaxProposals: Get<ProposalIndex>;
@@ -356,7 +358,10 @@ impl<T: Config> Pallet<T> {
         group_idx: VotingGroupIndex,
         new_members: Vec<T::AccountId>,
     ) -> DispatchResult {
-        ensure!(new_members.len() <= T::MaxMembers::get() as usize, Error::<T>::ExceedMaxMembersAllowed);
+        ensure!(
+            new_members.len() <= T::MaxMembers::get() as usize,
+            Error::<T>::ExceedMaxMembersAllowed
+        );
 
         let vg = Self::voting_group((section_idx, group_idx)).ok_or(Error::<T>::InvalidIndex)?;
         let old = vg.members;
@@ -527,7 +532,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DuplicateProposal
         );
 
-        ensure!(vg.proposals.len() < T::MaxProposals::get() as usize, Error::<T>::TooManyProposals);
+        ensure!(
+            vg.proposals.len() < T::MaxProposals::get() as usize,
+            Error::<T>::TooManyProposals
+        );
         vg.proposals.push(proposal_hash);
         VotingGroup::<T>::insert((section_idx, group_idx), vg);
 
@@ -553,6 +561,19 @@ impl<T: Config> Pallet<T> {
             proposal_hash,
             threshold,
         ));
+        Ok(())
+    }
+
+    fn do_close_group(
+        section_idx: VotingSectionIndex,
+        group_idx: VotingGroupIndex,
+    ) -> DispatchResult {
+        // 1. remove Votes
+        Votes::<T>::remove_prefix((section_idx, group_idx));
+        // 2. remove Proposals
+        ProposalOf::<T>::remove_prefix((section_idx, group_idx));
+        // 3. remove VotingGroupInfo
+        VotingGroup::<T>::remove((section_idx, group_idx));
         Ok(())
     }
 }
@@ -613,8 +634,7 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         members: Vec<T::AccountId>,
     ) -> DispatchResult {
         T::EngineerOrRootOrigin::ensure_origin(origin)?;
-        Self::do_new_group(section_idx, members)?;
-        Ok(())
+        Self::do_new_group(section_idx, members)
     }
 
     fn set_members(
@@ -624,8 +644,7 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         new_members: Vec<T::AccountId>,
     ) -> DispatchResult {
         T::EngineerOrRootOrigin::ensure_origin(origin)?;
-        Self::do_set_members(section_idx, group_idx, new_members)?;
-        Ok(())
+        Self::do_set_members(section_idx, group_idx, new_members)
     }
 
     fn propose(
@@ -637,8 +656,7 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         duration: T::BlockNumber,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
-        Self::do_propose(who, section_idx, group_idx, proposal, threshold, duration)?;
-        Ok(())
+        Self::do_propose(who, section_idx, group_idx, proposal, threshold, duration)
     }
 
     fn close(
@@ -649,12 +667,23 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         index: ProposalIndex,
     ) -> DispatchResult {
         ensure_signed(origin)?;
-        Self::do_close(section_idx, group_idx, proposal_hash, index)?;
-        Ok(())
+        Self::do_close(section_idx, group_idx, proposal_hash, index)
     }
 
-    fn members(section_idx: u32, group_idx: u32) -> Result<Vec<T::AccountId>, DispatchError> {
+    fn members(
+        section_idx: VotingSectionIndex,
+        group_idx: VotingGroupIndex,
+    ) -> Result<Vec<T::AccountId>, DispatchError> {
         let vg = Self::get_voting_group(section_idx, group_idx)?;
         Ok(vg.members)
+    }
+
+    fn close_group(
+        origin: T::Origin,
+        section_idx: VotingSectionIndex,
+        group_idx: VotingGroupIndex,
+    ) -> DispatchResult {
+        T::EngineerOrRootOrigin::ensure_origin(origin)?;
+        Self::do_close_group(section_idx, group_idx)
     }
 }

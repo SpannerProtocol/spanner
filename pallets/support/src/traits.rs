@@ -33,6 +33,11 @@ pub trait VotingActions<Origin, AccountId, Proposal, Hash, BlockNumber> {
         section: VotingSectionIndex,
         group: VotingGroupIndex,
     ) -> Result<Vec<AccountId>, DispatchError>;
+    fn close_group(
+        origin: Origin,
+        section: VotingSectionIndex,
+        group: VotingGroupIndex
+    ) -> DispatchResult;
 }
 
 /// Trait for type that can handle incremental changes to a set of account IDs.

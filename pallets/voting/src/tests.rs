@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, VotesInfo};
+use crate::{mock::*, Error, VotesInfo, VotingGroupInfo};
 use frame_support::dispatch::DispatchError;
 use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
 use frame_support::{assert_noop, assert_ok};
@@ -7,43 +7,72 @@ use hex_literal::hex;
 use parity_scale_codec::Encode;
 use sp_core::H256;
 
+fn make_proposal(value: u64) -> Call {
+    //requires signed origin
+    Call::System(frame_system::Call::remark(value.encode()))
+}
+
 #[test]
-fn voting_group_members() {
+fn new_voting_group() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::signed(ALICE)));
         assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         assert_eq!(
-            Voting::voting_group((section_idx, group_idx))
-                .unwrap()
-                .members,
-            vec![1, 2, 3]
-        );
-        assert_ok!(Voting::set_members(
-            Origin::signed(ALICE),
-            0,
-            0,
-            vec![2, 3]
-        ));
-        assert_eq!(
-            Voting::voting_group((section_idx, group_idx))
-                .unwrap()
-                .members,
-            vec![2, 3]
-        );
-        assert_eq!(
-            Voting::voting_group((section_idx, group_idx))
-                .unwrap()
-                .proposals,
-            Vec::<H256>::new()
+            Voting::voting_group((section_idx, group_idx)),
+            Some(VotingGroupInfo {
+                members: vec![1, 2, 3],
+                proposals: Vec::<H256>::new()
+            })
         );
     });
 }
 
-fn make_proposal(value: u64) -> Call {
-    //requires signed origin
-    Call::System(frame_system::Call::remark(value.encode()))
+#[test]
+fn close_voting_group() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
+        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        let (section_idx, group_idx) = (0, 0);
+        let proposal = make_proposal(42);
+        let hash = BlakeTwo256::hash_of(&proposal);
+
+        assert_ok!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            3,
+            3
+        ));
+        assert_eq!(
+            Voting::voting_group((section_idx, group_idx))
+                .unwrap()
+                .proposals,
+            vec![hash]
+        );
+        assert_eq!(
+            Voting::proposal_of((section_idx, group_idx), &hash),
+            Some(proposal)
+        );
+        assert_eq!(
+            Voting::votes((section_idx, group_idx), &hash),
+            Some(VotesInfo {
+                index: 0,
+                threshold: 3,
+                ayes: vec![1],
+                nays: vec![],
+                end: 3
+            })
+        );
+
+        assert_ok!(Voting::do_close_group(section_idx, group_idx));
+        assert_eq!(Voting::voting_group((section_idx, group_idx)), None);
+        assert_eq!(Voting::proposal_of((section_idx, group_idx), &hash), None);
+        assert_eq!(Voting::votes((section_idx, group_idx), &hash), None);
+    });
 }
+
 #[test]
 fn close_works() {
     new_test_ext().execute_with(|| {
