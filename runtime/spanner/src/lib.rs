@@ -1088,11 +1088,6 @@ parameter_types! {
 }
 impl pallet_voting::Config for Runtime {
     type Event = Event;
-    type EngineerOrRootOrigin = EnsureOneOf<
-        AccountId,
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>,
-    >;
     type Proposal = Call;
     type MaxProposals = VotingMaxProposals;
     type MaxMembers = VotingMaxMembers;
@@ -1529,6 +1524,7 @@ impl_runtime_apis! {
             // add_benchmark!(params, batches, pallet_utility, Utility);
             // add_benchmark!(params, batches, pallet_vesting, Vesting);
 
+            add_benchmark!(params, batches, pallet_voting, Voting);
             add_benchmark!(params, batches, pallet_bullet_train, BulletTrain);
             add_benchmark!(params, batches, pallet_dex, Dex);
             orml_add_benchmark!(params, batches, orml_currencies, benchmarking::currencies);

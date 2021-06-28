@@ -58,7 +58,6 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-        type EngineerOrRootOrigin: EnsureOrigin<Self::Origin>;
         type Proposal: Parameter
             + Dispatchable<Origin = Self::Origin>
             + From<frame_system::Call<Self>>;
@@ -193,7 +192,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         #[transactional]
         pub fn new_section(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            T::EngineerOrRootOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             let index = Self::voting_section_count();
             VotingSectionCount::<T>::put(index + 1);
             VotingGroupCount::<T>::insert(index, 0);
@@ -208,21 +207,10 @@ pub mod pallet {
             section_idx: VotingSectionIndex,
             members: Vec<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
-            T::EngineerOrRootOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             Self::do_new_group(section_idx, members)?;
             Ok(().into())
         }
-
-        // #[pallet::weight(0)]
-        // #[transactional]
-        // pub fn remove_group(
-        //     origin: OriginFor<T>,
-        //     section_idx: VotingSectionIndex,
-        //     group_idx: VotingGroupIndex,
-        // ) -> DispatchResultWithPostInfo {
-        //     T::EngineerOrRootOrigin::ensure_origin(origin)?;
-        //     Ok(().into())
-        // }
 
         #[pallet::weight(0)]
         #[transactional]
@@ -232,7 +220,7 @@ pub mod pallet {
             group_idx: VotingGroupIndex,
             new_members: Vec<T::AccountId>,
         ) -> DispatchResultWithPostInfo {
-            T::EngineerOrRootOrigin::ensure_origin(origin)?;
+            ensure_root(origin)?;
             Self::do_set_members(section_idx, group_idx, new_members)?;
             Ok(().into())
         }
@@ -633,7 +621,7 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         section_idx: VotingSectionIndex,
         members: Vec<T::AccountId>,
     ) -> DispatchResult {
-        T::EngineerOrRootOrigin::ensure_origin(origin)?;
+        ensure_root(origin)?;
         Self::do_new_group(section_idx, members)
     }
 
@@ -643,7 +631,7 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         group_idx: VotingGroupIndex,
         new_members: Vec<T::AccountId>,
     ) -> DispatchResult {
-        T::EngineerOrRootOrigin::ensure_origin(origin)?;
+        ensure_root(origin)?;
         Self::do_set_members(section_idx, group_idx, new_members)
     }
 
@@ -683,7 +671,7 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
     ) -> DispatchResult {
-        T::EngineerOrRootOrigin::ensure_origin(origin)?;
+        ensure_root(origin)?;
         Self::do_close_group(section_idx, group_idx)
     }
 }

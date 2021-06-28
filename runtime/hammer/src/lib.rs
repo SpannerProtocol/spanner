@@ -1085,11 +1085,6 @@ parameter_types! {
 }
 impl pallet_voting::Config for Runtime {
     type Event = Event;
-    type EngineerOrRootOrigin = EnsureOneOf<
-        AccountId,
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>,
-    >;
     type Proposal = Call;
     type MaxProposals = VotingMaxProposals;
     type MaxMembers = VotingMaxMembers;

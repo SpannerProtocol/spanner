@@ -20,10 +20,11 @@ frame-support = { version = '3.0.0', default-features = false }
 frame-system = { version = '3.0.0', default-features = false }
 primitives = { package = "node-primitives", path = "../../primitives", default-features = false }
 pallet-support = { version = "2.0.0", default-features = false, path = "../support" }
-sp-core = { version = '3.0.0', default-features = false }
 sp-runtime = { version = '3.0.0', default-features = false }
 sp-std = { version = "3.0.0", default-features = false }
+sp-core = { version = '3.0.0', default-features = false }
 log = { version = "0.4.14", default-features = false }
+frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
 
 [dev-dependencies]
 sp-io = { version = '3.0.0', default-features = false }
@@ -36,10 +37,14 @@ std = [
     'frame-support/std',
     'frame-system/std',
     'parity-scale-codec/std',
-    'sp-core/std',
     'sp-runtime/std',
     "sp-std/std",
     'primitives/std',
     "pallet-support/std",
     "log/std",
+    "frame-benchmarking/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "frame-system/runtime-benchmarks",
 ]

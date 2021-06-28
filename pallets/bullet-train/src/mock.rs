@@ -108,7 +108,6 @@ ord_parameter_types! {
 }
 impl pallet_voting::Config for Test {
     type Event = Event;
-    type EngineerOrRootOrigin = EnsureSignedBy<Alice, AccountId>;
     type Proposal = Call;
     type MaxProposals = MaxProposals;
     type MaxMembers = MaxMembers;

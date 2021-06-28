@@ -15,8 +15,8 @@ fn make_proposal(value: u64) -> Call {
 #[test]
 fn new_voting_group() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         assert_eq!(
             Voting::voting_group((section_idx, group_idx)),
@@ -31,8 +31,8 @@ fn new_voting_group() {
 #[test]
 fn close_voting_group() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -77,8 +77,8 @@ fn close_voting_group() {
 fn close_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
 
         let proposal = make_proposal(42);
@@ -173,8 +173,8 @@ fn close_works() {
 fn removal_of_old_voters_votes_works_with_set_members() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -207,7 +207,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             })
         );
         assert_ok!(Voting::set_members(
-            Origin::signed(ALICE),
+            Origin::root(),
             section_idx,
             group_idx,
             vec![2, 3, 4]
@@ -252,7 +252,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             })
         );
         assert_ok!(Voting::set_members(
-            Origin::signed(ALICE),
+            Origin::root(),
             section_idx,
             group_idx,
             vec![2, 4]
@@ -274,8 +274,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
 fn propose_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -331,8 +331,8 @@ fn propose_works() {
 #[test]
 fn limit_active_proposals() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         //todo: dynamic max proposals
         for i in 0..10 {
@@ -365,8 +365,8 @@ fn limit_active_proposals() {
 #[test]
 fn correct_validate_and_get_proposal() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -397,8 +397,8 @@ fn correct_validate_and_get_proposal() {
 #[test]
 fn motions_ignoring_non_member_proposals_works() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
 
@@ -419,8 +419,8 @@ fn motions_ignoring_non_member_proposals_works() {
 #[test]
 fn motions_ignoring_non_member_votes_works() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -449,8 +449,8 @@ fn motions_ignoring_non_member_votes_works() {
 #[test]
 fn motions_ignoring_bad_index_member_vote_works() {
     new_test_ext().execute_with(|| {
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -480,8 +480,8 @@ fn motions_ignoring_bad_index_member_vote_works() {
 fn motions_revoting_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -578,8 +578,8 @@ fn motions_revoting_works() {
 fn motions_reproposing_disapproved_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -634,8 +634,8 @@ fn motions_reproposing_disapproved_works() {
 fn motions_disapproval_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -710,8 +710,8 @@ fn motions_disapproval_works() {
 fn motions_approval_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
-        assert_ok!(Voting::new_section(Origin::signed(ALICE)));
-        assert_ok!(Voting::new_group(Origin::signed(ALICE), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let hash = BlakeTwo256::hash_of(&proposal);

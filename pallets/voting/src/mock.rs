@@ -5,7 +5,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup}, testing::Header,
 };
 use frame_system as system;
-use frame_system::EnsureSignedBy;
 use pallet_support::{ProposalIndex, MemberCount};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -55,7 +54,6 @@ impl system::Config for Test {
     type SS58Prefix = SS58Prefix;
 }
 
-pub const ALICE: u128 = 0;
 ord_parameter_types! {
 	pub const Alice: AccountId = 0;
 	pub const MaxProposals: ProposalIndex = 10;
@@ -63,7 +61,6 @@ ord_parameter_types! {
 }
 impl pallet_voting::Config for Test {
     type Event = Event;
-    type EngineerOrRootOrigin = EnsureSignedBy<Alice, AccountId>;
     type Proposal = Call;
     type MaxProposals = MaxProposals;
     type MaxMembers = MaxMembers;

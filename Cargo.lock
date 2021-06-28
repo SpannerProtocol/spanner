@@ -5021,6 +5021,7 @@ dependencies = [
 name = "pallet-voting"
 version = "2.0.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal 0.3.1",
