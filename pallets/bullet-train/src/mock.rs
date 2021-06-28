@@ -103,11 +103,15 @@ impl orml_tokens::Config for Test {
 
 ord_parameter_types! {
 	pub const Alice: AccountId = 0;
+	pub const MaxProposals: ProposalIndex = 10;
+	pub const MaxMembers: MemberCount = 100;
 }
 impl pallet_voting::Config for Test {
     type Event = Event;
     type EngineerOrRootOrigin = EnsureSignedBy<Alice, AccountId>;
     type Proposal = Call;
+    type MaxProposals = MaxProposals;
+    type MaxMembers = MaxMembers;
 }
 
 parameter_types!{

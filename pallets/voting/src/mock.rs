@@ -6,6 +6,7 @@ use sp_runtime::{
 };
 use frame_system as system;
 use frame_system::EnsureSignedBy;
+use pallet_support::{ProposalIndex, MemberCount};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -57,11 +58,15 @@ impl system::Config for Test {
 pub const ALICE: u128 = 0;
 ord_parameter_types! {
 	pub const Alice: AccountId = 0;
+	pub const MaxProposals: ProposalIndex = 10;
+	pub const MaxMembers: MemberCount = 100;
 }
 impl pallet_voting::Config for Test {
     type Event = Event;
     type EngineerOrRootOrigin = EnsureSignedBy<Alice, AccountId>;
     type Proposal = Call;
+    type MaxProposals = MaxProposals;
+    type MaxMembers = MaxMembers;
 }
 
 // Build genesis storage according to the mock runtime.

@@ -21,6 +21,9 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, RuntimeDebug)]
 pub struct VotingSectionInfo {
     index: VotingSectionIndex,
@@ -57,6 +60,17 @@ pub mod pallet {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type EngineerOrRootOrigin: EnsureOrigin<Self::Origin>;
         type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<frame_system::Call<Self>>;
+
+        #[pallet::constant]
+        type MaxProposals: Get<ProposalIndex>;
+
+        /// The maximum number of members supported by the pallet. Used for weight estimation.
+        ///
+        /// NOTE:
+        /// + Benchmarks will need to be re-run and weights adjusted if this changes.
+        /// + This pallet assumes that dependents keep to the limit without enforcing it.
+        #[pallet::constant]
+        type MaxMembers: Get<MemberCount>;
     }
 
     #[pallet::pallet]
@@ -166,6 +180,7 @@ pub mod pallet {
         WrongProposalLength,
         WrongProposalWeight,
         TooEarly,
+        ExceedMaxMembersAllowed,
     }
 
     #[pallet::hooks]
@@ -341,6 +356,8 @@ impl<T: Config> Pallet<T> {
         group_idx: VotingGroupIndex,
         new_members: Vec<T::AccountId>,
     ) -> DispatchResult {
+        ensure!(new_members.len() <= T::MaxMembers::get() as usize, Error::<T>::ExceedMaxMembersAllowed);
+
         let vg = Self::voting_group((section_idx, group_idx)).ok_or(Error::<T>::InvalidIndex)?;
         let old = vg.members;
         let mut new_members = new_members;
@@ -510,7 +527,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DuplicateProposal
         );
 
-        ensure!(vg.proposals.len() < 10, Error::<T>::TooManyProposals);
+        ensure!(vg.proposals.len() < T::MaxProposals::get() as usize, Error::<T>::TooManyProposals);
         vg.proposals.push(proposal_hash);
         VotingGroup::<T>::insert((section_idx, group_idx), vg);
 

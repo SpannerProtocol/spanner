@@ -42,6 +42,7 @@ use frame_system::{
 };
 pub use node_primitives::{AccountId, CurrencyId, Signature, TokenSymbol};
 use node_primitives::{AccountIndex, Amount, Balance, BlockNumber, Hash, Index, Moment};
+use pallet_support::{ProposalIndex, MemberCount};
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 use pallet_grandpa::fg_primitives;
@@ -1078,6 +1079,10 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+    pub const MaxProposals: ProposalIndex = 10;
+	pub const MaxMembers: MemberCount = 100;
+}
 impl pallet_voting::Config for Runtime {
     type Event = Event;
     type EngineerOrRootOrigin = EnsureOneOf<
@@ -1086,6 +1091,8 @@ impl pallet_voting::Config for Runtime {
         pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>,
     >;
     type Proposal = Call;
+    type MaxProposals = MaxProposals;
+    type MaxMembers = MaxMembers;
 }
 
 parameter_types! {
