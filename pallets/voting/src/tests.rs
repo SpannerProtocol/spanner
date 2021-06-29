@@ -1,12 +1,12 @@
 use crate::{mock::*, Error, VotesInfo, VotingGroupInfo};
 use frame_support::dispatch::DispatchError;
 use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
+use frame_support::weights::GetDispatchInfo;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::{EventRecord, Phase};
 use hex_literal::hex;
 use parity_scale_codec::Encode;
 use sp_core::H256;
-use frame_support::weights::GetDispatchInfo;
 
 fn make_proposal(value: u64) -> Call {
     //requires signed origin
@@ -69,7 +69,7 @@ fn close_voting_group() {
             })
         );
 
-        assert_ok!(Voting::do_close_group(section_idx, group_idx));
+        assert_ok!(Voting::_do_close_group(section_idx, group_idx));
         assert_eq!(Voting::voting_group((section_idx, group_idx)), None);
         assert_eq!(Voting::proposal_of((section_idx, group_idx), &hash), None);
         assert_eq!(Voting::votes((section_idx, group_idx), &hash), None);

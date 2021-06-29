@@ -596,7 +596,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn do_close_group(
+    fn _do_close_group(
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
     ) -> DispatchResult {
@@ -700,40 +700,11 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         )
     }
 
-    fn close(
-        origin: T::Origin,
-        section_idx: VotingSectionIndex,
-        group_idx: VotingGroupIndex,
-        proposal_hash: T::Hash,
-        index: ProposalIndex,
-        length_bound: u32,
-        weight_bound: Weight,
-    ) -> DispatchResult {
-        ensure_signed(origin)?;
-        Self::do_close(
-            section_idx,
-            group_idx,
-            proposal_hash,
-            index,
-            length_bound,
-            weight_bound,
-        )
-    }
-
     fn members(
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
     ) -> Result<Vec<T::AccountId>, DispatchError> {
         let vg = Self::get_voting_group(section_idx, group_idx)?;
         Ok(vg.members)
-    }
-
-    fn close_group(
-        origin: T::Origin,
-        section_idx: VotingSectionIndex,
-        group_idx: VotingGroupIndex,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
-        Self::do_close_group(section_idx, group_idx)
     }
 }

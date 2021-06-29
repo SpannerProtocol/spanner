@@ -1,5 +1,4 @@
 use crate::*;
-use frame_support::weights::Weight;
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
@@ -24,24 +23,10 @@ pub trait VotingActions<Origin, AccountId, Proposal, Hash, BlockNumber> {
         duration: BlockNumber,
         length_bound: u32,
     ) -> DispatchResult;
-    fn close(
-        origin: Origin,
-        section: VotingSectionIndex,
-        group: VotingGroupIndex,
-        proposal_hash: Hash,
-        index: ProposalIndex,
-        length_bound: u32,
-        weight_bound: Weight,
-    ) -> DispatchResult;
     fn members(
         section: VotingSectionIndex,
         group: VotingGroupIndex,
     ) -> Result<Vec<AccountId>, DispatchError>;
-    fn close_group(
-        origin: Origin,
-        section: VotingSectionIndex,
-        group: VotingGroupIndex,
-    ) -> DispatchResult;
 }
 
 /// Trait for type that can handle incremental changes to a set of account IDs.
