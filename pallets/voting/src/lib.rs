@@ -1,11 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::dispatch::Dispatchable;
-use frame_support::sp_runtime::traits::Hash;
 use frame_support::{
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
     pallet_prelude::*,
+    sp_runtime::traits::Hash,
     transactional,
+    weights::GetDispatchInfo,
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -13,6 +13,7 @@ use pallet_support::{
     traits::{VotingActions, VotingChangeMembers},
     MemberCount, ProposalIndex, VotingGroupIndex, VotingSectionIndex,
 };
+use sp_io::storage;
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -53,14 +54,14 @@ pub struct VotesInfo<AccountId, BlockNumber> {
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::dispatch::Dispatchable;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Proposal: Parameter
-            + Dispatchable<Origin = Self::Origin>
-            + From<frame_system::Call<Self>>;
+            + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+            + From<frame_system::Call<Self>>
+            + GetDispatchInfo;
 
         #[pallet::constant]
         type MaxProposals: Get<ProposalIndex>;
@@ -234,9 +235,18 @@ pub mod pallet {
             proposal: Box<T::Proposal>,
             threshold: MemberCount,
             duration: T::BlockNumber,
+            length_bound: u32,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            Self::do_propose(who, section_idx, group_idx, proposal, threshold, duration)?;
+            Self::do_propose(
+                who,
+                section_idx,
+                group_idx,
+                proposal,
+                threshold,
+                duration,
+                length_bound,
+            )?;
             Ok(().into())
         }
 
@@ -260,9 +270,6 @@ pub mod pallet {
 
             let position_yes = votes.ayes.iter().position(|a| a == &who);
             let position_no = votes.nays.iter().position(|a| a == &who);
-
-            // Detects first vote of the member in the motion
-            // let is_account_voting_first_time = position_yes.is_none() && position_no.is_none();
 
             if approve {
                 if position_yes.is_none() {
@@ -298,12 +305,6 @@ pub mod pallet {
 
             Votes::<T>::insert((section_idx, group_idx), &proposal, votes);
 
-            // if is_account_voting_first_time {
-            //     Ok((Some(T::WeightInfo::vote(members.len() as u32)), Pays::No).into())
-            // } else {
-            //     Ok((Some(T::WeightInfo::vote(members.len() as u32)), Pays::Yes).into())
-            // }
-
             Ok(().into())
         }
 
@@ -316,9 +317,18 @@ pub mod pallet {
             group_idx: VotingGroupIndex,
             proposal_hash: T::Hash,
             index: ProposalIndex,
+            length_bound: u32,
+            weight_bound: Weight,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-            Self::do_close(section_idx, group_idx, proposal_hash, index)?;
+            Self::do_close(
+                section_idx,
+                group_idx,
+                proposal_hash,
+                index,
+                length_bound,
+                weight_bound,
+            )?;
             Ok(().into())
         }
     }
@@ -376,10 +386,25 @@ impl<T: Config> Pallet<T> {
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
         hash: &T::Hash,
-    ) -> Result<T::Proposal, DispatchError> {
+        length_bound: u32,
+        weight_bound: Weight,
+    ) -> Result<(T::Proposal, usize), DispatchError> {
+        let key = ProposalOf::<T>::hashed_key_for((section_idx, group_idx), hash);
+        // read the length of the proposal storage entry directly
+        let proposal_len =
+            storage::read(&key, &mut [0; 0], 0).ok_or(Error::<T>::ProposalMissing)?;
+        ensure!(
+            proposal_len <= length_bound,
+            Error::<T>::WrongProposalLength
+        );
         let proposal = ProposalOf::<T>::get((section_idx, group_idx), hash)
             .ok_or(Error::<T>::ProposalMissing)?;
-        Ok(proposal)
+        let proposal_weight = proposal.get_dispatch_info().weight;
+        ensure!(
+            proposal_weight <= weight_bound,
+            Error::<T>::WrongProposalWeight
+        );
+        Ok((proposal, proposal_len as usize))
     }
 
     fn do_approve_proposal(
@@ -431,6 +456,8 @@ impl<T: Config> Pallet<T> {
         group_idx: VotingGroupIndex,
         proposal_hash: T::Hash,
         index: ProposalIndex,
+        length_bound: u32,
+        weight_bound: Weight,
     ) -> DispatchResult {
         let votes = Self::votes((section_idx, group_idx), &proposal_hash)
             .ok_or(Error::<T>::ProposalMissing)?;
@@ -445,7 +472,13 @@ impl<T: Config> Pallet<T> {
 
         // Allow (dis-)approving the proposal as soon as there are enough votes.
         if approved {
-            let proposal = Self::validate_and_get_proposal(section_idx, group_idx, &proposal_hash)?;
+            let (proposal, _len) = Self::validate_and_get_proposal(
+                section_idx,
+                group_idx,
+                &proposal_hash,
+                length_bound,
+                weight_bound,
+            )?;
             Self::deposit_event(Event::Closed(
                 section_idx,
                 group_idx,
@@ -479,7 +512,13 @@ impl<T: Config> Pallet<T> {
         let approved = yes_votes >= votes.threshold;
 
         if approved {
-            let proposal = Self::validate_and_get_proposal(section_idx, group_idx, &proposal_hash)?;
+            let (proposal, _len) = Self::validate_and_get_proposal(
+                section_idx,
+                group_idx,
+                &proposal_hash,
+                length_bound,
+                weight_bound,
+            )?;
             Self::deposit_event(Event::Closed(
                 section_idx,
                 group_idx,
@@ -509,11 +548,16 @@ impl<T: Config> Pallet<T> {
         proposal: Box<T::Proposal>,
         threshold: MemberCount,
         duration: T::BlockNumber,
+        length_bound: u32,
     ) -> DispatchResult {
         let mut vg = Self::get_voting_group(section_idx, group_idx)?;
         ensure!(vg.members.contains(&who), Error::<T>::NotMember);
 
-        // let proposal_len = proposal.using_encoded(|x| x.len());
+        let proposal_len = proposal.using_encoded(|x| x.len());
+        ensure!(
+            proposal_len <= length_bound as usize,
+            Error::<T>::WrongProposalLength
+        );
         let proposal_hash = T::Hashing::hash_of(&proposal);
         ensure!(
             !ProposalOf::<T>::contains_key((section_idx, group_idx), proposal_hash),
@@ -642,9 +686,18 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         proposal: Box<T::Proposal>,
         threshold: MemberCount,
         duration: T::BlockNumber,
+        length_bound: u32,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
-        Self::do_propose(who, section_idx, group_idx, proposal, threshold, duration)
+        Self::do_propose(
+            who,
+            section_idx,
+            group_idx,
+            proposal,
+            threshold,
+            duration,
+            length_bound,
+        )
     }
 
     fn close(
@@ -653,9 +706,18 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         group_idx: VotingGroupIndex,
         proposal_hash: T::Hash,
         index: ProposalIndex,
+        length_bound: u32,
+        weight_bound: Weight,
     ) -> DispatchResult {
         ensure_signed(origin)?;
-        Self::do_close(section_idx, group_idx, proposal_hash, index)
+        Self::do_close(
+            section_idx,
+            group_idx,
+            proposal_hash,
+            index,
+            length_bound,
+            weight_bound,
+        )
     }
 
     fn members(

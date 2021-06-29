@@ -1,6 +1,7 @@
 use crate::*;
-use sp_std::prelude::*;
+use frame_support::weights::Weight;
 use sp_runtime::{DispatchError, DispatchResult};
+use sp_std::prelude::*;
 
 pub trait VotingActions<Origin, AccountId, Proposal, Hash, BlockNumber> {
     fn new_group(
@@ -21,6 +22,7 @@ pub trait VotingActions<Origin, AccountId, Proposal, Hash, BlockNumber> {
         call: Box<Proposal>,
         threshold: MemberCount,
         duration: BlockNumber,
+        length_bound: u32,
     ) -> DispatchResult;
     fn close(
         origin: Origin,
@@ -28,6 +30,8 @@ pub trait VotingActions<Origin, AccountId, Proposal, Hash, BlockNumber> {
         group: VotingGroupIndex,
         proposal_hash: Hash,
         index: ProposalIndex,
+        length_bound: u32,
+        weight_bound: Weight,
     ) -> DispatchResult;
     fn members(
         section: VotingSectionIndex,
@@ -36,7 +40,7 @@ pub trait VotingActions<Origin, AccountId, Proposal, Hash, BlockNumber> {
     fn close_group(
         origin: Origin,
         section: VotingSectionIndex,
-        group: VotingGroupIndex
+        group: VotingGroupIndex,
     ) -> DispatchResult;
 }
 

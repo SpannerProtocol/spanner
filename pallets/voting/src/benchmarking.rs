@@ -10,7 +10,13 @@ const SEED: u32 = 0;
 const MAX_BYTES: u32 = 1_024;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
-    assert_eq!(frame_system::Pallet::<T>::events().last().expect("events expected").event, generic_event.into());
+    assert_eq!(
+        frame_system::Pallet::<T>::events()
+            .last()
+            .expect("events expected")
+            .event,
+        generic_event.into()
+    );
 }
 
 benchmarks! {
@@ -91,15 +97,16 @@ benchmarks! {
         let m in 2 .. T::MaxMembers::get();
         let p in 1 .. T::MaxProposals::get();
 
+        // Construct `members`.
         let mut members = vec![];
         for i in 0 .. m - 1 {
             let member = account("member", i, SEED);
             members.push(member);
         }
-
         let caller: T::AccountId = whitelisted_caller();
         members.push(caller.clone());
 
+        // Contruct `voting_group`
         Voting::<T>::new_section(SystemOrigin::Root.into())?;
         Voting::<T>::new_group(SystemOrigin::Root.into(), 0, members)?;
         let (section_idx, group_idx) = (0, 0);
@@ -131,6 +138,99 @@ benchmarks! {
         let last_event = Event::Proposed(caller, section_idx, group_idx, p - 1, proposal_hash, threshold);
         assert_last_event::<T>(last_event.into());
     }
+
+    vote{
+        // We choose 5 as a minimum so we always trigger a vote in the voting loop (`for j in ...`)
+        let m in 5 .. T::MaxMembers::get();
+
+        let p = T::MaxProposals::get();
+        let b = MAX_BYTES;
+
+        // Construct `members`.
+        let mut members = vec![];
+        let proposer: T::AccountId = account("proposer", 0, SEED);
+        members.push(proposer.clone());
+        for i in 1 .. m - 1 {
+            let member = account("member", i, SEED);
+            members.push(member);
+        }
+        let voter: T::AccountId = account("voter", 0, SEED);
+        members.push(voter.clone());
+
+        // Contruct `voting_group`
+        Voting::<T>::new_section(SystemOrigin::Root.into())?;
+        Voting::<T>::new_group(SystemOrigin::Root.into(), 0, members.clone())?;
+        let (section_idx, group_idx) = (0, 0);
+
+        // Threshold is 1 less than the number of members so that one person can vote nay
+        let threshold = m - 1;
+
+        // Add previous proposals
+        let mut last_hash = T::Hash::default();
+        let duration: T::BlockNumber = Default::default();
+        for i in 0 .. p {
+            // Proposals should be different so that different proposal hashes are generated
+            let proposal: T::Proposal = SystemCall::<T>::remark(vec![i as u8; b as usize]).into();
+            Voting::<T>::propose(
+                SystemOrigin::Signed(proposer.clone()).into(),
+                section_idx,
+                group_idx,
+                Box::new(proposal.clone()),
+                threshold,
+                duration,
+            )?;
+            last_hash = T::Hashing::hash_of(&proposal);
+        }
+        let index = p - 1;
+        // Have almost everyone vote aye on last proposal, while keeping it from passing.
+        // Proposer already voted aye so we start at 1.
+        for j in 1 .. m - 3 {
+            let voter = &members[j as usize];
+            let approve = true;
+            Voting::<T>::vote(
+                SystemOrigin::Signed(voter.clone()).into(),
+                section_idx,
+                group_idx,
+                last_hash.clone(),
+                index,
+                approve
+            )?;
+        }
+
+        // Voter votes aye without resolving the vote.
+		let approve = true;
+		Voting::<T>::vote(
+            SystemOrigin::Signed(voter.clone()).into(),
+            section_idx,
+            group_idx,
+            last_hash.clone(),
+            index,
+            approve
+        )?;
+
+        assert_eq!(Voting::<T>::voting_group((section_idx, group_idx)).unwrap().proposals.len(), p as usize);
+
+        // Voter switches vote to nay, but does not kill the vote, just updates + inserts
+		let approve = false;
+
+		// Whitelist voter account from further DB operations.
+		let voter_key = frame_system::Account::<T>::hashed_key_for(&voter);
+		frame_benchmarking::benchmarking::add_to_whitelist(voter_key.into());
+    }: _(SystemOrigin::Signed(voter), section_idx, group_idx, last_hash.clone(), index, approve)
+    verify {
+        // All proposals exist and the last proposal has just been updated.
+		assert_eq!(Voting::<T>::voting_group((section_idx, group_idx)).unwrap().proposals.len(), p as usize);
+		let voting = Voting::<T>::votes((section_idx, group_idx), &last_hash).ok_or(Error::<T>::ProposalMissing)?;
+		assert_eq!(voting.ayes.len(), (m - 3) as usize);
+		assert_eq!(voting.nays.len(), 1);
+    }
+
+    // close {
+    //
+    // }: _(SystemOrigin::Signed(voter), section_idx, group_idx, last_hash.clone(), index)
+    // verify {
+    //
+    // }
 }
 
 #[cfg(test)]
@@ -150,6 +250,13 @@ mod tests {
     fn propose() {
         new_test_ext().execute_with(|| {
             assert_ok!(test_benchmark_propose::<Test>());
+        });
+    }
+
+    #[test]
+    fn vote() {
+        new_test_ext().execute_with(|| {
+            assert_ok!(test_benchmark_vote::<Test>());
         });
     }
 }

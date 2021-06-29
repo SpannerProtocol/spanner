@@ -6,6 +6,7 @@ use frame_system::{EventRecord, Phase};
 use hex_literal::hex;
 use parity_scale_codec::Encode;
 use sp_core::H256;
+use frame_support::weights::GetDispatchInfo;
 
 fn make_proposal(value: u64) -> Call {
     //requires signed origin
@@ -35,6 +36,7 @@ fn close_voting_group() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
 
         assert_ok!(Voting::propose(
@@ -43,7 +45,8 @@ fn close_voting_group() {
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_eq!(
             Voting::voting_group((section_idx, group_idx))
@@ -82,6 +85,8 @@ fn close_works() {
         let (section_idx, group_idx) = (0, 0);
 
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
         let hash = BlakeTwo256::hash_of(&proposal);
 
         assert_ok!(Voting::propose(
@@ -90,7 +95,8 @@ fn close_works() {
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_noop!(
             Voting::vote(
@@ -114,7 +120,15 @@ fn close_works() {
 
         run_to_block(3);
         assert_noop!(
-            Voting::close(Origin::signed(1), section_idx, group_idx, hash.clone(), 0),
+            Voting::close(
+                Origin::signed(1),
+                section_idx,
+                group_idx,
+                hash.clone(),
+                0,
+                proposal_len,
+                proposal_weight
+            ),
             Error::<Test>::TooEarly
         );
 
@@ -124,7 +138,9 @@ fn close_works() {
             section_idx,
             group_idx,
             hash.clone(),
-            0
+            0,
+            proposal_len,
+            proposal_weight
         ));
 
         let record = |event| EventRecord {
@@ -177,6 +193,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
         let end = 4;
 
@@ -186,7 +203,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_ok!(Voting::vote(
             Origin::signed(2),
@@ -224,6 +242,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
         );
 
         let proposal = make_proposal(69);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
         assert_ok!(Voting::propose(
             Origin::signed(2),
@@ -231,7 +250,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             group_idx,
             Box::new(proposal.clone()),
             2,
-            3
+            3,
+            proposal_len
         ));
         assert_ok!(Voting::vote(
             Origin::signed(3),
@@ -278,6 +298,7 @@ fn propose_works() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
         let end = 4;
 
@@ -287,7 +308,8 @@ fn propose_works() {
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_eq!(
             Voting::voting_group((section_idx, group_idx))
@@ -337,17 +359,20 @@ fn limit_active_proposals() {
         //todo: dynamic max proposals
         for i in 0..10 {
             let proposal = make_proposal(i as u64);
+            let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
             assert_ok!(Voting::propose(
                 Origin::signed(1),
                 section_idx,
                 group_idx,
                 Box::new(proposal.clone()),
                 3,
-                3
+                3,
+                proposal_len
             ));
         }
         //todo: dynamic max proposals
         let proposal = make_proposal(10 as u64);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         assert_noop!(
             Voting::propose(
                 Origin::signed(1),
@@ -355,7 +380,8 @@ fn limit_active_proposals() {
                 group_idx,
                 Box::new(proposal.clone()),
                 3,
-                3
+                3,
+                proposal_len
             ),
             Error::<Test>::TooManyProposals
         );
@@ -369,6 +395,9 @@ fn correct_validate_and_get_proposal() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
+
         let hash = BlakeTwo256::hash_of(&proposal);
 
         assert_ok!(Voting::propose(
@@ -377,19 +406,29 @@ fn correct_validate_and_get_proposal() {
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_noop!(
             Voting::validate_and_get_proposal(
                 section_idx,
                 group_idx,
-                &BlakeTwo256::hash_of(&vec![3; 4])
+                &BlakeTwo256::hash_of(&vec![3; 4]),
+                proposal_len,
+                proposal_weight
             ),
             Error::<Test>::ProposalMissing
         );
-        let res = Voting::validate_and_get_proposal(section_idx, group_idx, &hash);
+        let res = Voting::validate_and_get_proposal(
+            section_idx,
+            group_idx,
+            &hash,
+            proposal_len,
+            proposal_weight,
+        );
         assert_ok!(res.clone());
-        let retrieved_proposal = res.unwrap();
+        let (retrieved_proposal, len) = res.unwrap();
+        assert_eq!(proposal_len as usize, len);
         assert_eq!(proposal, retrieved_proposal)
     });
 }
@@ -401,6 +440,7 @@ fn motions_ignoring_non_member_proposals_works() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 
         assert_noop!(
             Voting::propose(
@@ -409,7 +449,8 @@ fn motions_ignoring_non_member_proposals_works() {
                 group_idx,
                 Box::new(proposal.clone()),
                 3,
-                3
+                3,
+                proposal_len
             ),
             Error::<Test>::NotMember
         );
@@ -423,14 +464,17 @@ fn motions_ignoring_non_member_votes_works() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
+
         assert_ok!(Voting::propose(
             Origin::signed(1),
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_noop!(
             Voting::vote(
@@ -453,14 +497,17 @@ fn motions_ignoring_bad_index_member_vote_works() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
+
         assert_ok!(Voting::propose(
             Origin::signed(1),
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_noop!(
             Voting::vote(
@@ -484,6 +531,7 @@ fn motions_revoting_works() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
         let end = 4;
         assert_ok!(Voting::propose(
@@ -492,7 +540,8 @@ fn motions_revoting_works() {
             group_idx,
             Box::new(proposal.clone()),
             2,
-            3
+            3,
+            proposal_len
         ));
         assert_eq!(
             Voting::votes((section_idx, group_idx), &hash),
@@ -582,6 +631,8 @@ fn motions_reproposing_disapproved_works() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
         let hash = BlakeTwo256::hash_of(&proposal);
 
         assert_ok!(Voting::propose(
@@ -590,7 +641,8 @@ fn motions_reproposing_disapproved_works() {
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_ok!(Voting::vote(
             Origin::signed(2),
@@ -605,7 +657,9 @@ fn motions_reproposing_disapproved_works() {
             section_idx,
             group_idx,
             hash.clone(),
-            0
+            0,
+            proposal_len,
+            proposal_weight
         ));
         assert_eq!(
             Voting::voting_group((section_idx, group_idx))
@@ -619,7 +673,8 @@ fn motions_reproposing_disapproved_works() {
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_eq!(
             Voting::voting_group((section_idx, group_idx))
@@ -638,6 +693,8 @@ fn motions_disapproval_works() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
         let hash = BlakeTwo256::hash_of(&proposal);
 
         assert_ok!(Voting::propose(
@@ -646,7 +703,8 @@ fn motions_disapproval_works() {
             group_idx,
             Box::new(proposal.clone()),
             3,
-            3
+            3,
+            proposal_len
         ));
         assert_ok!(Voting::vote(
             Origin::signed(2),
@@ -661,7 +719,9 @@ fn motions_disapproval_works() {
             section_idx,
             group_idx,
             hash.clone(),
-            0
+            0,
+            proposal_len,
+            proposal_weight
         ));
 
         let record = |event| EventRecord {
@@ -714,6 +774,8 @@ fn motions_approval_works() {
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
         let hash = BlakeTwo256::hash_of(&proposal);
 
         assert_ok!(Voting::propose(
@@ -722,7 +784,8 @@ fn motions_approval_works() {
             group_idx,
             Box::new(proposal.clone()),
             2,
-            3
+            3,
+            proposal_len
         ));
         assert_ok!(Voting::vote(
             Origin::signed(2),
@@ -737,7 +800,9 @@ fn motions_approval_works() {
             section_idx,
             group_idx,
             hash.clone(),
-            0
+            0,
+            proposal_len,
+            proposal_weight
         ));
 
         let record = |event| EventRecord {

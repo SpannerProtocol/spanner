@@ -4888,6 +4888,7 @@ dependencies = [
 name = "pallet-support"
 version = "2.0.0"
 dependencies = [
+ "frame-support",
  "parity-scale-codec 1.3.6",
  "serde",
  "sp-runtime",
