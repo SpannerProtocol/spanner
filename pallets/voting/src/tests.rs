@@ -853,6 +853,85 @@ fn motions_approval_works() {
     });
 }
 
-//Other Test cases in Collective
-//motions_all_first_vote_free_works
-//close_disapprove_does_not_care_about_weight_or_len
+#[test]
+fn close_disapprove_does_not_care_about_weight_or_len() {
+    // This test confirms that if you close a proposal that would be disapproved,
+    // we do not care about the proposal length or proposal weight since it will
+    // not be read from storage or executed.
+    new_test_ext().execute_with(|| {
+        run_to_block(1);
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        let (section_idx, group_idx) = (0, 0);
+
+        let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let hash = BlakeTwo256::hash_of(&proposal);
+        let threshold = 2;
+        let duration = 3;
+        assert_ok!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            threshold,
+            duration,
+            proposal_len
+        ));
+        // First we make the proposal succeed
+        assert_ok!(Voting::vote(
+            Origin::signed(2),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            true
+        ));
+        // It will not close with bad weight/len information
+        assert_noop!(
+            Voting::close(
+                Origin::signed(2),
+                section_idx,
+                group_idx,
+                hash.clone(),
+                0,
+                0,
+                0
+            ),
+            Error::<Test>::WrongProposalLength
+        );
+
+        // Now we make the proposal fail
+        assert_ok!(Voting::vote(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            false
+        ));
+        assert_ok!(Voting::vote(
+            Origin::signed(2),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            false
+        ));
+        // It can close even if the weight/len information is bad
+        assert_ok!(Voting::close(
+            Origin::signed(2),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            0,
+            0
+        ),);
+    });
+}
+
+//todo: test case
+//disapprove_proposal_works
+//proposal_weight_limit_ignored_on_disapprove
+//proposal_weight_limit_works_on_approve
