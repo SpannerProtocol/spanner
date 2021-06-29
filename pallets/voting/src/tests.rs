@@ -351,6 +351,28 @@ fn propose_works() {
 }
 
 #[test]
+fn propose_non_member_works() {
+    new_test_ext().execute_with(|| {
+        run_to_block(1);
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        let (section_idx, group_idx) = (0, 0);
+        let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+
+        assert_noop!(Voting::propose(
+            Origin::signed(4),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            3,
+            3,
+            proposal_len
+        ), Error::<Test>::NotMember);
+    });
+}
+
+#[test]
 fn limit_active_proposals() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
@@ -863,7 +885,6 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
         assert_ok!(Voting::new_section(Origin::root()));
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
-
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
@@ -927,11 +948,89 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
             0,
             0,
             0
-        ),);
+        ));
     });
 }
 
 //todo: test case
-//disapprove_proposal_works
-//proposal_weight_limit_ignored_on_disapprove
-//proposal_weight_limit_works_on_approve
+#[test]
+fn proposal_weight_limit_ignored_on_disapprove() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        let (section_idx, group_idx) = (0, 0);
+        let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
+        let hash = BlakeTwo256::hash_of(&proposal);
+        let threshold = 2;
+        let duration = 3;
+        assert_ok!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            threshold,
+            duration,
+            proposal_len
+        ));
+        // No votes, this proposal wont pass
+        run_to_block(4);
+        assert_ok!(Voting::close(
+            Origin::signed(4),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            proposal_len,
+            proposal_weight - 100
+        ));
+    });
+}
+
+#[test]
+fn proposal_weight_limit_works_on_approve() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        let (section_idx, group_idx) = (0, 0);
+
+        let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
+        let hash = BlakeTwo256::hash_of(&proposal);
+
+        let threshold = 1;
+        let duration = 3;
+        assert_ok!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            threshold,
+            duration,
+            proposal_len
+        ));
+        assert_noop!(
+            Voting::close(
+                Origin::signed(4),
+                section_idx,
+                group_idx,
+                hash.clone(),
+                0,
+                proposal_len,
+                proposal_weight - 100
+            ),
+            Error::<Test>::WrongProposalWeight
+        );
+        assert_ok!(Voting::close(
+            Origin::signed(4),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            proposal_len,
+            proposal_weight
+        ));
+    });
+}

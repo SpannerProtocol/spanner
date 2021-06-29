@@ -5,6 +5,9 @@ use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use crate::Module as Voting;
 use frame_system::Call as SystemCall;
 use frame_system::RawOrigin as SystemOrigin;
+use frame_system::Pallet as System;
+use sp_std::mem::size_of;
+use frame_support::sp_runtime::traits::Bounded;
 
 const SEED: u32 = 0;
 const MAX_BYTES: u32 = 1_024;
@@ -60,7 +63,8 @@ benchmarks! {
                 group_idx,
                 Box::new(proposal.clone()),
                 3,
-                duration
+                duration,
+                MAX_BYTES
             )?;
             let hash = T::Hashing::hash_of(&proposal);
             // Vote on the proposal to increase state relevant for `set_members`.
@@ -97,6 +101,8 @@ benchmarks! {
         let m in 2 .. T::MaxMembers::get();
         let p in 1 .. T::MaxProposals::get();
 
+        let bytes_in_storage = b + size_of::<u32>() as u32;
+
         // Construct `members`.
         let mut members = vec![];
         for i in 0 .. m - 1 {
@@ -123,13 +129,14 @@ benchmarks! {
                 Box::new(proposal),
                 threshold,
                 duration,
+                bytes_in_storage
             )?;
         }
         assert_eq!(Voting::<T>::voting_group((section_idx, group_idx)).unwrap().proposals.len(), (p - 1) as usize);
 
         let proposal: T::Proposal = SystemCall::<T>::remark(vec![p as u8; b as usize]).into();
 
-    }: _(SystemOrigin::Signed(caller.clone()), section_idx, group_idx, Box::new(proposal.clone()), threshold, duration)
+    }: _(SystemOrigin::Signed(caller.clone()), section_idx, group_idx, Box::new(proposal.clone()), threshold, duration, bytes_in_storage)
     verify{
         // New proposal is recorded
         assert_eq!(Voting::<T>::voting_group((section_idx, group_idx)).unwrap().proposals.len(), p as usize);
@@ -146,6 +153,8 @@ benchmarks! {
         let p = T::MaxProposals::get();
         let b = MAX_BYTES;
 
+        let bytes_in_storage = b + size_of::<u32>() as u32;
+
         // Construct `members`.
         let mut members = vec![];
         let proposer: T::AccountId = account("proposer", 0, SEED);
@@ -157,7 +166,7 @@ benchmarks! {
         let voter: T::AccountId = account("voter", 0, SEED);
         members.push(voter.clone());
 
-        // Contruct `voting_group`
+        // Construct `voting_group`
         Voting::<T>::new_section(SystemOrigin::Root.into())?;
         Voting::<T>::new_group(SystemOrigin::Root.into(), 0, members.clone())?;
         let (section_idx, group_idx) = (0, 0);
@@ -178,6 +187,7 @@ benchmarks! {
                 Box::new(proposal.clone()),
                 threshold,
                 duration,
+                bytes_in_storage
             )?;
             last_hash = T::Hashing::hash_of(&proposal);
         }
@@ -225,12 +235,83 @@ benchmarks! {
 		assert_eq!(voting.nays.len(), 1);
     }
 
-    // close {
-    //
-    // }: _(SystemOrigin::Signed(voter), section_idx, group_idx, last_hash.clone(), index)
-    // verify {
-    //
-    // }
+    //close approved
+    close{
+        let b in 1 .. MAX_BYTES;
+		// We choose 4 as a minimum so we always trigger a vote in the voting loop (`for j in ...`)
+		let m in 4 .. T::MaxMembers::get();
+		let p in 1 .. T::MaxProposals::get();
+
+		let bytes_in_storage = b + size_of::<u32>() as u32;
+
+        // Construct `members`.
+        let mut members = vec![];
+        for i in 1 .. m - 1 {
+            let member = account("member", i, SEED);
+            members.push(member);
+        }
+        let caller: T::AccountId = whitelisted_caller();
+        members.push(caller.clone());
+
+        // Construct `voting_group`
+        Voting::<T>::new_section(SystemOrigin::Root.into())?;
+        Voting::<T>::new_group(SystemOrigin::Root.into(), 0, members.clone())?;
+        let (section_idx, group_idx) = (0, 0);
+
+        // Threshold is 2 so any two ayes will approve the vote
+        let threshold = 2;
+
+        // Add previous proposals
+        let mut last_hash = T::Hash::default();
+        let duration: T::BlockNumber = Default::default();
+        for i in 0 .. p {
+            // Proposals should be different so that different proposal hashes are generated
+            let proposal: T::Proposal = SystemCall::<T>::remark(vec![i as u8; b as usize]).into();
+            Voting::<T>::propose(
+                SystemOrigin::Signed(caller.clone()).into(),
+                section_idx,
+                group_idx,
+                Box::new(proposal.clone()),
+                threshold,
+                duration,
+                bytes_in_storage
+            )?;
+            last_hash = T::Hashing::hash_of(&proposal);
+        }
+
+        // Have almost everyone vote nay on last proposal, while keeping it from failing.
+		// A few abstainers will be the aye votes needed to pass the vote.
+		for j in 2 .. m - 1 {
+			let voter = &members[j as usize];
+			let approve = false;
+			Voting::<T>::vote(
+                SystemOrigin::Signed(voter.clone()).into(),
+                section_idx,
+                group_idx,
+                last_hash.clone(),
+                p - 1,
+                false
+            )?;
+		}
+		System::<T>::set_block_number(T::BlockNumber::max_value());
+        assert_eq!(Voting::<T>::voting_group((section_idx, group_idx)).unwrap().proposals.len(), p as usize);
+
+        // Member zero changes to aye
+		Voting::<T>::vote(
+            SystemOrigin::Signed(members[0].clone()).into(),
+            section_idx,
+            group_idx,
+            last_hash.clone(),
+            p - 1,
+            true
+        )?;
+    }: _(SystemOrigin::Signed(caller), section_idx, group_idx, last_hash.clone(), p - 1, bytes_in_storage, Weight::max_value())
+    verify {
+        // The last proposal is removed
+        assert_eq!(Voting::<T>::voting_group((section_idx, group_idx)).unwrap().proposals.len(), (p - 1) as usize);
+        let last_event = Event::Executed(section_idx, group_idx, last_hash, Err(DispatchError::BadOrigin).into());
+        assert_last_event::<T>(last_event.into());
+    }
 }
 
 #[cfg(test)]
