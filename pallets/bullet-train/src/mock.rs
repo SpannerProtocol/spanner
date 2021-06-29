@@ -111,6 +111,7 @@ impl pallet_voting::Config for Test {
     type Proposal = Call;
     type MaxProposals = MaxProposals;
     type MaxMembers = MaxMembers;
+    type WeightInfo = pallet_voting::weights::SubstrateWeight<Test>;
 }
 
 parameter_types!{

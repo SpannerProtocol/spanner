@@ -1088,6 +1088,7 @@ impl pallet_voting::Config for Runtime {
     type Proposal = Call;
     type MaxProposals = VotingMaxProposals;
     type MaxMembers = VotingMaxMembers;
+    type WeightInfo = pallet_voting::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {

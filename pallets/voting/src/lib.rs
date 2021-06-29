@@ -25,6 +25,9 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+pub mod weights;
+use weights::WeightInfo;
+
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, RuntimeDebug)]
 pub struct VotingSectionInfo {
     index: VotingSectionIndex,
@@ -73,6 +76,9 @@ pub mod pallet {
         /// + This pallet assumes that dependents keep to the limit without enforcing it.
         #[pallet::constant]
         type MaxMembers: Get<MemberCount>;
+
+        /// Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -213,20 +219,21 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_members(*_old_count, new_members.len() as u32, T::MaxProposals::get()))]
         #[transactional]
         pub fn set_members(
             origin: OriginFor<T>,
             section_idx: VotingSectionIndex,
             group_idx: VotingGroupIndex,
             new_members: Vec<T::AccountId>,
+            _old_count: MemberCount,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::do_set_members(section_idx, group_idx, new_members)?;
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::propose(*length_bound, T::MaxMembers::get(), T::MaxProposals::get()))]
         #[transactional]
         pub fn propose(
             origin: OriginFor<T>,
@@ -250,7 +257,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::vote(T::MaxMembers::get()))]
         #[transactional]
         pub fn vote(
             origin: OriginFor<T>,
@@ -309,7 +316,7 @@ pub mod pallet {
         }
 
         //set to max block weight for now (until dynamically calculating proposal weight)
-        #[pallet::weight(T::BlockWeights::get().max_block)]
+        #[pallet::weight(<T as Config>::WeightInfo::close(*length_bound, T::MaxMembers::get(), T::MaxProposals::get()))]
         #[transactional]
         pub fn close(
             origin: OriginFor<T>,

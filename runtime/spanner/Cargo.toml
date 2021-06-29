@@ -205,4 +205,5 @@ runtime-benchmarks = [
 
 	"pallet-bullet-train/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",
+	"pallet-voting/runtime-benchmarks",
 ]

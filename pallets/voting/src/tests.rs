@@ -228,7 +228,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             Origin::root(),
             section_idx,
             group_idx,
-            vec![2, 3, 4]
+            vec![2, 3, 4],
+            3
         ));
         assert_eq!(
             Voting::votes((section_idx, group_idx), &hash),
@@ -275,7 +276,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             Origin::root(),
             section_idx,
             group_idx,
-            vec![2, 4]
+            vec![2, 4],
+            3
         ));
         assert_eq!(
             Voting::votes((section_idx, group_idx), &hash),
