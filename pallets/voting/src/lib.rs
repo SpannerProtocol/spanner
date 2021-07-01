@@ -664,30 +664,21 @@ impl<T: Config> VotingChangeMembers<T::AccountId> for Pallet<T> {
     }
 }
 
-impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::BlockNumber>
-    for Pallet<T>
-{
-    fn new_group(
-        origin: T::Origin,
-        section_idx: VotingSectionIndex,
-        members: Vec<T::AccountId>,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
+impl<T: Config> VotingActions<T::AccountId, T::Proposal, T::Hash, T::BlockNumber> for Pallet<T> {
+    fn new_group(section_idx: VotingSectionIndex, members: Vec<T::AccountId>) -> DispatchResult {
         Self::do_new_group(section_idx, members)
     }
 
     fn set_members(
-        origin: T::Origin,
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
         new_members: Vec<T::AccountId>,
     ) -> DispatchResult {
-        ensure_root(origin)?;
         Self::do_set_members(section_idx, group_idx, new_members)
     }
 
     fn propose(
-        origin: T::Origin,
+        who: T::AccountId,
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
         proposal: Box<T::Proposal>,
@@ -695,7 +686,6 @@ impl<T: Config> VotingActions<T::Origin, T::AccountId, T::Proposal, T::Hash, T::
         duration: T::BlockNumber,
         length_bound: u32,
     ) -> DispatchResult {
-        let who = ensure_signed(origin)?;
         Self::do_propose(
             who,
             section_idx,

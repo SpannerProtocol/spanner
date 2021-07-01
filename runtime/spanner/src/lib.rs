@@ -42,13 +42,13 @@ use frame_system::{
 };
 pub use node_primitives::{AccountId, CurrencyId, Signature, TokenSymbol};
 use node_primitives::{AccountIndex, Amount, Balance, BlockNumber, Hash, Index, Moment};
-use pallet_support::{ProposalIndex, MemberCount};
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
+use pallet_support::{MemberCount, ProposalIndex};
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use sp_api::impl_runtime_apis;
@@ -1084,7 +1084,7 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
 
 parameter_types! {
     pub const VotingMaxProposals: ProposalIndex = 10;
-	pub const VotingMaxMembers: MemberCount = 100;
+    pub const VotingMaxMembers: MemberCount = 100;
 }
 impl pallet_voting::Config for Runtime {
     type Event = Event;

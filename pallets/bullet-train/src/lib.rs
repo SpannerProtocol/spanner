@@ -285,13 +285,7 @@ pub mod module {
 
         type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
 
-        type Voting: VotingActions<
-            Self::Origin,
-            Self::AccountId,
-            Self::Proposal,
-            Self::Hash,
-            Self::BlockNumber,
-        >;
+        type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::Hash, Self::BlockNumber>;
     }
 
     #[pallet::error]

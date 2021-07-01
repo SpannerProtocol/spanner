@@ -2,20 +2,18 @@ use crate::*;
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
-pub trait VotingActions<Origin, AccountId, Proposal, Hash, BlockNumber> {
+pub trait VotingActions<AccountId, Proposal, Hash, BlockNumber> {
     fn new_group(
-        origin: Origin,
         section: VotingSectionIndex,
         members: Vec<AccountId>,
     ) -> DispatchResult;
     fn set_members(
-        origin: Origin,
         section: VotingSectionIndex,
         group: VotingGroupIndex,
         new_members: Vec<AccountId>,
     ) -> DispatchResult;
     fn propose(
-        origin: Origin,
+        who: AccountId,
         section: VotingSectionIndex,
         group: VotingGroupIndex,
         call: Box<Proposal>,
