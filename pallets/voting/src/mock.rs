@@ -20,7 +20,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		Voting: pallet_voting::{Module, Call, Storage, Event<T>},
+		Voting: pallet_voting::{Module, Call, Storage, Event<T>, Origin<T>},
 	}
 );
 
@@ -60,6 +60,7 @@ ord_parameter_types! {
 	pub const MaxMembers: MemberCount = 100;
 }
 impl pallet_voting::Config for Test {
+    type Origin = Origin;
     type Event = Event;
     type Proposal = Call;
     type MaxProposals = MaxProposals;

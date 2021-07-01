@@ -54,15 +54,61 @@ pub struct VotesInfo<AccountId, BlockNumber> {
     end: BlockNumber,
 }
 
+/// Origin for the collective module.
+#[derive(PartialEq, Eq, Clone, RuntimeDebug, Encode, Decode)]
+pub enum RawOrigin<AccountId> {
+    VotingGroup(VotingSectionIndex, VotingGroupIndex),
+    Member(AccountId),
+}
+/// Origin for the collective module.
+pub type Origin<T> = RawOrigin<<T as frame_system::Config>::AccountId>;
+
+pub struct EnsureMember<AccountId>(sp_std::marker::PhantomData<AccountId>);
+impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Default>
+    EnsureOrigin<O> for EnsureMember<AccountId>
+{
+    type Success = AccountId;
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Member(id) => Ok(id),
+            r => Err(O::from(r)),
+        })
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin() -> O {
+        O::from(RawOrigin::Member(Default::default()))
+    }
+}
+
+pub struct EnsureVotingGroup<AccountId>(sp_std::marker::PhantomData<AccountId>);
+impl<O: Into<Result<RawOrigin<AccountId>, O>> + From<RawOrigin<AccountId>>, AccountId: Default>
+    EnsureOrigin<O> for EnsureVotingGroup<AccountId>
+{
+    type Success = (VotingSectionIndex, VotingGroupIndex);
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::VotingGroup(s, g) => Ok((s, g)),
+            r => Err(O::from(r)),
+        })
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn successful_origin() -> O {
+        O::from(RawOrigin::VotingGroup(0, 0))
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        type Origin: From<RawOrigin<Self::AccountId>>;
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         type Proposal: Parameter
-            + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+            + Dispatchable<Origin = <Self as Config>::Origin, PostInfo = PostDispatchInfo>
             + From<frame_system::Call<Self>>
             + GetDispatchInfo;
 
@@ -422,7 +468,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<u32, DispatchError> {
         Self::deposit_event(Event::Approved(section_idx, group_idx, proposal_hash));
 
-        let result = proposal.dispatch(frame_system::RawOrigin::Root.into());
+        let result = proposal.dispatch(RawOrigin::VotingGroup(section_idx, group_idx).into());
         Self::deposit_event(Event::Executed(
             section_idx,
             group_idx,

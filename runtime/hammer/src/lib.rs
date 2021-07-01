@@ -1084,6 +1084,7 @@ parameter_types! {
 	pub const VotingMaxMembers: MemberCount = 100;
 }
 impl pallet_voting::Config for Runtime {
+    type Origin = Origin;
     type Event = Event;
     type Proposal = Call;
     type MaxProposals = VotingMaxProposals;
@@ -1121,6 +1122,7 @@ impl pallet_bullet_train::Config for Runtime {
     type WeightInfo = pallet_bullet_train::weights::SubstrateWeight<Runtime>;
     type Proposal = Call;
     type Voting = Voting;
+    type VotingOrigin = pallet_voting::EnsureVotingGroup<AccountId>;
 }
 
 parameter_types! {
@@ -1184,7 +1186,7 @@ construct_runtime!(
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         // spanner added pallets
         BulletTrain: pallet_bullet_train::{Module, Call, Storage, Event<T>},
-        Voting: pallet_voting::{Module, Call, Storage, Event<T>},
+        Voting: pallet_voting::{Module, Call, Storage, Event<T>, Origin<T>},
         Dex: pallet_dex::{Module, Call, Storage, Event<T>, Config<T>},
         Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
         Currencies: orml_currencies::{Module, Call, Event<T>},

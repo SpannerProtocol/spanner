@@ -10,6 +10,7 @@ use frame_support::ord_parameter_types;
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 use frame_system::EnsureSignedBy;
+use pallet_voting::EnsureVotingGroup;
 
 pub type Balance = u128;
 pub type AccountId = u128; // u64 is not enough to hold bytes used to generate dpo account
@@ -107,6 +108,7 @@ ord_parameter_types! {
 	pub const MaxMembers: MemberCount = 100;
 }
 impl pallet_voting::Config for Test {
+    type Origin = Origin;
     type Event = Event;
     type Proposal = Call;
     type MaxProposals = MaxProposals;
@@ -143,8 +145,9 @@ impl Config for Test {
     type ManagerSlashPerThousand = ManagerSlashPerThousand;
     type EngineerOrigin = EnsureSignedBy<Alice, AccountId>;
     type WeightInfo = weights::SubstrateWeight<Test>;
-    type Voting = Voting;
     type Proposal = Call;
+    type Voting = Voting;
+    type VotingOrigin = EnsureVotingGroup<AccountId>;
 }
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -161,7 +164,7 @@ construct_runtime!(
 		Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
 		Currencies: orml_currencies::{Module, Call, Event<T>},
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-		Voting: pallet_voting::{Module, Call, Storage, Event<T>},
+		Voting: pallet_voting::{Module, Call, Storage, Event<T>, Origin<T>},
 	}
 );
 
