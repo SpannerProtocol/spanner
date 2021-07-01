@@ -287,7 +287,10 @@ pub mod module {
 
         type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::Hash, Self::BlockNumber>;
 
-        type VotingOrigin: EnsureOrigin<Self::Origin, Success = (VotingSectionIndex, VotingGroupIndex)>;
+        type VotingOrigin: EnsureOrigin<
+            Self::Origin,
+            Success = (VotingSectionIndex, VotingGroupIndex),
+        >;
     }
 
     #[pallet::error]
@@ -1005,6 +1008,20 @@ pub mod module {
             Self::do_release_bonus_from_dpo(who, &mut dpo)?;
             //update to dpo storage
             Dpos::<T>::insert(dpo_idx, &dpo);
+            Ok(().into())
+        }
+
+        //can only be called by voting
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn test_voting(
+            origin: OriginFor<T>,
+            section_idx: VotingSectionIndex,
+            group_idx: VotingGroupIndex,
+        ) -> DispatchResultWithPostInfo {
+            let (s, g) = T::VotingOrigin::ensure_origin(origin)?;
+            ensure!(s == section_idx, Error::<T>::InvalidIndex);
+            ensure!(g == group_idx, Error::<T>::InvalidIndex);
             Ok(().into())
         }
     }
@@ -2092,13 +2109,5 @@ impl<T: Config> Pallet<T> {
             }
         }
         return false;
-    }
-
-    // TESTING VOTING
-    pub fn testing_members(
-        section: VotingSectionIndex,
-        group: VotingGroupIndex,
-    ) -> Result<Vec<T::AccountId>, DispatchError> {
-        return T::Voting::members(section, group);
     }
 }

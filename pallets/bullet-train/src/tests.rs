@@ -1,6 +1,13 @@
 use crate::{mock::*, Buyer, DpoMemberInfo, DpoState, Error, Referrer, Target, TravelCabinInfo};
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{
+    assert_noop, assert_ok,
+    sp_runtime::traits::{BlakeTwo256, Hash},
+    weights::GetDispatchInfo,
+};
+use frame_system::{EventRecord, Phase};
 use orml_traits::MultiCurrency;
+use parity_scale_codec::Encode;
+use sp_runtime::DispatchError;
 
 #[test]
 fn create_travel_cabin() {
@@ -967,7 +974,7 @@ fn dpo_buy_dpo_seats_test() {
             DpoState::RUNNING
         ));
         assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(CAROL), 0)); //member 2 of dpo 0
-        // dpo1 should be in COMPLETED, by chain effect with an inflow
+                                                                                  // dpo1 should be in COMPLETED, by chain effect with an inflow
         assert!(matches!(
             BulletTrain::dpos(1).unwrap().state,
             DpoState::COMPLETED
@@ -1990,7 +1997,7 @@ fn do_release_bonus_from_dpo() {
             Some(ADAM)
         ));
         assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000); //
-        //BCDE taking 10 each, spending 10,000
+                                                                    //BCDE taking 10 each, spending 10,000
         for i in BOB..FRED {
             assert_ok!(BulletTrain::passenger_buy_dpo_seats(
                 Origin::signed(i),
@@ -2077,16 +2084,16 @@ fn do_release_bonus_from_dpo() {
             Balances::free_balance(ALICE),
             1000000 - 15000 + 105 + 100 + 20
         ); // 150 * 70% (30% to ADAM as external referrer)
-        // + 100 from bob + 20 from Carol
+           // + 100 from bob + 20 from Carol
         assert_eq!(Balances::free_balance(ADAM), 500000 + 45); // 150 * 30%
-        // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
+                                                               // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
         assert_eq!(Balances::free_balance(BOB), 487000 + 80 + 20); // Carol 80 + Dylan 20
         assert_eq!(Balances::free_balance(CAROL), 487000 + 80 + 20); // Dylan 80 + elsa 20
         assert_eq!(Balances::free_balance(DYLAN), 487000 + 80 + 30); // Elsa 80 + Fred (150 * 20% = 30)
         assert_eq!(Balances::free_balance(ELSA), 487000 + 120 + 9); // Fred (150 * 80% = 120) + DPO1 300 * 15% * 20%
-        // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
+                                                                    // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
         assert_eq!(Balances::free_balance(FRED), 482000 + 36); // DPO1 45 * 80%
-        // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
+                                                               // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
 
         // release bonus of dpo1. each seat worths 3 bonus.
         assert_ok!(BulletTrain::release_bonus_from_dpo(
@@ -2101,10 +2108,10 @@ fn do_release_bonus_from_dpo() {
         assert_eq!(Balances::free_balance(ELSA), 487000 + 120 + 9 + 24 + 6); // Fred 24 + Greg 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
-        // balancer for greg and hugh = 500000 - 3000 (10 seats, 300 each)
+                                                                        // balancer for greg and hugh = 500000 - 3000 (10 seats, 300 each)
         assert_eq!(Balances::free_balance(GREG), 500000 - 3000 + 24 + 9); // Hugh 24 + Ivan 9
         assert_eq!(Balances::free_balance(HUGH), 500000 - 3000 + 36); // Ivan 36
-        // balancer for greg and hugh = 500000 - 4500 (15 seats)
+                                                                      // balancer for greg and hugh = 500000 - 4500 (15 seats)
         assert_eq!(Balances::free_balance(IVAN), 500000 - 4500);
     });
 }
@@ -2139,7 +2146,7 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
             Some(ADAM)
         ));
         assert_eq!(Balances::free_balance(ALICE), 1000000 - 15000); //
-        //BCDE taking 10 each, spending 10,000
+                                                                    //BCDE taking 10 each, spending 10,000
         for i in BOB..FRED {
             assert_ok!(BulletTrain::passenger_buy_dpo_seats(
                 Origin::signed(i),
@@ -2222,16 +2229,16 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
             Balances::free_balance(ALICE),
             1000000 - 15000 + 105 + 100 + 100
         ); // 150 * 70% (30% to ADAM as external referrer)
-        // + 100 from bob + 100 from Carol
+           // + 100 from bob + 100 from Carol
         assert_eq!(Balances::free_balance(ADAM), 500000 + 45); // 150 * 30%
-        // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
+                                                               // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
         assert_eq!(Balances::free_balance(BOB), 487000 + 0 + 100); // carol 0 + dylan 100
         assert_eq!(Balances::free_balance(CAROL), 487000 + 0 + 100); // dylan 0 + elsa 100
         assert_eq!(Balances::free_balance(DYLAN), 487000 + 0 + 150); // elsa 0 +  Fred (150 * 20% = 30)
         assert_eq!(Balances::free_balance(ELSA), 487000 + 0 + 45); //fred 0 + DPO1 300 * 15% * 100% = 45
-        // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
+                                                                   // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
         assert_eq!(Balances::free_balance(FRED), 482000); // DPO1 0
-        // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
+                                                          // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
 
         // release bonus of dpo1. each seat worths 3 bonus.
         assert_ok!(BulletTrain::release_bonus_from_dpo(
@@ -2368,10 +2375,7 @@ fn dpo_buy_non_default_carbin_test() {
         ));
 
         // withdraw unused fun
-        assert_ok!(BulletTrain::release_fare_from_dpo(
-            Origin::signed(ALICE),
-            0
-        ));
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
         for i in 11..20 {
             assert_eq!(Balances::free_balance(&i), 9000);
         }
@@ -2551,10 +2555,7 @@ fn dpo_buy_non_default_dpo_test() {
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 27000);
         // withdraw unused fund
-        assert_ok!(BulletTrain::release_fare_from_dpo(
-            Origin::signed(ALICE),
-            3
-        ));
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 3));
         for i in 11..20 {
             assert_eq!(Balances::free_balance(&i), 3000 - 300);
         }
@@ -2595,11 +2596,8 @@ fn dpo_buy_non_default_dpo_test() {
         ));
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 0); // vault_deposit empty
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 1000); // (10000 - 9000)
-        // dpo1 withdraw unused fund
-        assert_ok!(BulletTrain::release_fare_from_dpo(
-            Origin::signed(ALICE),
-            1
-        ));
+                                                                        // dpo1 withdraw unused fund
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 1));
         // dpo3 get unused fund (300) from dpo 1
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_deposit, 0); // vault_deposit keeps 0
         assert_eq!(
@@ -2607,10 +2605,7 @@ fn dpo_buy_non_default_dpo_test() {
             (10000 - 9000) * 30 / 100 //300
         );
         // dpo3 withdraw unused fund
-        assert_ok!(BulletTrain::release_fare_from_dpo(
-            Origin::signed(ALICE),
-            3
-        ));
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 3));
         for i in 11..20 {
             assert_eq!(Balances::free_balance(&i), 2730); // 2700 +  300/10
         }
@@ -2737,7 +2732,11 @@ fn release_fare_from_dpo_including_unused_fund() {
             Error::<Test>::CabinNotAvailable
         );
         // dpo0 buy cabin 1
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(ALICE), 0, 1));
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            1
+        ));
 
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 90000); // 100000 - 10000
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0); // keep 0
@@ -2829,7 +2828,12 @@ fn no_expiry_block_constraint_when_dpo_changes_target() {
             Origin::signed(ALICE),
             0
         ));
-        assert_ok!(BulletTrain::dpo_buy_dpo_seats(Origin::signed(ALICE), 0, 1, 30)); // no constraint
+        assert_ok!(BulletTrain::dpo_buy_dpo_seats(
+            Origin::signed(ALICE),
+            0,
+            1,
+            30
+        )); // no constraint
     });
 }
 
@@ -2948,11 +2952,114 @@ fn get_dpos_of_accounts() {
     });
 }
 
+//NOTE: when using voting, need to do your own check on whether proposals submitted are valid
 #[test]
-fn new_voting_group() {
+fn dispatch_with_voting_origin() {
     ExtBuilder::default().build().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
-        assert_eq!(BulletTrain::testing_members(0, 0).unwrap(), vec![1, 2, 3]);
+        let (section_idx, group_idx) = (0, 0);
+
+        assert_noop!(
+            BulletTrain::test_voting(Origin::root(), section_idx, group_idx),
+            DispatchError::BadOrigin
+        );
+
+        let proposal = Call::BulletTrain(crate::Call::test_voting(section_idx, group_idx));
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
+        let hash = BlakeTwo256::hash_of(&proposal);
+        assert_ok!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            1, //threshold of 1
+            3, //voting duration of 3 blocks
+            proposal_len
+        ));
+
+        assert_ok!(Voting::close(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            proposal_len,
+            proposal_weight
+        ));
+    });
+}
+
+use pallet_voting::Event as VotingEvent;
+#[test]
+fn dispatch_voting_incorrectly() {
+    ExtBuilder::default().build().execute_with(|| {
+        run_to_block(1);
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        let (section_idx, group_idx) = (0, 0);
+
+        let proposal = Call::BulletTrain(crate::Call::test_voting(1, 1));
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
+        let hash = BlakeTwo256::hash_of(&proposal);
+        assert_ok!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            1, //threshold of 1
+            3, //voting duration of 3 blocks
+            proposal_len
+        ));
+
+        assert_ok!(Voting::close(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            proposal_len,
+            proposal_weight
+        ));
+
+        let record = |event| EventRecord {
+            phase: Phase::Initialization,
+            event,
+            topics: vec![],
+        };
+        assert_eq!(
+            System::events(),
+            vec![
+                record(Event::pallet_voting(VotingEvent::Proposed(
+                    1, //proposer
+                    section_idx,
+                    group_idx,
+                    0, //proposal idx
+                    hash.clone(),
+                    1 //threshold
+                ))),
+                record(Event::pallet_voting(VotingEvent::Closed(
+                    section_idx,
+                    group_idx,
+                    hash.clone(),
+                    1, //aye
+                    0  //ney
+                ))),
+                record(Event::pallet_voting(VotingEvent::Approved(
+                    section_idx,
+                    group_idx,
+                    hash.clone()
+                ))),
+                record(Event::pallet_voting(VotingEvent::Executed(
+                    section_idx,
+                    group_idx,
+                    hash.clone(),
+                    Err(DispatchError::Module { index: 1, error: 5, message: None })
+                    // Err(Error::<Test>::InvalidIndex.into())
+                )))
+            ]
+        );
     });
 }
