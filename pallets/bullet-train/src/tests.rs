@@ -2996,6 +2996,10 @@ use pallet_voting::Event as VotingEvent;
 fn dispatch_voting_incorrectly() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
+        assert_noop!(
+            Voting::new_section(Origin::signed(1)),
+            DispatchError::BadOrigin
+        );
         assert_ok!(Voting::new_section(Origin::root()));
         assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
@@ -3056,8 +3060,11 @@ fn dispatch_voting_incorrectly() {
                     section_idx,
                     group_idx,
                     hash.clone(),
-                    Err(DispatchError::Module { index: 1, error: 5, message: None })
-                    // Err(Error::<Test>::InvalidIndex.into())
+                    Err(DispatchError::Module {
+                        index: 1,
+                        error: 5,
+                        message: None
+                    }) // Err(Error::<Test>::InvalidIndex.into())
                 )))
             ]
         );
