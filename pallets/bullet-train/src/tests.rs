@@ -577,7 +577,7 @@ fn passenger_buy_dpo_share_test() {
             BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 0, 30001, None),
             Error::<Test>::ExceededShareCap
         );
-        //manager can buy 25 more, but not 26 more
+        //manager can buy 25% more
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(ALICE),
             0,
@@ -591,14 +591,26 @@ fn passenger_buy_dpo_share_test() {
             None
         ));
         assert_noop!(
-            BulletTrain::passenger_buy_dpo_share(Origin::signed(ALICE), 0, 1000, None), // 1%
+            BulletTrain::passenger_buy_dpo_share(Origin::signed(ALICE), 0, 1, None), // 1 token
             Error::<Test>::ExceededShareCap
         );
 
+        // need more than 1% at the first time
+        assert_noop!(
+            BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 0, 999, None), // <1%
+            Error::<Test>::PurchaseAtLeastOnePercent
+        );
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(BOB),
             0,
-            10000, // 10%
+            9999, // 10% - 1
+            None
+        ));
+        // no minimum limitation after the first time
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(BOB),
+            0,
+            1,
             None
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 40000); // 40%
@@ -624,7 +636,20 @@ fn passenger_buy_dpo_share_test() {
         assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 2000); // 20%
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 2000);
 
-        // TODO: the last buyer buys amount less than min requirement
+        // fill dpo 1
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(DYLAN), 1, 3000, None)); // 30%
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(ELSA), 1, 3000, None)); // 30%
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(FRED), 1, 2000 - 10, None)); // 20% - 1
+        assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 10000 - 10);
+
+        // the remaining amount (10) less than 1% should be bought totally by the last buyer
+        assert_noop!(
+            BulletTrain::passenger_buy_dpo_share(Origin::signed(GREG), 1, 9, None),
+            Error::<Test>::PurchaseAllRemainder
+        );
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(GREG), 1, 10, None));
+        assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 10000);
+        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::ACTIVE);
     });
 }
 
