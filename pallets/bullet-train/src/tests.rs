@@ -788,10 +788,6 @@ fn dpo_buy_dpo_share_test() {
 
         // dpo 1 buy partially dpo 0 (1%)
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_share(Origin::signed(CAROL), 1, 0, 999), // < 1% of dpo 0
-            Error::<Test>::PurchaseAtLeastOnePercent
-        );
-        assert_noop!(
             BulletTrain::dpo_buy_dpo_share(Origin::signed(CAROL), 1, 0, 1501), // balance not enough
             Error::<Test>::TargetValueTooBig
         );
@@ -2643,7 +2639,7 @@ fn dpo_buy_non_default_dpo_test() {
                 3,
                 Target::Dpo(2, 30060), // 30%
             ),
-            Error::<Test>::TargetValueTooBig
+            Error::<Test>::NotAllowedToChangeLargerTarget
         );
 
         // dpo3 buy dpo1 shares (spends 27000 less)
@@ -2695,7 +2691,7 @@ fn dpo_buy_non_default_dpo_test() {
                 1,
                 Target::TravelCabin(2),
             ),
-            Error::<Test>::TargetValueTooBig
+            Error::<Test>::NotAllowedToChangeLargerTarget
         );
 
         // dpo1 change target to travel_cabin3 (spends 1000 less)

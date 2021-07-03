@@ -248,22 +248,22 @@ pub enum PaymentType {
     WithdrawOnFailure,
 }
 
-#[derive(Encode, Decode, PartialEq, Eq, Clone, Copy, Debug)]
-pub enum TargetEntity<Balance, BlockNumber, AccountId> {
+#[derive(Encode, Decode, PartialEq, Eq, Clone, Debug)]
+pub enum TargetEntity<Balance, BlockNumber, AccountId> where AccountId: Clone, Balance: Clone, BlockNumber: Clone {
     Dpo(DpoInfo<Balance, BlockNumber, AccountId>, Balance),
     TravelCabin(TravelCabinInfo<Balance, AccountId, BlockNumber>, (TravelCabinInventoryIndex, TravelCabinInventoryIndex)),
 }
 
-impl<Balance, BlockNumber, AccountId> TargetEntity<Balance, BlockNumber, AccountId> {
-    fn target_amount() -> Balance {
-        match Self {
-            TargetEntity::TravelCabin(_, amount) => amount,
+impl<Balance, BlockNumber, AccountId> TargetEntity<Balance, BlockNumber, AccountId> where AccountId: Clone, Balance: Clone, BlockNumber: Clone {
+    fn target_amount(&self) -> Balance {
+        match (*self).clone() {
+            TargetEntity::TravelCabin(travel_cabin, _) => travel_cabin.deposit_amount,
             TargetEntity::Dpo(_, amount) => amount,
         }
     }
 
-    fn token_id() -> CurrencyId {
-        match Self {
+    fn token_id(&self) -> CurrencyId {
+        match (*self).clone() {
             TargetEntity::TravelCabin(travel_cabin, _) => travel_cabin.token_id,
             TargetEntity::Dpo(dpo, _) => dpo.token_id,
         }
@@ -836,7 +836,7 @@ pub mod module {
 
             // (b) ensure target min and cap
             let new_dpo_idx = Self::dpo_count();
-            if let TargetEntity::Dpo(mut target_dpo, target_amount) = target_entity {
+            if let TargetEntity::Dpo(target_dpo, target_amount) = target_entity.clone() {
                 Self::ensure_target_amount_within_legit_range_for_buying_dpo(
                     &target_dpo,
                     target_amount,
@@ -856,7 +856,7 @@ pub mod module {
             let manager = ensure_signed(origin)?;
             let (_, max_amount_for_manager) = Self::legit_range_for_buying_dpo(
                 target_entity.target_amount(),
-                Buyer::Passenger(manager)
+                Buyer::Passenger(manager.clone())
             );
             ensure!(manager_purchase_amount <= max_amount_for_manager, Error::<T>::ExceededShareCap);
 
@@ -1030,7 +1030,7 @@ pub mod module {
             );
 
             // (d) refresh target info and state
-            Self::refresh_dpo_info_for_new_target(&mut buyer_dpo, &new_target, true)?;
+            Self::refresh_dpo_info_for_new_target(&mut buyer_dpo, &target_entity, true)?;
             // update dpo state if fund is enough
             if buyer_dpo.total_fund >= buyer_dpo.target_amount
                 && buyer_dpo.state == DpoState::CREATED {
@@ -1355,8 +1355,8 @@ impl<T: Config> Pallet<T> {
         dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
     ) -> DispatchResult {
         let target = Self::get_dpo_latest_target_from_its_target(dpo)?;
-        if target != dpo.target { // new target, to refresh dpo target info
-            Self::refresh_dpo_info_for_new_target(dpo, &target, true)?;
+        if target.1 != dpo.target { // new target, to refresh dpo target info
+            Self::refresh_dpo_info_for_new_target(dpo, &target.0, true)?;
         }
         Ok(())
     }
@@ -1512,7 +1512,10 @@ impl<T: Config> Pallet<T> {
     /// the dpo target's amount may be outdated if its ancestor dpo retargeted.
     fn get_dpo_latest_target_from_its_target(
         dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
-    ) -> Result<Target<Balance>, DispatchError> {
+    ) -> Result<(
+        TargetEntity<Balance, T::BlockNumber, T::AccountId>,
+        Target<Balance>,
+    ), DispatchError> {
         return match dpo.target {
             // dpo A targets to dpo B. The latest target of A can be got from B's member info.
             Target::Dpo(target_dpo_id, _) => {
@@ -1525,11 +1528,21 @@ impl<T: Config> Pallet<T> {
                 let latest_target_amount = Self::percentage_from_num_tuple(
                     target_dpo.rate
                 ).saturating_mul_int(member_dpo_info.share);
-                Ok(Target::Dpo(target_dpo_id, latest_target_amount))
+                Ok((
+                    TargetEntity::Dpo(target_dpo, latest_target_amount),
+                    Target::Dpo(target_dpo_id, latest_target_amount),
+                ))
             }
             // return the cabin target directly
-            Target::TravelCabin(_) => {
-                Ok(dpo.target)
+            Target::TravelCabin(idx) => {
+                let travel_cabin =
+                    Self::travel_cabins(idx).ok_or(Error::<T>::InvalidIndex)?;
+                let (inv_idx, inv_supply) =
+                    Self::travel_cabin_inventory(idx).ok_or(Error::<T>::InvalidIndex)?;
+                Ok((
+                    TargetEntity::TravelCabin(travel_cabin, (inv_idx, inv_supply)),
+                    dpo.target.clone()
+                ))
             }
         };
     }
@@ -1963,8 +1976,8 @@ impl<T: Config> Pallet<T> {
         target_dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         is_partial_buy: bool,
         signer: T::AccountId,
-    ) {
-        Self::slash_dpo_manager_on_buying_if_needed(buyer_dpo, signer);
+    ) -> DispatchResult {
+        Self::slash_dpo_manager_on_buying_if_needed(buyer_dpo, signer)?;
 
         // two cases in that unused fund should be returned back
         // case 1: buy dpo target completely (target_amount == spent_amount) and vault_deposit > 0
@@ -1981,12 +1994,13 @@ impl<T: Config> Pallet<T> {
                 PaymentType::UnusedFund,
             )?;
         }
+        Ok(())
     }
 
     fn do_passenger_post_buy_travel_cabin(
         travel_cabin: &TravelCabinInfo<Balance, T::AccountId, T::BlockNumber>,
-        passenger: T::AccountId,
-    ) {
+        _passenger: T::AccountId,
+    ) -> DispatchResult {
         // passenger not eligible for bonus. bonus from pallet account back to creator
         if travel_cabin.bonus_total > Zero::zero() {
             T::Currency::transfer(
@@ -1997,14 +2011,15 @@ impl<T: Config> Pallet<T> {
             )?;
         }
         Self::update_milestone_record(travel_cabin);
+        Ok(())
     }
 
     fn do_dpo_post_buy_travel_cabin(
         travel_cabin: &TravelCabinInfo<Balance, T::AccountId, T::BlockNumber>,
         buyer_dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         signer: T::AccountId,
-    ) {
-        Self::slash_dpo_manager_on_buying_if_needed(buyer_dpo, signer);
+    ) -> DispatchResult {
+        Self::slash_dpo_manager_on_buying_if_needed(buyer_dpo, signer)?;
         Self::update_milestone_record(travel_cabin);
 
         // return unused fund
@@ -2025,6 +2040,7 @@ impl<T: Config> Pallet<T> {
                 PaymentType::Bonus,
             )?;
         }
+        Ok(())
     }
 
     // update the milestone record if any
@@ -2039,7 +2055,7 @@ impl<T: Config> Pallet<T> {
     fn slash_dpo_manager_on_buying_if_needed(
         buyer_dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         who: T::AccountId,
-    ) {
+    ) -> DispatchResult {
         if buyer_dpo.state == DpoState::ACTIVE {
             let should_slash_manager = Self::if_should_slash_manager_on_buying(&buyer_dpo, who)?;
             if should_slash_manager && !buyer_dpo.fee_slashed {
@@ -2048,6 +2064,7 @@ impl<T: Config> Pallet<T> {
                 buyer_dpo.fee_slashed = true;
             }
         }
+        Ok(())
     }
 
     /// returning the index of the new member
@@ -2145,7 +2162,7 @@ impl<T: Config> Pallet<T> {
             let mut buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
 
             let target_compare = Self::compare_targets(&target, &buyer_dpo.target);
-            match &target_entity {
+            match target_entity.clone() {
                 TargetEntity::TravelCabin(travel_cabin, inv_idx) => {
                     // (b) ensure buyer and target compliance
                     ensure!(target_compare == TargetCompare::Same, Error::<T>::NotAllowedToChangeTarget);
@@ -2159,13 +2176,12 @@ impl<T: Config> Pallet<T> {
                         PaymentType::Deposit,
                     )?;
                     // insert record
-                    Self::insert_cabin_purchase_record(travel_cabin, *inv_idx, buyer.clone());
+                    Self::insert_cabin_purchase_record(&travel_cabin, inv_idx, buyer.clone());
 
                     // (d) post buy
-                    Self::do_dpo_post_buy_travel_cabin(travel_cabin, &mut buyer_dpo, signer.clone());
+                    Self::do_dpo_post_buy_travel_cabin(&travel_cabin, &mut buyer_dpo, signer.clone())?;
                 }
                 TargetEntity::Dpo(mut target_dpo, target_amount) => {
-                    let target_amount = *target_amount;
                     // (b) ensure buyer and target compliance
                     // same target or to same dpo
                     ensure!(target_compare != TargetCompare::Different, Error::<T>::NotAllowedToChangeTarget);
@@ -2256,9 +2272,8 @@ impl<T: Config> Pallet<T> {
         if let Buyer::Passenger(_) = buyer {
             // ensure target available
             let target_entity = Self::is_target_available(&target)?;
-            match &target_entity {
+            match target_entity.clone() {
                 TargetEntity::Dpo(mut target_dpo, target_amount) => {
-                    let target_amount = *target_amount;
                     //ensure share min and cap
                     let target_remainder = target_dpo.target_amount.saturating_sub(target_dpo.total_fund);
                     let (min_amount, max_amount) = Self::legit_range_for_buying_dpo(
@@ -2272,7 +2287,7 @@ impl<T: Config> Pallet<T> {
                         // the amount that buyer bought before
                         let member = Self::dpo_members(target_dpo.index, buyer.clone());
                         let bought_amount = match member {
-                            Some(mut member_info) => {
+                            Some(member_info) => {
                                 Self::percentage_from_num_tuple(target_dpo.rate)
                                     .saturating_mul_int(member_info.share)
                             }
@@ -2310,8 +2325,8 @@ impl<T: Config> Pallet<T> {
                         travel_cabin.deposit_amount,
                     )?;
                     // insert record
-                    Self::insert_cabin_purchase_record(travel_cabin, *inv_idx, buyer.clone());
-                    Self::do_passenger_post_buy_travel_cabin(travel_cabin, signer.clone());
+                    Self::insert_cabin_purchase_record(&travel_cabin, inv_idx, buyer.clone());
+                    Self::do_passenger_post_buy_travel_cabin(&travel_cabin, signer.clone())?;
                 }
             }
             Self::deposit_event_for_buying_a_target(
@@ -2344,7 +2359,7 @@ impl<T: Config> Pallet<T> {
                     signer,
                     buyer,
                     travel_cabin.index,
-                    inv_idx,
+                    inv_idx.0,
                 ));
             }
         }
