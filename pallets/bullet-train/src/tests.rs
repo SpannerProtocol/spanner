@@ -3242,7 +3242,18 @@ fn dpo_change_target_to_non_default_dpo() {
             String::from("test").into_bytes(),
             30000,
             0,
+            30000,
+            10,
+            1
+        ));
+        // cabin 2
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
             1000,
+            0,
+            100,
             10,
             1
         ));
@@ -3275,23 +3286,42 @@ fn dpo_change_target_to_non_default_dpo() {
             BulletTrain::dpo_change_target(
                 Origin::signed(ALICE),
                 0,
-                Target::Dpo(1, 11000), // 50%
+                Target::Dpo(1, 11000),
             )
         );
-        // dpo 0 buy dpo 1 partially (1/3)
+        // fill dpo 1
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 1, 9000, None));
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(CAROL), 1, 7000, None));
+
+        // the remaining amount of dpo 1 is 10000
+        assert_noop!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::Dpo(1, 3000),
+            ),
+            Error::<Test>::NewTargetSameAsOld
+        );
+        // dpo 0 buy dpo 1 partially
         assert_ok!(BulletTrain::dpo_buy_dpo_share(
             Origin::signed(ALICE),
             0,
             1,
-            10000,
+            3000, // 10%
         ));
-        // fill dpo 0 and dpo 1
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 0, 1000, None));
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 1, 9000, None));
         assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(CAROL), 1, 2000, None));
-        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
         assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::ACTIVE);
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 7000); // unused
 
-        // TODO: dpo 0 unused fund?
+        // can not change after buying target partially
+        assert_noop!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(2),
+            ),
+            Error::<Test>::NotAllowedToChangeTarget
+        );
     });
 }

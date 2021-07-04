@@ -1440,13 +1440,20 @@ impl<T: Config> Pallet<T> {
                 }
             }
             PaymentType::Bonus => {
-                //active or created -> running
+                // active or created -> running
                 // when the target dpo that this dpo has bought partially becomes active,
                 // this dpo should also become active
                 if dpo.state == DpoState::CREATED || dpo.state == DpoState::ACTIVE {
-                    Self::refresh_dpo_target_info(dpo)?;
                     dpo.state = DpoState::RUNNING;
-                    // TODO: handle unused fund?
+                    if dpo.vault_deposit > 0 {
+                        Self::update_dpo_inflow(
+                            dpo,
+                            dpo.vault_deposit,
+                            PaymentType::UnusedFund,
+                        )?;
+                    } else {
+                        Self::refresh_dpo_target_info(dpo)?;
+                    }
                 }
                 dpo.vault_bonus = dpo.vault_bonus.saturating_add(amount);
                 dpo.total_bonus_received = dpo.total_bonus_received.saturating_add(amount);
@@ -1460,13 +1467,21 @@ impl<T: Config> Pallet<T> {
                 dpo.total_milestone_received = dpo.total_milestone_received.saturating_add(amount);
             }
             PaymentType::Yield => {
-                //active or created -> running
+                // active or created -> running
                 // when the target dpo that this dpo has bought partially becomes active,
                 // this dpo should also become active
                 if dpo.state == DpoState::CREATED || dpo.state == DpoState::ACTIVE {
                     Self::refresh_dpo_target_info(dpo)?;
                     dpo.state = DpoState::RUNNING;
-                    // TODO: handle unused fund?
+                    if dpo.vault_deposit > 0 {
+                        Self::update_dpo_inflow(
+                            dpo,
+                            dpo.vault_deposit,
+                            PaymentType::UnusedFund,
+                        )?;
+                    } else {
+                        Self::refresh_dpo_target_info(dpo)?;
+                    }
                 }
                 if dpo.blk_of_last_yield.is_none() {
                     let now = <frame_system::Module<T>>::block_number();
@@ -1481,7 +1496,7 @@ impl<T: Config> Pallet<T> {
                 // when the target dpo that this dpo has bought partially becomes active,
                 // this dpo should also become active
                 if dpo.state == DpoState::CREATED {
-                    Self::activate_dpo(dpo);
+                    dpo.state = DpoState::ACTIVE; // no need to set block time
                 }
                 // case 1: self dpo buy a new smaller target, unused fund should be moved from
                 // vault_deposit into vault_withdraw.
@@ -1975,25 +1990,25 @@ impl<T: Config> Pallet<T> {
     fn do_dpo_post_buy_dpo(
         buyer_dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         target_dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
-        is_partial_buy: bool,
         signer: T::AccountId,
     ) -> DispatchResult {
         Self::slash_dpo_manager_on_buying_if_needed(buyer_dpo, signer)?;
 
-        // two cases in that unused fund should be returned back
-        // case 1: buy dpo target completely (target_amount == spent_amount) and vault_deposit > 0
-        let mut have_unused_fund = buyer_dpo.vault_deposit > 0 &&
+        // two cases in that buying dpo target is done
+        // case 1: buy target_dpo partially and the target becomes active
+        // case 2: buy dpo target completely (target_amount == spent_amount)
+        let is_buying_done = target_dpo.state == DpoState::ACTIVE ||
             buyer_dpo.target_amount == buyer_dpo.total_fund.saturating_sub(buyer_dpo.vault_deposit);
-        // case 2: buy target_dpo partially and it becomes active,
-        // and still vault_deposit > 0
-        have_unused_fund = have_unused_fund || (is_partial_buy &&
-            target_dpo.state == DpoState::ACTIVE && buyer_dpo.vault_deposit > 0);
-        if have_unused_fund {
-            Self::update_dpo_inflow(
-                buyer_dpo,
-                buyer_dpo.vault_deposit,
-                PaymentType::UnusedFund,
-            )?;
+        if is_buying_done {
+            buyer_dpo.state = DpoState::ACTIVE; // no need to set block time
+            // return unused fund
+            if buyer_dpo.vault_deposit > 0 {
+                Self::update_dpo_inflow(
+                    buyer_dpo,
+                    buyer_dpo.vault_deposit,
+                    PaymentType::UnusedFund,
+                )?;
+            }
         }
         Ok(())
     }
@@ -2246,7 +2261,6 @@ impl<T: Config> Pallet<T> {
                     Self::do_dpo_post_buy_dpo(
                         &mut buyer_dpo,
                         &target_dpo,
-                        target_compare == TargetCompare::SameDpo,
                         signer.clone(),
                     )?;
                     Dpos::<T>::insert(target_dpo.index, &target_dpo); // save target dpo
