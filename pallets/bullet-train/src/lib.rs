@@ -1446,6 +1446,7 @@ impl<T: Config> Pallet<T> {
                 if dpo.state == DpoState::CREATED || dpo.state == DpoState::ACTIVE {
                     Self::refresh_dpo_target_info(dpo)?;
                     dpo.state = DpoState::RUNNING;
+                    // TODO: handle unused fund?
                 }
                 dpo.vault_bonus = dpo.vault_bonus.saturating_add(amount);
                 dpo.total_bonus_received = dpo.total_bonus_received.saturating_add(amount);
@@ -1465,6 +1466,7 @@ impl<T: Config> Pallet<T> {
                 if dpo.state == DpoState::CREATED || dpo.state == DpoState::ACTIVE {
                     Self::refresh_dpo_target_info(dpo)?;
                     dpo.state = DpoState::RUNNING;
+                    // TODO: handle unused fund?
                 }
                 if dpo.blk_of_last_yield.is_none() {
                     let now = <frame_system::Module<T>>::block_number();
