@@ -740,8 +740,6 @@ fn dpo_withdraw_on_fail_test() {
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 30000);
-
-        // TODO: change target
     });
 }
 
@@ -3019,5 +3017,206 @@ fn get_dpos_of_accounts() {
         assert!(BulletTrain::get_dpos_of_account(BOB)
             .iter()
             .any(|&i| i == 1));
+    });
+}
+
+#[test]
+fn dpo_change_larger_cabin_in_created_state() {
+    ExtBuilder::default().build().execute_with(|| {
+        // cabin 0
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            10000,
+            0,
+            1000,
+            10,
+            1
+        ));
+        // cabin 1
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            100000,
+            0,
+            2000,
+            10,
+            1
+        ));
+        // dpo 0
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::TravelCabin(0),
+            1000, // 10%
+            50,
+            800,
+            10,
+            None
+        ));
+
+        // can not change
+        assert_noop!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(1),
+            ),
+            Error::<Test>::DefaultTargetAvailable
+        );
+
+        // make cabin 0 unavailable
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(Origin::signed(ALICE), 0));
+        // allowed to change by manager
+        assert_noop!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(BOB),
+                0,
+                Target::TravelCabin(1),
+            ),
+            Error::<Test>::NoPermission
+        );
+
+        // dpo0 change target to cabin 1
+        assert_ok!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(1),
+            )
+        );
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_amount, 100000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 1000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 1000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 60); // from 15% to 6%
+        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1)); // 1:1
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
+    });
+}
+
+#[test]
+fn dpo_change_smaller_cabin_and_activate() {
+    ExtBuilder::default().build().execute_with(|| {
+        // cabin 0
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            100000,
+            0,
+            2000,
+            10,
+            1
+        ));
+        // cabin 1
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            10000,
+            0,
+            1000,
+            10,
+            1
+        ));
+        // cabin 2
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            13000,
+            0,
+            1100,
+            10,
+            1
+        ));
+        // cabin 3
+        assert_ok!(BulletTrain::create_travel_cabin(
+            Origin::signed(ALICE),
+            BOLT,
+            String::from("test").into_bytes(),
+            15001,
+            0,
+            1500,
+            10,
+            1
+        ));
+        // dpo 0
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::TravelCabin(0),
+            10000, // 10%
+            50,
+            800,
+            10,
+            None
+        ));
+        // BOB buy dpo 0 5%
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(BOB),
+            0,
+            5000, // 5%
+            None
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
+
+        // make cabin 0 unavailable
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(Origin::signed(ALICE), 0));
+        // dpo0 change target to cabin 1 (smaller)
+        assert_ok!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(1),
+            )
+        );
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_amount, 10000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 150); // still 15%
+        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1)); // 1:1
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
+
+        // make cabin 1 unavailable
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(Origin::signed(ALICE), 1));
+        // not allowed to change larger target (cabin 3 > 15000) when in active
+        assert_noop!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(3),
+            ),
+            Error::<Test>::NotAllowedToChangeLargerTarget
+        );
+        // dpo0 change target to cabin 2 (< 15000)
+        assert_ok!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(2),
+            )
+        );
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_amount, 13000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 150); // still 15%
+        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1)); // 1:1
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
+
+        // do buy a target
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(ALICE), 0, 2));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 13000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (13000, 15000));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 2000);
     });
 }

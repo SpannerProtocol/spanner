@@ -993,7 +993,7 @@ pub mod module {
             );
             if buyer_dpo.state == DpoState::ACTIVE {
                 ensure!(
-                    target_entity.target_amount() <= buyer_dpo.target_amount,
+                    target_entity.target_amount() <= buyer_dpo.total_fund,
                     Error::<T>::NotAllowedToChangeLargerTarget
                 );
             }
@@ -1034,10 +1034,7 @@ pub mod module {
             // update dpo state if fund is enough
             if buyer_dpo.total_fund >= buyer_dpo.target_amount
                 && buyer_dpo.state == DpoState::CREATED {
-                // TODO: activate dpo
-                buyer_dpo.state = DpoState::ACTIVE;
-                let now = <frame_system::Module<T>>::block_number();
-                buyer_dpo.blk_of_dpo_filled = Some(now);
+                Self::activate_dpo(&mut buyer_dpo);
             }
             Dpos::<T>::insert(buyer_dpo.index, &buyer_dpo);
             Ok(().into())
@@ -1402,8 +1399,9 @@ impl<T: Config> Pallet<T> {
                 new_target_amount,
                 dpo.fee_slashed,
             );
-            // TODO: new fee <= old fee?
-            dpo.fee = fee;
+            if fee < dpo.fee {
+                dpo.fee = fee;
+            }
         }
         Ok(())
     }
@@ -1438,10 +1436,7 @@ impl<T: Config> Pallet<T> {
                 dpo.vault_deposit = dpo.vault_deposit.saturating_add(amount);
                 dpo.total_fund = dpo.total_fund.saturating_add(amount);
                 if dpo.total_fund >= dpo.target_amount {
-                    // TODO: dpo activate
-                    dpo.state = DpoState::ACTIVE;
-                    let now = <frame_system::Module<T>>::block_number();
-                    dpo.blk_of_dpo_filled = Some(now);
+                    Self::activate_dpo(dpo);
                 }
             }
             PaymentType::Bonus => {
@@ -1483,9 +1478,8 @@ impl<T: Config> Pallet<T> {
                 Self::refresh_dpo_target_info(dpo)?;
                 // when the target dpo that this dpo has bought partially becomes active,
                 // this dpo should also become active
-                // TODO: activate dpo
                 if dpo.state == DpoState::CREATED {
-                    dpo.state = DpoState::ACTIVE;
+                    Self::activate_dpo(dpo);
                 }
                 // case 1: self dpo buy a new smaller target, unused fund should be moved from
                 // vault_deposit into vault_withdraw.
@@ -1502,11 +1496,16 @@ impl<T: Config> Pallet<T> {
             }
             PaymentType::WithdrawOnFailure => {
                 dpo.vault_deposit = dpo.vault_deposit.saturating_add(amount);
-                let now = <frame_system::Module<T>>::block_number();
-                dpo.blk_of_dpo_filled = Some(now)
+                Self::activate_dpo(dpo);
             }
         }
         Ok(())
+    }
+
+    fn activate_dpo(dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>) {
+        dpo.state = DpoState::ACTIVE;
+        let now = <frame_system::Module<T>>::block_number();
+        dpo.blk_of_dpo_filled = Some(now);
     }
 
     /// the dpo target's amount may be outdated if its ancestor dpo retargeted.
