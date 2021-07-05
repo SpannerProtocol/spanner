@@ -1526,19 +1526,25 @@ impl<T: Config> Pallet<T> {
     ), DispatchError> {
         return match dpo.target {
             // dpo A targets to dpo B. The latest target of A can be got from B's member info.
-            Target::Dpo(target_dpo_id, _) => {
+            Target::Dpo(target_dpo_id, original_amount) => {
                 let target_dpo = Self::dpos(target_dpo_id).ok_or(Error::<T>::InvalidIndex)?;
-                let member_dpo_info = Self::dpo_members(
-                    target_dpo_id,
-                    Buyer::Dpo(dpo.index),
-                ).ok_or(Error::<T>::InvalidIndex)?; // TODO: if not exist?
+                let amount = if dpo.total_fund == dpo.vault_deposit {
+                    // means that it has not bought the target at all, so the target should be the same as default
+                    original_amount
+                } else {
+                    let member_dpo_info = Self::dpo_members(
+                        target_dpo_id,
+                        Buyer::Dpo(dpo.index),
+                    ).ok_or(Error::<T>::InvalidIndex)?;
 
-                let latest_target_amount = Self::percentage_from_num_tuple(
-                    target_dpo.rate
-                ).saturating_mul_int(member_dpo_info.share);
+                    let latest_target_amount = Self::percentage_from_num_tuple(
+                        target_dpo.rate
+                    ).saturating_mul_int(member_dpo_info.share);
+                    latest_target_amount
+                };
                 Ok((
-                    TargetEntity::Dpo(target_dpo, latest_target_amount),
-                    Target::Dpo(target_dpo_id, latest_target_amount),
+                    TargetEntity::Dpo(target_dpo, amount),
+                    Target::Dpo(target_dpo_id, amount),
                 ))
             }
             // return the cabin target directly
@@ -2202,7 +2208,7 @@ impl<T: Config> Pallet<T> {
                             buyer_dpo.total_fund.saturating_sub(buyer_dpo.vault_deposit)  // already bought
                         );
                         let min_amount_require = Self::percentage_from_num_tuple(T::DpoPartialBuySharePercentMin::get())
-                            .saturating_mul_int(buyer_dpo.target_amount);
+                            .saturating_mul_int(target_dpo.target_amount);
                         // the amount of partial purchase should be more than minimum requirement (1%),
                         // unless the remaining shares of the original target is less than 1%
                         if target_remainder >= min_amount_require {
@@ -2220,6 +2226,13 @@ impl<T: Config> Pallet<T> {
                                     &Target::Dpo(target_dpo.index, target_remainder)
                                 ).is_err(),
                                 Error::<T>::DefaultTargetAvailable
+                            );
+                        }
+                        // buy target partially only by manager when the buyer dpo is in created state
+                        if buyer_dpo.state == DpoState::CREATED {
+                            ensure!(
+                                Self::is_buyer_manager(&buyer_dpo, &Buyer::Passenger(signer.clone())),
+                                Error::<T>::NoPermission
                             );
                         }
                     }
