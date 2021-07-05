@@ -109,7 +109,6 @@ parameter_types!{
     pub const BulletTrainId: ModuleId = ModuleId(*b"sp/blttn");
     pub const ReleaseYieldGracePeriod: BlockNumber = 10;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 10;
-    pub const TreasureHuntingGracePeriod: BlockNumber = 10;
 	pub const DpoSharePercentCap: (u8, u8) = (1, 2); // 50%
     pub const DpoSharePercentMinimum: (u8, u8) = (3, 100); // 3%
     pub const DpoPartialBuySharePercentMin: (u8, u8) = (1, 100); // 1%
@@ -127,7 +126,6 @@ impl Config for Test {
     type ModuleId = BulletTrainId;
     type ReleaseYieldGracePeriod = ReleaseYieldGracePeriod;
     type DpoMakePurchaseGracePeriod = DpoMakePurchaseGracePeriod;
-    type TreasureHuntingGracePeriod = TreasureHuntingGracePeriod;
     type MilestoneRewardMinimum = MilestoneRewardMinimum;
     type CabinYieldRewardMinimum = CabinYieldRewardMinimum;
     type CabinBonusRewardMinimum = CabinBonusRewardMinimum;

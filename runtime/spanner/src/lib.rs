@@ -1084,7 +1084,6 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
 parameter_types! {
     pub const ReleaseYieldGracePeriod: BlockNumber = 7 * DAYS;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 7 * DAYS;
-    pub const TreasureHuntingGracePeriod: BlockNumber = 7 * DAYS;
     pub const MilestoneRewardMinimum: Balance = 10_000_000_000;
     pub const CabinYieldRewardMinimum: Balance = 10_000_000_000;
     pub const CabinBonusRewardMinimum: Balance = 10_000_000_000;
@@ -1102,7 +1101,6 @@ impl pallet_bullet_train::Config for Runtime {
     type ModuleId = BulletTrainId;
     type ReleaseYieldGracePeriod = ReleaseYieldGracePeriod;
     type DpoMakePurchaseGracePeriod = DpoMakePurchaseGracePeriod;
-    type TreasureHuntingGracePeriod = TreasureHuntingGracePeriod;
     type MilestoneRewardMinimum = MilestoneRewardMinimum;
     type CabinYieldRewardMinimum = CabinYieldRewardMinimum;
     type CabinBonusRewardMinimum = CabinBonusRewardMinimum;

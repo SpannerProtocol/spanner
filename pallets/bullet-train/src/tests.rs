@@ -1694,7 +1694,6 @@ fn yield_commission_test() {
 
         // 20% mgmt fee. giving 100k reward over 100 blocks, 1k each. 10 for one percent
         // by default ALICE the manager will get 200 + 120 = 320 per block, BOB will get 80
-        // in the case of treasure hunting, ALICE the manager will get 198 + 119 = 317 per block, BOB will get 79, and the hunter 10
         // in case of slashing yield, ALICE the manager will get 100 + 130 = 280 per block, BOB will get 90
         // in case of slashing yield and treasure hunting, ALICE the manager will get 99 + 128 = 227 per block, BOB will get 89
 
@@ -1722,7 +1721,7 @@ fn yield_commission_test() {
         assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 2);
         assert_eq!(Balances::free_balance(BOB), 490000 + 80 * 2);
 
-        //case: released by member (+ 5 blocks), within grace period
+        //case: released by member (+ 5 blocks)
         run_to_block(7);
         assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
             Origin::signed(ALICE),
@@ -1745,35 +1744,25 @@ fn yield_commission_test() {
         assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 2 + 320 * 5);
         assert_eq!(Balances::free_balance(BOB), 490000 + 80 * 2 + 80 * 5);
 
-        //case: released by internal member (+ 20 blocks), after the grace period 10 blocks
+        //case: released by internal member (+ 20 blocks)
         run_to_block(27);
-        assert_eq!(
-            BulletTrain::travel_cabin_buyer(0, 0)
-                .unwrap()
-                .blk_of_last_withdraw,
-            7
-        );
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
-        //alice will get treasure hunt reward here
         assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
             Origin::signed(ALICE),
             0,
             0
         ));
-        let expected_event =
-            Event::pallet_bullet_train(crate::Event::TreasureHunted(ALICE, 0, 0, 1000 * 20 / 100));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
-        assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 2 + 320 * 5 + 1000 * 20 / 100);
+        assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 2 + 320 * 5); // no change
 
         run_to_block(47);
         assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(27));
         assert_eq!(
             BulletTrain::dpos(0).unwrap().vault_yield,
-            1000 * 20 * 99 / 100
+            1000 * 20
         );
         assert_eq!(
             BulletTrain::dpos(0).unwrap().total_yield_received,
-            2000 + 5000 + 1000 * 20 * 99 / 100
+            2000 + 5000 + 1000 * 20
         );
         assert_eq!(
             BulletTrain::travel_cabin_buyer(0, 0)
@@ -1783,49 +1772,33 @@ fn yield_commission_test() {
         );
         assert_eq!(
             BulletTrain::dpos(0).unwrap().vault_yield,
-            1000 * 20 * 99 / 100
+            1000 * 20
         );
         assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(BOB), 0));
         assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
         let expected_event = Event::pallet_bullet_train(crate::Event::YieldReleased(BOB, 0));
         assert!(System::events().iter().any(|a| a.event == expected_event));
-        // alice gets treasure hunting reward and slashed
-        // bob will get 19800 * (1 - 10%) / 10 = 1782
+        // alice gets slashed
+        // bob will get 20000 * (1 - 10%) / 10 = 1800
         assert_eq!(
             Balances::free_balance(BOB),
-            490000 + 160 + 80 * 5 + 1782
+            490000 + 160 + 80 * 5 + 1800
         );
 
-        // alice will get 19800 * 10% + (19800 * 90% - 8 * 1782 - 891) = 4653
+        // alice will get 20000 * 10% + (20000 * 90% - 8 * 1800 - 900) = 4700
         assert_eq!(
             Balances::free_balance(ALICE),
-            985000 + 320 * 7 + 10 * 20 + 4653
+            985000 + 320 * 7 + 4700
         );
 
         //case: released by external member (+ 20 blocks), after the grace period 10 blocks
-        assert_eq!(
-            BulletTrain::travel_cabin_buyer(0, 0)
-                .unwrap()
-                .blk_of_last_withdraw,
-            27
-        );
         assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
         assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
             Origin::signed(ALICE),
             0,
             0
         ));
-        let expected_event =
-            Event::pallet_bullet_train(crate::Event::TreasureHunted(ALICE, 0, 0, 1000 * 20 / 100));
-        assert!(
-            System::events()
-                .iter()
-                .filter(|a| a.event == expected_event)
-                .count()
-                == 2
-        );
-
         assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(47));
         assert_eq!(
             BulletTrain::travel_cabin_buyer(0, 0)
@@ -1835,11 +1808,11 @@ fn yield_commission_test() {
         );
         assert_eq!(
             BulletTrain::dpos(0).unwrap().total_yield_received,
-            2000 + 5000 + (1000 * 20 * 99 / 100) * 2
+            2000 + 5000 + 1000 * 20 * 2
         );
         assert_eq!(
             BulletTrain::dpos(0).unwrap().vault_yield,
-            1000 * 20 * 99 / 100
+            1000 * 20
         );
         run_to_block(67); // 47 -> 67
         assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(389), 0));
@@ -1849,11 +1822,11 @@ fn yield_commission_test() {
         assert!(System::events().iter().any(|a| a.event == expected_event));
         assert_eq!(
             Balances::free_balance(ALICE),
-            985000 + 320 * 7 + (10 * 20 + 4653) * 2
+            985000 + 320 * 7 + 4700 * 2
         );
         assert_eq!(
             Balances::free_balance(BOB),
-            490000 + 160 + 80 * 5 + 1782 * 2
+            490000 + 160 + 80 * 5 + 1800 * 2
         );
     });
 }

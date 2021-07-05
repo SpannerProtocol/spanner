@@ -106,7 +106,6 @@ pub struct TravelCabinBuyerInfo<Balance, AccountId, BlockNumber> {
     purchase_blk: BlockNumber,
     yield_withdrawn: Balance,
     fare_withdrawn: bool,
-    blk_of_last_withdraw: BlockNumber, //used to Govern Treasure Hunting Rule
 }
 
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone)]
@@ -298,9 +297,6 @@ pub mod module {
         type DpoMakePurchaseGracePeriod: Get<Self::BlockNumber>;
 
         #[pallet::constant]
-        type TreasureHuntingGracePeriod: Get<Self::BlockNumber>;
-
-        #[pallet::constant]
         type MilestoneRewardMinimum: Get<Balance>;
 
         #[pallet::constant]
@@ -424,12 +420,6 @@ pub mod module {
             Balance,
         ),
         FareWithdrawnFromTravelCabin(T::AccountId, TravelCabinIndex, TravelCabinInventoryIndex),
-        TreasureHunted(
-            T::AccountId,
-            TravelCabinIndex,
-            TravelCabinInventoryIndex,
-            Balance,
-        ),
     }
 
     #[pallet::storage]
@@ -762,28 +752,8 @@ pub mod module {
                     Permill::from_rational_approximation(blk_since_purchase, travel_cabin.maturity);
             }
             let accumulated_yield: Balance = percentage * travel_cabin.yield_total;
-            let mut amount = accumulated_yield.saturating_sub(buyer_info.yield_withdrawn);
+            let amount = accumulated_yield.saturating_sub(buyer_info.yield_withdrawn);
             ensure!(amount > Zero::zero(), Error::<T>::NoYieldToRelease);
-
-            let mut bounty_amount = Zero::zero();
-            if Self::is_treasure_hunting_started(&buyer_info) {
-                bounty_amount = amount / 100; //1% as bounty hunting reward
-                amount = amount.saturating_sub(bounty_amount);
-
-                //reward bounty, debit who
-                T::Currency::transfer(
-                    travel_cabin.token_id,
-                    &Self::account_id(),
-                    &who,
-                    bounty_amount,
-                )?;
-                Self::deposit_event(Event::TreasureHunted(
-                    who.clone(),
-                    travel_cabin_idx,
-                    travel_cabin_number,
-                    bounty_amount,
-                ));
-            }
 
             // make reward, debit buyer
             match buyer_info.buyer {
@@ -806,9 +776,7 @@ pub mod module {
             // update vault book-keeping
             TravelCabinBuyer::<T>::mutate(travel_cabin_idx, travel_cabin_number, |buyer_info| {
                 if let Some(info) = buyer_info {
-                    info.yield_withdrawn =
-                        info.yield_withdrawn.saturating_add(amount + bounty_amount);
-                    info.blk_of_last_withdraw = now;
+                    info.yield_withdrawn = info.yield_withdrawn.saturating_add(amount);
                 }
             });
 
@@ -1173,7 +1141,6 @@ impl<T: Config> Pallet<T> {
                 purchase_blk: now,
                 yield_withdrawn: Zero::zero(),
                 fare_withdrawn: false,
-                blk_of_last_withdraw: now,
             },
         );
 
@@ -1977,15 +1944,6 @@ impl<T: Config> Pallet<T> {
             return Ok(true);
         }
         Ok(false)
-    }
-
-    fn is_treasure_hunting_started(
-        buyer_info: &TravelCabinBuyerInfo<Balance, T::AccountId, T::BlockNumber>,
-    ) -> bool {
-        let now = <frame_system::Module<T>>::block_number();
-        let grace_period_over =
-            now - buyer_info.blk_of_last_withdraw > T::TreasureHuntingGracePeriod::get();
-        return grace_period_over;
     }
 
     /// for rpc, only for user accounts
