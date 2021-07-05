@@ -3279,6 +3279,17 @@ fn dpo_change_target_to_non_default_dpo() {
             10,
             None
         ));
+        // dpo 2 to dpo 0
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(ALICE),
+            String::from("test").into_bytes(),
+            Target::Dpo(0, 50000), // 50%
+            5000, // 10%
+            50,
+            800,
+            10,
+            None
+        ));
         // make cabin 0 unavailable
         assert_ok!(BulletTrain::passenger_buy_travel_cabin(Origin::signed(ALICE), 0));
         // dpo0 change target to dpo 1
@@ -3302,6 +3313,16 @@ fn dpo_change_target_to_non_default_dpo() {
             ),
             Error::<Test>::NewTargetSameAsOld
         );
+        // can not target to child
+        assert_noop!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::Dpo(2, 25000),
+            ),
+            Error::<Test>::DpoTargetToChild
+        );
+
         // dpo 0 buy dpo 1 partially
         assert_ok!(BulletTrain::dpo_buy_dpo_share(
             Origin::signed(ALICE),

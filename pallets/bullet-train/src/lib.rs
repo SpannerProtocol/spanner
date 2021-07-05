@@ -395,6 +395,8 @@ pub mod module {
         NotAllowedToChangeTarget,
         /// not allowed to change larger target
         NotAllowedToChangeLargerTarget,
+        /// dpo target to its child dpo
+        DpoTargetToChild,
     }
 
     #[pallet::event]
@@ -997,13 +999,21 @@ pub mod module {
                     Error::<T>::NotAllowedToChangeLargerTarget
                 );
             }
-            // ensure target min and cap
             if let TargetEntity::Dpo(target_dpo, target_amount) = &target_entity {
+                // ensure target min and cap
                 Self::ensure_target_amount_within_legit_range_for_buying_dpo(
                     target_dpo,
                     *target_amount,
                     Buyer::Dpo(buyer_dpo_idx),
                 )?;
+                // ensure the new target dpo is not the child of buyer dpo
+                let ancestor_dpos = Self::get_ancestor_dpo_ids_by_child_dpo(target_dpo)?;
+                for ancestor in ancestor_dpos.into_iter() {
+                    ensure!(
+                        ancestor != buyer_dpo_idx,
+                        Error::<T>::DpoTargetToChild
+                    )
+                }
             }
 
             // (c) check buyer dpo compliance
@@ -1523,6 +1533,21 @@ impl<T: Config> Pallet<T> {
         dpo.state = DpoState::ACTIVE;
         let now = <frame_system::Module<T>>::block_number();
         dpo.blk_of_dpo_filled = Some(now);
+    }
+
+    fn get_ancestor_dpo_ids_by_child_dpo(
+        dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
+    ) -> Result<Vec<DpoIndex>, DispatchError> {
+        let mut ancestors = Vec::new();
+        match dpo.target {
+            Target::Dpo(target_dpo_id, _) => {
+                let target_dpo = Self::dpos(target_dpo_id).ok_or(Error::<T>::InvalidIndex)?;
+                ancestors = Self::get_ancestor_dpo_ids_by_child_dpo(&target_dpo)?;
+                ancestors.push(target_dpo_id);
+            }
+            Target::TravelCabin(_) => {}
+        }
+        Ok(ancestors)
     }
 
     /// the dpo target's amount may be outdated if its ancestor dpo retargeted.
