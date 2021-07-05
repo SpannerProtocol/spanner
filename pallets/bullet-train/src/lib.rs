@@ -2202,28 +2202,29 @@ impl<T: Config> Pallet<T> {
                     Self::ensure_dpo_target_min_for_splitting_evenly(&target_dpo, target_amount)?;
 
                     if target_compare == TargetCompare::SameDpo { // partial buy
-                        // spent_amount = total_fund - vault_deposit, target_remainder = target_amount - spent_amount
-                        // target_remainder may not be equal to vault_deposit, if total_fund is larger than target_amount
-                        let target_remainder = buyer_dpo.target_amount.saturating_sub(
-                            buyer_dpo.total_fund.saturating_sub(buyer_dpo.vault_deposit)  // already bought
-                        );
+                        let target_remainder_of_target_dpo = target_dpo.target_amount.saturating_sub(target_dpo.total_fund);
                         let min_amount_require = Self::percentage_from_num_tuple(T::DpoPartialBuySharePercentMin::get())
                             .saturating_mul_int(target_dpo.target_amount);
                         // the amount of partial purchase should be more than minimum requirement (1%),
                         // unless the remaining shares of the original target is less than 1%
-                        if target_remainder >= min_amount_require {
+                        if target_remainder_of_target_dpo >= min_amount_require {
                             ensure!(target_amount >= min_amount_require, Error::<T>::PurchaseAtLeastOnePercent);
                         } else {
-                            ensure!(target_amount == target_remainder, Error::<T>::PurchaseAllRemainder);
+                            ensure!(target_amount == target_remainder_of_target_dpo, Error::<T>::PurchaseAllRemainder);
                         }
 
                         // when buyer dpo becomes active, it should buy the original target completely,
                         // instead of buying partially, unless the target is unavailable
-                        if buyer_dpo.state == DpoState::ACTIVE && target_amount != target_remainder {
+                        // spent_amount = total_fund - vault_deposit, to_be_spent_amount = target_amount - spent_amount
+                        // to_be_spent_amount may not be equal to vault_deposit, if total_fund is larger than target_amount (changed to smaller target)
+                        let to_be_spent_amount = buyer_dpo.target_amount.saturating_sub(
+                            buyer_dpo.total_fund.saturating_sub(buyer_dpo.vault_deposit)
+                        );
+                        if buyer_dpo.state == DpoState::ACTIVE && target_amount != to_be_spent_amount {
                             ensure!(
                                 // the remaining shares of original target is unavailable
                                 Self::is_target_available(
-                                    &Target::Dpo(target_dpo.index, target_remainder)
+                                    &Target::Dpo(target_dpo.index, to_be_spent_amount)
                                 ).is_err(),
                                 Error::<T>::DefaultTargetAvailable
                             );

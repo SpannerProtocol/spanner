@@ -1221,7 +1221,24 @@ fn dpo_buy_dpo_share_partially_test() {
             Origin::signed(ALICE),
             3,
             0,
-            10000, // 10%
+            10000 - 999, // 10% - 999, and 999 < 1%
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 100000 - 999);
+        // need to take all 999
+        assert_noop!(
+            BulletTrain::dpo_buy_dpo_share(
+                Origin::signed(ALICE),
+                3,
+                0,
+                998, // remain 999
+            ),
+            Error::<Test>::PurchaseAllRemainder
+        );
+        assert_ok!(BulletTrain::dpo_buy_dpo_share(
+            Origin::signed(ALICE),
+            3,
+            0,
+            999,
         ));
         // dpo0 becomes active
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
