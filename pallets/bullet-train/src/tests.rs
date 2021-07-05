@@ -711,7 +711,7 @@ fn dpo_withdraw_on_fail_test() {
             DpoState::ACTIVE
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 10000);
-        //dpo1 buys dpo 0 seats, emptying the deposit vault
+        //dpo1 buys dpo 0%, emptying the deposit vault
         assert_ok!(BulletTrain::dpo_buy_dpo_share(
             Origin::signed(ALICE),
             1,
@@ -869,7 +869,7 @@ fn dpo_buy_dpo_share_test() {
             Error::<Test>::ExceededShareCap
         );
 
-        //there must not be such an event, which is nested in the buy_dpo_seats function
+        //there must not be such an event
         let expected_event = Event::orml_currencies(orml_currencies::Event::Transferred(
             BOLT, DYLAN, dpo1_acc, 2001,
         ));
@@ -1295,7 +1295,7 @@ fn dpo_management_fee() {
             None
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 150);
-        assert_eq!(BulletTrain::dpos(1).unwrap().fee, 200); // 30 seats, but fee cap 20%
+        assert_eq!(BulletTrain::dpos(1).unwrap().fee, 200); // 30% shares, but fee cap 20%
     });
 }
 
@@ -1347,11 +1347,11 @@ fn nested_dpo_bonus_test() {
             target_amount /= 5;
         }
 
-        //buys all the seat from bottom up
+        //buys all the shares from bottom up
         let mut amount = 640u128;
         for l in 0..5 {
             let dpo_id = 5 - l;
-            //4 more people filling the seats
+            //4 more people filling the shares
             for i in BOB..ELSA {
                 assert_ok!(BulletTrain::passenger_buy_dpo_share(
                     Origin::signed(i),
@@ -1380,7 +1380,7 @@ fn nested_dpo_bonus_test() {
             ));
         }
 
-        // for dpo 0, buy the seats and commit to the cabin
+        // for dpo 0, buy the shares and commit to the cabin
         for i in BOB..ELSA {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
@@ -1456,7 +1456,6 @@ fn dpo_buy_travel_cabin() {
             None
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
-        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
         //manager call purchase of travel_cabin
         assert_ok!(BulletTrain::dpo_buy_travel_cabin(
             Origin::signed(ALICE),
@@ -1506,7 +1505,7 @@ fn dpo_buy_travel_cabin() {
 }
 
 #[test]
-fn buy_dpo_seats_after_grace_period_by_manager() {
+fn buy_dpo_shares_after_grace_period_by_manager() {
     ExtBuilder::default().build().execute_with(|| {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
@@ -1566,7 +1565,7 @@ fn buy_dpo_seats_after_grace_period_by_manager() {
 }
 
 #[test]
-fn buy_dpo_seats_after_grace_period_by_member() {
+fn buy_dpo_shares_after_grace_period_by_member() {
     ExtBuilder::default().build().execute_with(|| {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
@@ -1639,7 +1638,6 @@ fn buy_dpo_seats_after_grace_period_by_member() {
             150, // 15%
             None
         ));
-        // assert_eq!(BulletTrain::dpos(0).unwrap().empty_seats, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
         //dpo0 overtime
         run_to_block(22);
@@ -1658,7 +1656,7 @@ fn buy_dpo_seats_after_grace_period_by_member() {
 }
 
 #[test]
-fn buy_dpo_seats_after_grace_period_by_external() {
+fn buy_dpo_shares_after_grace_period_by_external() {
     ExtBuilder::default().build().execute_with(|| {
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
@@ -2389,7 +2387,7 @@ fn do_release_bonus_from_dpo() {
         assert_eq!(Balances::free_balance(FRED), 482000 + 36); // DPO1 45 * 80%
         // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
 
-        // release bonus of dpo1. each seat worths 3 bonus.
+        // release bonus of dpo1. each share worths 3 bonus.
         assert_ok!(BulletTrain::release_bonus_from_dpo(
             Origin::signed(ALICE),
             1
@@ -2402,10 +2400,10 @@ fn do_release_bonus_from_dpo() {
         assert_eq!(Balances::free_balance(ELSA), 487000 + 120 + 9 + 24 + 6); // Fred 24 + Greg 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
-        // balancer for greg and hugh = 500000 - 3000 (10 seats, 300 each)
+        // balancer for greg and hugh = 500000 - 3000 (10% shares, 300 each)
         assert_eq!(Balances::free_balance(GREG), 500000 - 3000 + 24 + 9); // Hugh 24 + Ivan 9
         assert_eq!(Balances::free_balance(HUGH), 500000 - 3000 + 36); // Ivan 36
-        // balancer for greg and hugh = 500000 - 4500 (15 seats)
+        // balancer for greg and hugh = 500000 - 4500 (15% shares)
         assert_eq!(Balances::free_balance(IVAN), 500000 - 4500);
     });
 }
@@ -2534,7 +2532,7 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
         assert_eq!(Balances::free_balance(FRED), 482000); // DPO1 0
         // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
 
-        // release bonus of dpo1. each seat worths 3 bonus.
+        // release bonus of dpo1. 1% share worths 3 bonus.
         assert_ok!(BulletTrain::release_bonus_from_dpo(
             Origin::signed(ALICE),
             1
@@ -2845,7 +2843,7 @@ fn dpo_buy_non_default_dpo_test() {
             ));
         }
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
-        // dpo3 buy dpo0 seats (already taken)
+        // dpo3 buy dpo0 shares (already taken)
         assert_noop!(
             BulletTrain::dpo_buy_dpo_share(Origin::signed(10), 3, 0, 30000), // 30%
             Error::<Test>::DpoWrongState
@@ -2880,7 +2878,7 @@ fn dpo_buy_non_default_dpo_test() {
         for i in 11..20 {
             assert_eq!(Balances::free_balance(&i), 3000 - 300);
         }
-        // fill remaining 60 seats of dpo1
+        // fill remaining 60% shares of dpo1
         for i in BOB..HUGH {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
                 Origin::signed(i),
@@ -3414,8 +3412,6 @@ fn dpo_change_smaller_cabin_and_activate() {
         assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 15000);
         assert_eq!(BulletTrain::dpos(0).unwrap().rate, (13000, 15000));
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 2000);
-
-        // TODO: check member share
     });
 }
 
@@ -3502,7 +3498,7 @@ fn dpo_change_target_to_non_default_dpo() {
         assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 1, 9000, None));
         assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(CAROL), 1, 7000, None));
 
-        // the remaining amount of dpo 1 is 10000
+        // the remaining amount of dpo 1 is 5000
         assert_noop!(
             BulletTrain::dpo_change_target(
                 Origin::signed(ALICE),
