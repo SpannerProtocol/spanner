@@ -1,15 +1,17 @@
 use super::*;
 use crate as pallet_bullet_train;
-use sp_core::H256;
-use frame_support::{construct_runtime, parameter_types, weights::Weight};
-use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
-};
-use primitives::{TokenSymbol, Amount};
 use frame_support::ord_parameter_types;
+use frame_support::{construct_runtime, parameter_types, weights::Weight};
+use frame_system::EnsureSignedBy;
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
-use frame_system::EnsureSignedBy;
+use primitives::{Amount, TokenSymbol};
+use sp_core::H256;
+use sp_runtime::{
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup},
+    Perbill,
+};
 
 pub type Balance = u128;
 pub type AccountId = u128; // u64 is not enough to hold bytes used to generate dpo account
@@ -18,6 +20,7 @@ pub type BlockNumber = u64;
 pub const WUSD: CurrencyId = CurrencyId::Token(TokenSymbol::WUSD);
 pub const PLKT: CurrencyId = CurrencyId::Token(TokenSymbol::PLKT);
 pub const BOLT: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
+pub const BOLT_WUSD_LP: CurrencyId = CurrencyId::DexShare(TokenSymbol::BOLT, TokenSymbol::WUSD);
 
 pub const ALICE: u128 = 0;
 pub const BOB: u128 = 1;
@@ -32,10 +35,10 @@ pub const JILL: u128 = 9;
 pub const ADAM: u128 = 100;
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: Weight = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const BlockHashCount: u64 = 250;
+    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockLength: u32 = 2 * 1024;
+    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 impl frame_system::Config for Test {
     type BaseCallFilter = ();
@@ -63,7 +66,7 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u64 = 1;
+    pub const ExistentialDeposit: u64 = 1;
 }
 impl pallet_balances::Config for Test {
     type MaxLocks = ();
@@ -76,7 +79,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const GetNativeCurrencyId: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
 }
 impl orml_currencies::Config for Test {
     type Event = Event;
@@ -87,9 +90,9 @@ impl orml_currencies::Config for Test {
 }
 
 parameter_type_with_key! {
-	pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
-		Default::default()
-	};
+    pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
+        Default::default()
+    };
 }
 impl orml_tokens::Config for Test {
     type Event = Event;
@@ -102,23 +105,23 @@ impl orml_tokens::Config for Test {
 }
 
 ord_parameter_types! {
-	pub const Alice: AccountId = 0;
+    pub const Alice: AccountId = 0;
 }
 
-parameter_types!{
+parameter_types! {
     pub const BulletTrainId: ModuleId = ModuleId(*b"sp/blttn");
     pub const ReleaseYieldGracePeriod: BlockNumber = 10;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 10;
-	pub const DpoSharePercentCap: (u8, u8) = (1, 2); // 50%
+    pub const DpoSharePercentCap: (u8, u8) = (1, 2); // 50%
     pub const DpoSharePercentMinimum: (u8, u8) = (3, 100); // 3%
     pub const DpoPartialBuySharePercentMin: (u8, u8) = (1, 100); // 1%
     pub const PassengerSharePercentCap: (u8, u8) = (3, 10); // 30%
     pub const PassengerSharePercentMinimum: (u8, u8) = (1, 100); // 1%
-	pub const ManagerSlashPerThousand: u32 = 500;
-	pub const ManagementFeeCap: u32 = 200; // per thousand
-	pub const MilestoneRewardMinimum: Balance = 10;
-	pub const CabinYieldRewardMinimum: Balance = 0;
-	pub const CabinBonusRewardMinimum: Balance = 0;
+    pub const ManagerSlashPerThousand: u32 = 500;
+    pub const ManagementFeeCap: u32 = 200; // per thousand
+    pub const MilestoneRewardMinimum: Balance = 10;
+    pub const CabinYieldRewardMinimum: Balance = 0;
+    pub const CabinBonusRewardMinimum: Balance = 0;
 }
 impl Config for Test {
     type Event = Event;
@@ -144,17 +147,17 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		BulletTrain: pallet_bullet_train::{Module, Storage, Call, Event<T>},
-		Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
-		Currencies: orml_currencies::{Module, Call, Event<T>},
-		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-	}
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        BulletTrain: pallet_bullet_train::{Module, Storage, Call, Event<T>},
+        Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
+        Currencies: orml_currencies::{Module, Call, Event<T>},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+    }
 );
 
 // Build genesis storage according to the mock runtime.
@@ -163,31 +166,39 @@ pub struct ExtBuilder {
     balance_endowed_accounts: Vec<(AccountId, Balance)>,
 }
 
+pub const SYSTEM_ACC_DEFAULT_BALANCE: Balance = 1_000_000_000;
+pub const USER_ACC_DEFAULT_BALANCE: Balance = 500_000;
 impl Default for ExtBuilder {
     fn default() -> Self {
         Self {
             token_endowed_accounts: vec![
                 (ALICE, WUSD, 1_000_000u128),
-                (BOB, WUSD, 500_000u128),
-                (CAROL, WUSD, 500_000u128),
+                (BOB, WUSD, USER_ACC_DEFAULT_BALANCE),
+                (CAROL, WUSD, USER_ACC_DEFAULT_BALANCE),
                 (ALICE, PLKT, 1_000_000u128),
-                (BOB, PLKT, 500_000u128),
-                (CAROL, PLKT, 500_000u128),
-                (BulletTrain::eng_account_id(), PLKT, 1_000_000_000)
+                (BOB, PLKT, USER_ACC_DEFAULT_BALANCE),
+                (CAROL, PLKT, USER_ACC_DEFAULT_BALANCE),
+                (
+                    BulletTrain::eng_account_id(),
+                    PLKT,
+                    SYSTEM_ACC_DEFAULT_BALANCE,
+                ),
+                (BulletTrain::account_id(), WUSD, SYSTEM_ACC_DEFAULT_BALANCE),
             ],
             balance_endowed_accounts: vec![
                 (ALICE, 1_000_000),
-                (BOB, 500_000),
-                (CAROL, 500_000),
-                (DYLAN, 500_000),
-                (ELSA, 500_000),
-                (FRED, 500_000),
-                (GREG, 500_000),
-                (HUGH, 500_000),
-                (IVAN, 500_000),
-                (JILL, 500_000),
-                (ADAM, 500_000),
-                (BulletTrain::eng_account_id(), 1_000_000_000)
+                (BOB, USER_ACC_DEFAULT_BALANCE),
+                (CAROL, USER_ACC_DEFAULT_BALANCE),
+                (DYLAN, USER_ACC_DEFAULT_BALANCE),
+                (ELSA, USER_ACC_DEFAULT_BALANCE),
+                (FRED, USER_ACC_DEFAULT_BALANCE),
+                (GREG, USER_ACC_DEFAULT_BALANCE),
+                (HUGH, USER_ACC_DEFAULT_BALANCE),
+                (IVAN, USER_ACC_DEFAULT_BALANCE),
+                (JILL, USER_ACC_DEFAULT_BALANCE),
+                (ADAM, USER_ACC_DEFAULT_BALANCE),
+                (BulletTrain::eng_account_id(), SYSTEM_ACC_DEFAULT_BALANCE),
+                (BulletTrain::account_id(), SYSTEM_ACC_DEFAULT_BALANCE),
             ],
         }
     }
@@ -200,12 +211,16 @@ impl ExtBuilder {
             .unwrap();
 
         orml_tokens::GenesisConfig::<Test> {
-            endowed_accounts: self.token_endowed_accounts
-        }.assimilate_storage(&mut t).unwrap();
+            endowed_accounts: self.token_endowed_accounts,
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
 
-        pallet_balances::GenesisConfig::<Test>{
-            balances: self.balance_endowed_accounts
-        }.assimilate_storage(&mut t).unwrap();
+        pallet_balances::GenesisConfig::<Test> {
+            balances: self.balance_endowed_accounts,
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
 
         t.into()
     }
