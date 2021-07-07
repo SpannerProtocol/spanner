@@ -9,6 +9,7 @@ use pallet_bullet_train_primitives::DpoIndex;
 use sp_runtime::FixedPointNumber;
 
 fn make_default_travel_cabin(token_id: crate::CurrencyId) -> () {
+    //costs 20000
     assert_ok!(BulletTrain::create_travel_cabin(
         Origin::signed(ALICE),
         token_id,
@@ -21,6 +22,7 @@ fn make_default_travel_cabin(token_id: crate::CurrencyId) -> () {
     ));
 }
 fn make_default_dpo(manager: AccountId, target: Target<Balance>) -> () {
+    //costs manager 10
     assert_ok!(BulletTrain::create_dpo(
         Origin::signed(manager),
         String::from("test").into_bytes(),
@@ -87,7 +89,7 @@ fn create_travel_cabin_works() {
         //check account balance of bonus + yield, this account id is shared by all dpos and travel cabins of bullet train
         assert_eq!(
             Balances::free_balance(BulletTrain::account_id()),
-            SYSTEM_ACC_DEFAULT_BALANCE + 20000
+            DEFAULT_BALANCE_SYSTEM + 20000
         );
 
         let record = |event| EventRecord {
@@ -140,7 +142,7 @@ fn issue_additional_travel_cabin_works() {
         assert_eq!(BulletTrain::travel_cabin_inventory(0), Some((0, 20)));
         assert_eq!(
             Balances::free_balance(BulletTrain::account_id()),
-            SYSTEM_ACC_DEFAULT_BALANCE + 40000
+            DEFAULT_BALANCE_SYSTEM + 40000
         );
 
         let expected_event = Event::pallet_bullet_train(crate::Event::IssuedAdditionalTravelCabin(
@@ -432,18 +434,10 @@ fn milestone_rewards_released_correctly() {
 }
 
 #[test]
-fn create_dpo() {
+fn create_dpo_targeting_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            10000,
-            0,
-            10000, // yield
-            10,
-            1
-        ));
+        make_default_travel_cabin(BOLT);
+        //creating dpo for a non existing target
         assert_noop!(
             BulletTrain::create_dpo(
                 Origin::signed(ALICE),
@@ -457,6 +451,7 @@ fn create_dpo() {
             ),
             Error::<Test>::InvalidIndex
         );
+        //manager purchases greater than 30%
         assert_noop!(
             BulletTrain::create_dpo(
                 Origin::signed(ALICE),
@@ -470,6 +465,7 @@ fn create_dpo() {
             ),
             Error::<Test>::ExceededShareCap
         );
+        //manager charges greater than 5% base fee
         assert_noop!(
             BulletTrain::create_dpo(
                 Origin::signed(ALICE),
@@ -483,6 +479,7 @@ fn create_dpo() {
             ),
             Error::<Test>::ExceededRateCap
         );
+        //direct referral rate greater than 100%
         assert_noop!(
             BulletTrain::create_dpo(
                 Origin::signed(ALICE),
@@ -496,74 +493,105 @@ fn create_dpo() {
             ),
             Error::<Test>::ExceededRateCap
         );
-        //create dpo0 with end time 10
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            500, // 5%
-            50,
-            800,
-            10,
-            None
-        ));
-        assert_eq!(BulletTrain::dpo_count(), 1);
-        assert_eq!(Balances::free_balance(ALICE), 999500);
+        //create dpo works
+        //travel cabin requires 20000 in yield+bonus
+        //costs manager 10
+        run_to_block(1);
+        make_default_dpo(ALICE, Target::TravelCabin(0));
 
+        let record = |event| EventRecord {
+            phase: Phase::Initialization,
+            event,
+            topics: vec![],
+        };
+        assert_eq!(
+            System::events(),
+            vec![
+                record(Event::pallet_balances(BalancesEvent::Transfer(
+                    ALICE,
+                    BulletTrain::account_id(),
+                    10
+                ))),
+                record(Event::orml_currencies(CurrenciesEvent::Transferred(
+                    BOLT,
+                    ALICE,
+                    BulletTrain::account_id(),
+                    10
+                ))),
+                record(Event::pallet_bullet_train(
+                    crate::Event::CreatedDpo(ALICE, 0)
+                ))
+            ]
+        );
+        assert_eq!(BulletTrain::dpo_count(), 1);
+    });
+}
+
+#[test]
+fn create_dpo_targeting_dpo_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        run_to_block(1);
+        make_default_travel_cabin(BOLT);
+        make_default_dpo(ALICE, Target::TravelCabin(0));
+
+        //child dpo targets greater than max cap of parent dpo
         assert_noop!(
             BulletTrain::create_dpo(
                 Origin::signed(BOB),
                 String::from("test").into_bytes(),
-                Target::Dpo(0, 5001), // > 50%
+                Target::Dpo(0, 5001), // >50%
                 150,
                 50,
                 800,
-                11, // longer than dpo 0
+                9,
                 None
             ),
             Error::<Test>::ExceededShareCap
         );
-
-        //create dpo1 with end time 11
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(BOB),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 1000),
-            150, // 15%
-            50,
-            800,
-            11, // longer than dpo 0
-            None
-        ));
-        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::CREATED);
-
+        //child dpo targets less than min cap of parent dpo
         assert_noop!(
             BulletTrain::create_dpo(
                 Origin::signed(BOB),
                 String::from("test").into_bytes(),
-                Target::Dpo(1, 20), // 2%
-                1,
-                0,
+                Target::Dpo(0, 299), // <30%
+                150,
+                50,
                 800,
-                4,
+                9,
                 None
             ),
             Error::<Test>::PurchaseAtLeastThreePercentForDpo
         );
-
+        //child dpo target yield / value is less than 100
         assert_noop!(
             BulletTrain::create_dpo(
                 Origin::signed(BOB),
                 String::from("test").into_bytes(),
-                Target::Dpo(1, 30), // 3%
-                4,
-                0,
+                Target::Dpo(0, 300),
+                150,
+                50,
                 800,
-                4,
+                9,
                 None
             ),
             Error::<Test>::TargetValueTooSmall
         );
+        //ends at current block
+        assert_noop!(
+            BulletTrain::create_dpo(
+                Origin::signed(BOB),
+                String::from("test").into_bytes(),
+                Target::Dpo(0, 5000), // <30%
+                150,
+                50,
+                800,
+                0,
+                None
+            ),
+            Error::<Test>::InvalidEndTime
+        );
+        make_default_dpo(BOB, Target::Dpo(0, 5000));
+        assert_eq!(BulletTrain::dpo_count(), 2);
     });
 }
 

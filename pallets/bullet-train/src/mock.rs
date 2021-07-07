@@ -166,39 +166,39 @@ pub struct ExtBuilder {
     balance_endowed_accounts: Vec<(AccountId, Balance)>,
 }
 
-pub const SYSTEM_ACC_DEFAULT_BALANCE: Balance = 1_000_000_000;
-pub const USER_ACC_DEFAULT_BALANCE: Balance = 500_000;
+pub const DEFAULT_BALANCE_SYSTEM: Balance = 1_000_000_000;
+pub const DEFAULT_BALANCE_USER: Balance = 500_000;
 impl Default for ExtBuilder {
     fn default() -> Self {
         Self {
             token_endowed_accounts: vec![
                 (ALICE, WUSD, 1_000_000u128),
-                (BOB, WUSD, USER_ACC_DEFAULT_BALANCE),
-                (CAROL, WUSD, USER_ACC_DEFAULT_BALANCE),
+                (BOB, WUSD, DEFAULT_BALANCE_USER),
+                (CAROL, WUSD, DEFAULT_BALANCE_USER),
                 (ALICE, PLKT, 1_000_000u128),
-                (BOB, PLKT, USER_ACC_DEFAULT_BALANCE),
-                (CAROL, PLKT, USER_ACC_DEFAULT_BALANCE),
+                (BOB, PLKT, DEFAULT_BALANCE_USER),
+                (CAROL, PLKT, DEFAULT_BALANCE_USER),
                 (
                     BulletTrain::eng_account_id(),
                     PLKT,
-                    SYSTEM_ACC_DEFAULT_BALANCE,
+                    DEFAULT_BALANCE_SYSTEM,
                 ),
-                (BulletTrain::account_id(), WUSD, SYSTEM_ACC_DEFAULT_BALANCE),
+                (BulletTrain::account_id(), WUSD, DEFAULT_BALANCE_SYSTEM),
             ],
             balance_endowed_accounts: vec![
                 (ALICE, 1_000_000),
-                (BOB, USER_ACC_DEFAULT_BALANCE),
-                (CAROL, USER_ACC_DEFAULT_BALANCE),
-                (DYLAN, USER_ACC_DEFAULT_BALANCE),
-                (ELSA, USER_ACC_DEFAULT_BALANCE),
-                (FRED, USER_ACC_DEFAULT_BALANCE),
-                (GREG, USER_ACC_DEFAULT_BALANCE),
-                (HUGH, USER_ACC_DEFAULT_BALANCE),
-                (IVAN, USER_ACC_DEFAULT_BALANCE),
-                (JILL, USER_ACC_DEFAULT_BALANCE),
-                (ADAM, USER_ACC_DEFAULT_BALANCE),
-                (BulletTrain::eng_account_id(), SYSTEM_ACC_DEFAULT_BALANCE),
-                (BulletTrain::account_id(), SYSTEM_ACC_DEFAULT_BALANCE),
+                (BOB, DEFAULT_BALANCE_USER),
+                (CAROL, DEFAULT_BALANCE_USER),
+                (DYLAN, DEFAULT_BALANCE_USER),
+                (ELSA, DEFAULT_BALANCE_USER),
+                (FRED, DEFAULT_BALANCE_USER),
+                (GREG, DEFAULT_BALANCE_USER),
+                (HUGH, DEFAULT_BALANCE_USER),
+                (IVAN, DEFAULT_BALANCE_USER),
+                (JILL, DEFAULT_BALANCE_USER),
+                (ADAM, DEFAULT_BALANCE_USER),
+                (BulletTrain::eng_account_id(), DEFAULT_BALANCE_SYSTEM),
+                (BulletTrain::account_id(), DEFAULT_BALANCE_SYSTEM),
             ],
         }
     }
