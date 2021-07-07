@@ -25,4 +25,4 @@ jobs:
           toolchain: nightly-2021-01-01
           target: wasm32-unknown-unknown
       - name: Run tests
-        run: cargo test
+        run: cargo test -p pallet-bullet-train
