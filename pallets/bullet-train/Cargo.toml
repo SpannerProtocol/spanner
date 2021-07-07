@@ -1,12 +1,12 @@
 [package]
 authors = ['Spanner Developers']
-description = 'POC FRAME pallet'
+description = 'bullet train pallet'
 edition = '2018'
 homepage = 'https://www.spanner.network/'
 license = 'Unlicense'
 name = 'pallet-bullet-train'
 repository = ''
-version = '2.0.0'
+version = '3.0.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
