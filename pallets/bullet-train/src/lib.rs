@@ -858,7 +858,6 @@ pub mod module {
                 referrer: referrer.clone(),
                 ..Default::default()
             };
-            // insert manager as buyer before refresh target info
             Self::refresh_dpo_info_for_new_target(&mut new_dpo, &target_entity, false)?;
 
             Self::dpo_inflow(
