@@ -35,7 +35,7 @@ fn make_default_dpo(manager: AccountId, target: Target<Balance>) -> () {
     ));
 }
 
-fn fill_dpo_with_random_accounts(dpo_idx: DpoIndex) -> () {
+fn fill_dpo_with_random_accounts(dpo_idx: DpoIndex, all: bool) -> () {
     let dpo = BulletTrain::dpos(dpo_idx).unwrap();
     let target_left = dpo.target_amount - dpo.total_fund;
     let mut funded = 0;
@@ -43,7 +43,7 @@ fn fill_dpo_with_random_accounts(dpo_idx: DpoIndex) -> () {
         .saturating_mul_int(dpo.target_amount);
     let acc_needed = (target_left + max_amount - 1) / max_amount; //ceiling div
     let start = 1000;
-    let end = 1000 + acc_needed;
+    let end = start + if all { acc_needed } else { acc_needed - 1 };
     for i in start..end {
         let amount = min(max_amount, target_left - funded);
         assert_ok!(Currencies::deposit(dpo.token_id, &i, amount));
@@ -55,7 +55,6 @@ fn fill_dpo_with_random_accounts(dpo_idx: DpoIndex) -> () {
         ));
         funded += amount;
     }
-    assert_eq!(target_left, funded);
 }
 
 use orml_currencies::Event as CurrenciesEvent;
@@ -153,7 +152,7 @@ fn issue_additional_travel_cabin_works() {
 }
 
 #[test]
-fn buy_travel_cabin_works() {
+fn passenger_buy_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_travel_cabin(BOLT);
         //start events after making travel cabin
@@ -194,7 +193,7 @@ fn buy_travel_cabin_works() {
                 ))),
                 record(Event::pallet_balances(BalancesEvent::Transfer(
                     BulletTrain::account_id(),
-                    ALICE, //passenger buy travel cabin does not recieve bonus
+                    ALICE, //passenger buy travel cabin does not receive bonus
                     1000
                 ))),
                 record(Event::orml_currencies(CurrenciesEvent::Transferred(
@@ -397,7 +396,7 @@ fn milestone_rewards_released_correctly() {
         ));
         //receives milestone three only
         make_default_dpo(DYLAN, Target::TravelCabin(0));
-        fill_dpo_with_random_accounts(0);
+        fill_dpo_with_random_accounts(0, true);
         assert_ok!(BulletTrain::dpo_buy_travel_cabin(
             Origin::signed(DYLAN),
             0, //buyer
@@ -518,9 +517,9 @@ fn create_dpo_targeting_travel_cabin_works() {
                     BulletTrain::account_id(),
                     10
                 ))),
-                record(Event::pallet_bullet_train(
-                    crate::Event::CreatedDpo(ALICE, 0)
-                ))
+                record(Event::pallet_bullet_train(crate::Event::CreatedDpo(
+                    ALICE, 0
+                )))
             ]
         );
         assert_eq!(BulletTrain::dpo_count(), 1);
@@ -596,178 +595,89 @@ fn create_dpo_targeting_dpo_works() {
 }
 
 #[test]
-fn passenger_buy_dpo_share_emits_events_correctly() {
+fn passenger_buy_dpo_share_works() {
     ExtBuilder::default().build().execute_with(|| {
-        // Set block number to 1 because events are not emitted on block 0.
-        System::set_block_number(1);
+        make_default_travel_cabin(BOLT);
+        make_default_dpo(ALICE, Target::TravelCabin(0));
 
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            100000,
-            10,
-            1
-        ));
-        let expected_event =
-            Event::pallet_bullet_train(crate::Event::CreatedTravelCabin(ALICE, BOLT, 0));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
+        //passenger buys more than allowed share cap
+        assert_noop!(
+            BulletTrain::passenger_buy_dpo_share(
+                Origin::signed(BOB),
+                0,
+                3001, // >30%
+                None
+            ),
+            Error::<Test>::ExceededShareCap
+        );
 
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            5000, // 5%
-            50,
-            800,
-            10,
-            None
-        ));
-        let expected_event = Event::pallet_bullet_train(crate::Event::CreatedDpo(ALICE, 0));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
+        //passenger buys less than minimum share
+        assert_noop!(
+            BulletTrain::passenger_buy_dpo_share(
+                Origin::signed(BOB),
+                0,
+                99, // <1%
+                None
+            ),
+            Error::<Test>::PurchaseAtLeastOnePercent
+        );
 
+        //testing additional purchases
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(BOB),
             0,
-            10000, // 10%
+            900,
             None
         ));
-        let expected_event = Event::pallet_bullet_train(crate::Event::DpoTargetPurchased(
-            BOB,
-            Buyer::Passenger(BOB),
+        //still cannot buy more than share cap
+        assert_noop!(
+            BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 0, 2101, None),
+            Error::<Test>::ExceededShareCap
+        );
+        //no minimum restriction after first purchase
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(BOB),
             0,
-            10000,
+            1,
+            None
         ));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
+
+        //passenger buys more than available share
+        //dpo0 currently filled, 10 from manager + 901 from above + 9000 from random accounts
+        //remaining available 89 shares
+        fill_dpo_with_random_accounts(0, false);
+        assert_noop!(
+            BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 0, 90, None),
+            Error::<Test>::DpoNotEnoughShare
+        );
+
+        // the remaining amount (89) less than 1% should be bought totally by the last buyer
+        assert_noop!(
+            BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 0, 1, None),
+            Error::<Test>::PurchaseAllRemainder
+        );
+
+        // //successful purchase
+        run_to_block(1);
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(BOB),
+            0,
+            89,
+            None
+        ));
+        assert!(System::events().iter().any(|a| a.event
+            == Event::pallet_bullet_train(crate::Event::DpoTargetPurchased(
+                BOB,
+                Buyer::Passenger(BOB),
+                0,
+                89,
+            ))));
     });
 }
 
 #[test]
-fn passenger_buy_dpo_share_test() {
-    ExtBuilder::default().build().execute_with(|| {
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            100000,
-            10,
-            1
-        ));
-        //create dpo 0
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            5000, // 5%
-            50,
-            800,
-            10,
-            None
-        ));
-        //passenger purchase of dpo
-        //passenger cannot buy more than 30%
-        assert_noop!(
-            BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 0, 30001, None),
-            Error::<Test>::ExceededShareCap
-        );
-        //manager can buy 25% more
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(ALICE),
-            0,
-            15000, // 15%
-            None
-        ));
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(ALICE),
-            0,
-            10000, // 10%
-            None
-        ));
-        assert_noop!(
-            BulletTrain::passenger_buy_dpo_share(Origin::signed(ALICE), 0, 1, None), // 1 token
-            Error::<Test>::ExceededShareCap
-        );
-
-        // need more than 1% at the first time
-        assert_noop!(
-            BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 0, 999, None), // <1%
-            Error::<Test>::PurchaseAtLeastOnePercent
-        );
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(BOB),
-            0,
-            9999, // 10% - 1
-            None
-        ));
-        // no minimum limitation after the first time
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(BOB),
-            0,
-            1,
-            None
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 40000); // 40%
-
-        //create dpo 1 for dpo 0
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(CAROL),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 10000), // 10%
-            1000,                  // 10%
-            50,
-            800,
-            9,
-            None
-        ));
-        // BOB buys 10% share of dpo1.
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(BOB),
-            1,
-            1000, // 10%
-            None
-        ));
-        assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 2000); // 20%
-        assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 2000);
-
-        // fill dpo 1
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(DYLAN),
-            1,
-            3000,
-            None
-        )); // 30%
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(ELSA),
-            1,
-            3000,
-            None
-        )); // 30%
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(FRED),
-            1,
-            2000 - 10,
-            None
-        )); // 20% - 1
-        assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 10000 - 10);
-
-        // the remaining amount (10) less than 1% should be bought totally by the last buyer
-        assert_noop!(
-            BulletTrain::passenger_buy_dpo_share(Origin::signed(GREG), 1, 9, None),
-            Error::<Test>::PurchaseAllRemainder
-        );
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(GREG),
-            1,
-            10,
-            None
-        ));
-        assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 10000);
-        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::ACTIVE);
-    });
+fn dpo_state_transition() {
+    ExtBuilder::default().build().execute_with(|| {});
 }
 
 /// dpo1 commited to dpo0, but dpo0 failed
