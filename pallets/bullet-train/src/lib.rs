@@ -80,6 +80,7 @@ mod tests;
 mod benchmarking;
 
 pub mod weights;
+mod migration;
 
 use weights::WeightInfo;
 
@@ -492,7 +493,11 @@ pub mod module {
     pub struct Pallet<T>(PhantomData<T>);
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            migration::migrate_to_v3::<T>()
+        }
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
