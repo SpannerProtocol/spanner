@@ -1775,11 +1775,7 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            // let mut emit_bonus = Self::percentage_from_num_tuple(
-            //     (member_info.share, total_receivable_share)
-            // ).saturating_mul_int(total_bonus);
             let mut emit_bonus = Permill::from_rational_approximation(member_info.share, total_receivable_share) * total_bonus;
-
             bonus_remainder = bonus_remainder.saturating_sub(emit_bonus);
 
             if let Buyer::Dpo(member_dpo_idx) = member_info.buyer {
