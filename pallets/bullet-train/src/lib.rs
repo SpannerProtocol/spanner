@@ -2423,12 +2423,6 @@ impl<T: Config> Pallet<T> {
 
     fn compare_targets(t1: &Target<Balance>, t2: &Target<Balance>) -> TargetCompare {
         if t1 == t2 { return TargetCompare::Same; }
-        if let Target::TravelCabin(_) = t1 {
-            return TargetCompare::Different;
-        }
-        if let Target::TravelCabin(_) = t2 {
-            return TargetCompare::Different;
-        }
         return if let (
             Target::Dpo(t1_id, _),
             Target::Dpo(t2_id, _)
