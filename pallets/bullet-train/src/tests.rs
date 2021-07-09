@@ -1995,7 +1995,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(ALICE)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(ALICE),
-                share: 15000,             // 15%
+                share: 15000, // 15%
                 referrer: Referrer::None, //top of iceberg
             }
         );
@@ -2019,7 +2019,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(BOB)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(BOB),
-                share: 10000,                                             // 10%
+                share: 10000, // 10%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(ALICE)), // manager
             }
         );
@@ -2141,7 +2141,7 @@ fn dpo_referral() {
             BulletTrain::dpo_members(0, Buyer::Passenger(HUGH)).unwrap(),
             DpoMemberInfo {
                 buyer: Buyer::Passenger(HUGH),
-                share: 10000,                                             // 10%
+                share: 10000, // 10%
                 referrer: Referrer::MemberOfDpo(Buyer::Passenger(ALICE)), // manager
             }
         );
@@ -2280,16 +2280,16 @@ fn do_release_bonus_from_dpo() {
             Balances::free_balance(ALICE),
             1000000 - 15000 + 105 + 100 + 20
         ); // 150 * 70% (30% to ADAM as external referrer)
-           // + 100 from bob + 20 from Carol
+        // + 100 from bob + 20 from Carol
         assert_eq!(Balances::free_balance(ADAM), 500000 + 45); // 150 * 30%
-                                                               // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
+        // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
         assert_eq!(Balances::free_balance(BOB), 487000 + 80 + 20); // Carol 80 + Dylan 20
         assert_eq!(Balances::free_balance(CAROL), 487000 + 80 + 20); // Dylan 80 + elsa 20
         assert_eq!(Balances::free_balance(DYLAN), 487000 + 80 + 30); // Elsa 80 + Fred (150 * 20% = 30)
         assert_eq!(Balances::free_balance(ELSA), 487000 + 120 + 9); // Fred (150 * 80% = 120) + DPO1 300 * 15% * 20%
-                                                                    // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
+        // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
         assert_eq!(Balances::free_balance(FRED), 482000 + 36); // DPO1 45 * 80%
-                                                               // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
+        // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
 
         // release bonus of dpo1. each share worths 3 bonus.
         assert_ok!(BulletTrain::release_bonus_from_dpo(
@@ -2304,10 +2304,10 @@ fn do_release_bonus_from_dpo() {
         assert_eq!(Balances::free_balance(ELSA), 487000 + 120 + 9 + 24 + 6); // Fred 24 + Greg 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
-                                                                        // balancer for greg and hugh = 500000 - 3000 (10% shares, 300 each)
+        // balancer for greg and hugh = 500000 - 3000 (10% shares, 300 each)
         assert_eq!(Balances::free_balance(GREG), 500000 - 3000 + 24 + 9); // Hugh 24 + Ivan 9
         assert_eq!(Balances::free_balance(HUGH), 500000 - 3000 + 36); // Ivan 36
-                                                                      // balancer for greg and hugh = 500000 - 4500 (15% shares)
+        // balancer for greg and hugh = 500000 - 4500 (15% shares)
         assert_eq!(Balances::free_balance(IVAN), 500000 - 4500);
     });
 }
@@ -2425,16 +2425,16 @@ fn do_release_bonus_0_direct_rate_from_dpo() {
             Balances::free_balance(ALICE),
             1000000 - 15000 + 105 + 100 + 100
         ); // 150 * 70% (30% to ADAM as external referrer)
-           // + 100 from bob + 100 from Carol
+        // + 100 from bob + 100 from Carol
         assert_eq!(Balances::free_balance(ADAM), 500000 + 45); // 150 * 30%
-                                                               // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
+        // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
         assert_eq!(Balances::free_balance(BOB), 487000 + 0 + 100); // carol 0 + dylan 100
         assert_eq!(Balances::free_balance(CAROL), 487000 + 0 + 100); // dylan 0 + elsa 100
         assert_eq!(Balances::free_balance(DYLAN), 487000 + 0 + 150); // elsa 0 +  Fred (150 * 20% = 30)
         assert_eq!(Balances::free_balance(ELSA), 487000 + 0 + 45); //fred 0 + DPO1 300 * 15% * 100% = 45
-                                                                   // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
+        // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
         assert_eq!(Balances::free_balance(FRED), 482000); // DPO1 0
-                                                          // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
+        // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
 
         // release bonus of dpo1. 1% share worths 3 bonus.
         assert_ok!(BulletTrain::release_bonus_from_dpo(
@@ -2932,7 +2932,7 @@ fn dpo_change_smaller_cabin_and_activate() {
             String::from("test").into_bytes(),
             100000,
             0,
-            2000,
+            5000,
             10,
             1
         ));
@@ -2952,8 +2952,8 @@ fn dpo_change_smaller_cabin_and_activate() {
             Origin::signed(ALICE),
             BOLT,
             String::from("test").into_bytes(),
-            13000,
-            0,
+            15000,
+            1000,
             1100,
             10,
             1
@@ -2963,7 +2963,7 @@ fn dpo_change_smaller_cabin_and_activate() {
             Origin::signed(ALICE),
             BOLT,
             String::from("test").into_bytes(),
-            15001,
+            20001,
             0,
             1500,
             10,
@@ -2980,14 +2980,29 @@ fn dpo_change_smaller_cabin_and_activate() {
             10,
             None
         ));
-        // BOB buy dpo 0 5%
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+        // dpo 1 buy dpo 0 5%
+        assert_ok!(BulletTrain::create_dpo(
             Origin::signed(BOB),
-            0,
-            5000, // 5%
+            String::from("test").into_bytes(),
+            Target::Dpo(0, 10000), // 10%
+            2000, // 20%
+            50,
+            800,
+            10,
             None
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 15000);
+        // join dpo 1 to fill it full, and dpo 1 buy dpo 0 as default
+        for i in CAROL..GREG {
+            assert_ok!(BulletTrain::passenger_buy_dpo_share(
+                Origin::signed(i),
+                1,
+                2000, // 20%
+                None
+            ));
+        }
+        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::ACTIVE);
+        assert_ok!(BulletTrain::dpo_buy_dpo_share(Origin::signed(BOB), 1, 0, 10000)); // 10%
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 20000);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
 
         // make cabin 0 unavailable
@@ -3002,50 +3017,69 @@ fn dpo_change_smaller_cabin_and_activate() {
             Target::TravelCabin(1),
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().target_amount, 10000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 15000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 15000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 20000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 20000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 20000);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 150); // still 15%
         assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1)); // 1:1
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
 
         // make cabin 1 unavailable
-        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
-            Origin::signed(ALICE),
-            1
-        ));
-        // not allowed to change larger target (cabin 3 > 15000) when in active
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(Origin::signed(ALICE), 1));
+        // not allowed to change larger target (cabin 3 > 20000) when in active
         assert_noop!(
-            BulletTrain::dpo_change_target(Origin::signed(ALICE), 0, Target::TravelCabin(3),),
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(3),
+            ),
             Error::<Test>::NotAllowedToChangeLargerTarget
         );
-        // dpo0 change target to cabin 2 (< 15000)
-        assert_ok!(BulletTrain::dpo_change_target(
-            Origin::signed(ALICE),
-            0,
-            Target::TravelCabin(2),
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().target_amount, 13000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 15000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 15000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 15000);
+        // dpo0 change target to cabin 2 (< 20000)
+        assert_ok!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(2),
+            )
+        );
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_amount, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 20000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 20000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 20000);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 150); // still 15%
         assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1)); // 1:1
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
 
         // do buy a target
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            2
-        ));
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(ALICE), 0, 2));
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
-        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 13000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 15000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (13000, 15000));
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 2000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 15000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 20000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (15000, 20000));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 5000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::RUNNING); // bonus flows into dpo 0
+
+        // release bonus from dpo 0
+        assert_ok!(BulletTrain::release_bonus_from_dpo(
+            Origin::signed(ALICE),
+            0
+        ));
+        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::RUNNING);
+        assert_eq!(BulletTrain::dpos(1).unwrap().target_amount, 7500); // 15000 * (10000 / 20000)
+        assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 10000); // target 7500 + unused 2500
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0); // still not released from dpo 0 yet
+        assert_eq!(BulletTrain::dpos(1).unwrap().total_share, 10000);
+        assert_eq!(BulletTrain::dpos(1).unwrap().rate, (1, 1));
+        // release unused fund from dpo 0
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
+        assert_eq!(BulletTrain::dpos(1).unwrap().target_amount, 7500);
+        assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 7500);
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 2500);
+        assert_eq!(BulletTrain::dpos(1).unwrap().total_share, 10000);
+        assert_eq!(BulletTrain::dpos(1).unwrap().rate, (7500, 10000));
     });
 }
 
@@ -3112,45 +3146,42 @@ fn dpo_change_target_to_non_default_dpo() {
             Origin::signed(ALICE),
             String::from("test").into_bytes(),
             Target::Dpo(0, 50000), // 50%
-            5000,                  // 10%
+            5000, // 10%
             50,
             800,
             10,
             None
         ));
         // make cabin 0 unavailable
-        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0
-        ));
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(Origin::signed(ALICE), 0));
         // dpo0 change target to dpo 1
-        assert_ok!(BulletTrain::dpo_change_target(
-            Origin::signed(ALICE),
-            0,
-            Target::Dpo(1, 11000),
-        ));
+        assert_ok!(
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::Dpo(1, 11000),
+            )
+        );
         // fill dpo 1
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(BOB),
-            1,
-            9000,
-            None
-        ));
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(CAROL),
-            1,
-            7000,
-            None
-        ));
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(BOB), 1, 9000, None));
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(CAROL), 1, 7000, None));
 
         // the remaining amount of dpo 1 is 5000
         assert_noop!(
-            BulletTrain::dpo_change_target(Origin::signed(ALICE), 0, Target::Dpo(1, 3000),),
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::Dpo(1, 3000),
+            ),
             Error::<Test>::NewTargetSameAsOld
         );
         // can not target to child
         assert_noop!(
-            BulletTrain::dpo_change_target(Origin::signed(ALICE), 0, Target::Dpo(2, 25000),),
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::Dpo(2, 25000),
+            ),
             Error::<Test>::DpoTargetToChild
         );
 
@@ -3161,19 +3192,18 @@ fn dpo_change_target_to_non_default_dpo() {
             1,
             3000, // 10%
         ));
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(CAROL),
-            1,
-            2000,
-            None
-        ));
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(Origin::signed(CAROL), 1, 2000, None));
         assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::ACTIVE);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 7000); // unused
 
         // can not change after buying target partially
         assert_noop!(
-            BulletTrain::dpo_change_target(Origin::signed(ALICE), 0, Target::TravelCabin(2),),
+            BulletTrain::dpo_change_target(
+                Origin::signed(ALICE),
+                0,
+                Target::TravelCabin(2),
+            ),
             Error::<Test>::NotAllowedToChangeTarget
         );
     });
