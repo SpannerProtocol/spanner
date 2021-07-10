@@ -1518,7 +1518,7 @@ fn dpo_fee_works() {
 }
 
 #[test]
-fn nested_dpo_bonus_test() {
+fn todo_refactor_nested_dpo_bonus_test() {
     ExtBuilder::default().build().execute_with(|| {
         for i in ALICE..JILL {
             assert_ok!(Currencies::deposit(BOLT, &i, 100000000));
@@ -2445,39 +2445,14 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
 }
 
 #[test]
-fn get_travel_cabins_of_accounts() {
+fn rpc_api_get_travel_cabins_of_accounts_works() {
     ExtBuilder::default().build().execute_with(|| {
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            10000,
-            10,
-            2
+        make_default_travel_cabin(BOLT);
+        make_default_mega_travel_cabin(BOLT);
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
+            Origin::signed(BOB),
+            0
         ));
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            10000,
-            0,
-            10000,
-            10,
-            2
-        ));
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100200,
-            0,
-            10000,
-            10,
-            2
-        ));
-
         assert_ok!(BulletTrain::passenger_buy_travel_cabin(
             Origin::signed(BOB),
             0
@@ -2486,76 +2461,29 @@ fn get_travel_cabins_of_accounts() {
             Origin::signed(BOB),
             1
         ));
-        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
-            Origin::signed(BOB),
-            2
-        ));
 
-        assert!(BulletTrain::get_travel_cabins_of_account(&BOB)
-            .iter()
-            .any(|&i| i == (0, 0)));
-        assert!(BulletTrain::get_travel_cabins_of_account(&BOB)
-            .iter()
-            .any(|&i| i == (1, 0)));
-        assert!(BulletTrain::get_travel_cabins_of_account(&BOB)
-            .iter()
-            .any(|&i| i == (2, 0)));
+        assert_eq!(
+            BulletTrain::get_travel_cabins_of_account(&BOB),
+            vec![(0, 0), (0, 1), (1, 0)]
+        );
     });
 }
 
 #[test]
-fn get_dpos_of_accounts() {
+fn rpc_api_get_dpos_of_accounts_works() {
     ExtBuilder::default().build().execute_with(|| {
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            10000,
-            10,
-            2
-        ));
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            5000, // 5%
-            50,
-            800,
-            10,
-            None
-        ));
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            5000, // 5%
-            50,
-            800,
-            10,
-            None
-        ));
-
-        assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(BOB),
-            0,
-            10000, // 10%
-            None
-        ));
+        make_default_mega_travel_cabin(BOLT);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 100000);
+        make_default_dpo(ALICE, Target::Dpo(0, 100000), 5000);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(BOB),
             1,
-            10000, // 10%
+            10000,
             None
         ));
 
-        assert!(BulletTrain::get_dpos_of_account(BOB)
-            .iter()
-            .any(|&i| i == 0));
-        assert!(BulletTrain::get_dpos_of_account(BOB)
-            .iter()
-            .any(|&i| i == 1));
+        assert_eq!(BulletTrain::get_dpos_of_account(ALICE), vec![0, 1]);
+        assert_eq!(BulletTrain::get_dpos_of_account(BOB), vec![1]);
     });
 }
 
