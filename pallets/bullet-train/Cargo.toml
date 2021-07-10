@@ -35,6 +35,8 @@ pallet-bullet-train-primitives = { version = "2.0.0", default-features = false, 
 [dev-dependencies]
 sp-core = { version = '3.0.0', default-features = false }
 sp-io = { version = '3.0.0', default-features = false }
+remote-externalities = { version = "0.1.0", path = "../../../substrate-debug-kit/remote-externalities" }
+tokio = { version = "1", features = ["full"] }
 
 [features]
 default = ['std']

@@ -186,3 +186,43 @@ pub fn migrate_dpos_and_members<T: Config>() {
         }
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use remote_externalities::{Builder, CacheMode};
+
+    const TEST_URI: &'static str = "http://localhost:9933";
+
+    #[derive(Clone, Eq, PartialEq, Debug, Default)]
+    pub struct TestRuntime;
+
+    #[tokio::test]
+    #[ignore = "needs remove node"]
+    async fn can_build_system() {
+        Builder::new().uri(TEST_URI.into()).module("System").build().await.execute_with(|| {});
+    }
+
+    #[tokio::test]
+    #[ignore = "needs remove node"]
+    async fn can_create_cache() {
+        Builder::new()
+            .uri(TEST_URI.into())
+            .cache_mode(CacheMode::UseElseCreate)
+            .module("BulletTrain")
+            .build()
+            .await
+            .execute_with(|| {});
+    }
+
+    #[tokio::test]
+    #[ignore = "needs remove node"]
+    async fn can_build_all() {
+        Builder::new()
+            .uri(TEST_URI.into())
+            .cache_mode(CacheMode::UseElseCreate)
+            .build()
+            .await
+            .execute_with(|| {});
+    }
+}
