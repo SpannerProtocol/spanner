@@ -1232,93 +1232,259 @@ fn dpo_state_transitions_correctly() {
     });
 }
 
-/// dpo1 committed to dpo0, but dpo0 failed
+//todo: release_fare_to_passenger_works
 #[test]
-fn dpo_withdraw_on_fail_test() {
+fn release_fare_to_passenger_works() {
     ExtBuilder::default().build().execute_with(|| {
-        assert_ok!(BulletTrain::create_travel_cabin(
+        make_default_travel_cabin(BOLT);
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
             Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            100000,
-            10,
             1
         ));
-        run_to_block(1);
-        //alice create dpo 0, taking 10% share, expiring at block 10
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            10000, // 10%
-            50,
-            800,
-            10,
-            None
-        ));
-        //create dpo1 to target 30% shares of dpo 0, ending at block 8
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 30000),
-            4500, // 15%
-            50,
-            800,
-            8,
-            None
-        ));
-        // join dpo 1 to fill it full
-        for i in BOB..JILL {
-            // [1, 9)
-            assert_ok!(BulletTrain::passenger_buy_dpo_share(
-                Origin::signed(i),
-                1,
-                3000, //10%
-                None
-            ));
-        }
+    });
+}
+
+#[test]
+fn release_of_fare_on_completed_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        make_default_large_travel_cabin(BOLT, 2);
+        make_default_dpo(ALICE, Target::TravelCabin(0));
+        assert_eq!(BulletTrain::dpos(0).unwrap().fare_withdrawn, false);
+        make_default_dpo(ALICE, Target::Dpo(0, 10000));
+        assert_eq!(BulletTrain::dpos(1).unwrap().fare_withdrawn, false);
+
+        //withdraw on created state (not expired)
+        assert_noop!(
+            BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0),
+            Error::<Test>::DpoWrongState
+        );
+
+        //set up dpos for completion
+        //BOB and others buy dpo1
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(ADAM),
+            Origin::signed(BOB),
             1,
-            1500, // 5%
+            100, //1%
             None
         ));
-        assert!(matches!(
-            BulletTrain::dpos(1).unwrap().state,
-            DpoState::ACTIVE
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 10000);
-        //dpo1 buys dpo 0%, emptying the deposit vault
+        assert_eq!(Balances::free_balance(BOB), DEFAULT_BALANCE_USER - 100);
+        fill_dpo_with_random_accounts(1, 100);
+        //DYLAN and others buy dpo0
         assert_ok!(BulletTrain::dpo_buy_dpo_share(
             Origin::signed(ALICE),
             1,
             0,
-            30000, // 30%
+            10000
         ));
-        assert!(matches!(
-            BulletTrain::dpos(0).unwrap().state,
-            DpoState::CREATED
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(DYLAN),
+            0,
+            1000, //1%
+            None
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 10000 + 30000);
-        // but dpo1 has no money in deposit
-        assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 0);
+        assert_eq!(Balances::free_balance(DYLAN), DEFAULT_BALANCE_USER - 1000);
+        fill_dpo_with_random_accounts(0, 100);
 
-        //dpo0 should expire at block 111
-        run_to_block(111);
-        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
-        //dpo 0 should be failed while 1 is still active and money back to ready to commit again
-        assert!(matches!(
-            BulletTrain::dpos(0).unwrap().state,
-            DpoState::FAILED
+        //withdraw fare before cabin is purchased
+        assert_noop!(
+            BulletTrain::withdraw_fare_from_travel_cabin(Origin::signed(ALICE), 0, 0),
+            Error::<Test>::InvalidIndex
+        );
+
+        //dpo0 buys travel cabin
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            0
         ));
-        assert!(matches!(
-            BulletTrain::dpos(1).unwrap().state,
-            DpoState::ACTIVE
+        assert_eq!(
+            BulletTrain::travel_cabin_buyer(0, 0)
+                .unwrap()
+                .fare_withdrawn,
+            false
+        );
+
+        //withdraw before travel cabin has matured
+        assert_noop!(
+            BulletTrain::withdraw_fare_from_travel_cabin(Origin::signed(ALICE), 0, 0),
+            Error::<Test>::TravelCabinHasNotMatured
+        );
+
+        run_to_block(11);
+        //withdraw from travel cabin
+        assert_ok!(BulletTrain::withdraw_fare_from_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            0
         ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 100000);
+        assert_eq!(
+            BulletTrain::travel_cabin_buyer(0, 0)
+                .unwrap()
+                .fare_withdrawn,
+            true
+        );
+        assert!(System::events().iter().any(|a| a.event
+            == Event::pallet_bullet_train(crate::Event::FareWithdrawnFromTravelCabin(
+                ALICE, 0, 0
+            ))));
+
+        //no fare left to withdraw from travel cabin
+        assert_noop!(
+            BulletTrain::withdraw_fare_from_travel_cabin(Origin::signed(ALICE), 0, 0),
+            Error::<Test>::ZeroBalanceToWithdraw
+        );
+
+        //no fare to release from dpo0 yet
+        assert_noop!(
+            BulletTrain::release_fare_from_dpo(Origin::signed(CAROL), 1),
+            Error::<Test>::ZeroBalanceToWithdraw
+        );
+
+        //release fare from dpo0
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
-        assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 30000);
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(CAROL), 0));
+        assert!(System::events()
+            .iter()
+            .any(|a| a.event
+                == Event::pallet_bullet_train(crate::Event::WithdrewFareFromDpo(CAROL, 0))));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
+        assert_eq!(BulletTrain::dpos(0).unwrap().fare_withdrawn, true);
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 10000);
+        assert_eq!(Balances::free_balance(DYLAN), DEFAULT_BALANCE_USER);
+
+        //release from dpo0 a second time
+        assert_noop!(
+            BulletTrain::release_fare_from_dpo(Origin::signed(CAROL), 0),
+            Error::<Test>::ZeroBalanceToWithdraw
+        );
+
+        //release fare from dpo1
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(CAROL), 1));
+        assert!(System::events()
+            .iter()
+            .any(|a| a.event
+                == Event::pallet_bullet_train(crate::Event::WithdrewFareFromDpo(CAROL, 1))));
+        assert_eq!(BulletTrain::dpos(1).unwrap().fare_withdrawn, true);
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0);
+        assert_eq!(Balances::free_balance(BOB), DEFAULT_BALANCE_USER);
+    });
+}
+
+#[test]
+fn release_fare_for_dpo_with_unused_funds_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        make_default_large_travel_cabin(BOLT, 1);
+        make_default_travel_cabin(BOLT);
+        make_default_dpo(ALICE, Target::TravelCabin(0));
+        make_default_dpo(ALICE, Target::Dpo(0, 10000)); //10%
+        fill_dpo_with_random_accounts(1, 100);
+
+        assert_ok!(BulletTrain::dpo_buy_dpo_share(
+            Origin::signed(ALICE),
+            1,
+            0,
+            10000
+        ));
+        fill_dpo_with_random_accounts(0, 100);
+
+        //make travel cabin 0 unavailable
+        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
+            Origin::signed(BOB),
+            0
+        ));
+
+        //dpo0 buy travel cabin 1
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_yield_estimate, 100000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_bonus_estimate, 10000);
+        assert_ok!(BulletTrain::dpo_change_target(
+            Origin::signed(ALICE),
+            0,
+            Target::TravelCabin(1)
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_yield_estimate, 1000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().target_bonus_estimate, 1000);
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            1
+        ));
+
+        //dpo0 receives full unused fund
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 90000); // 100000 - 10000
+        //dpo1 target estimates not yet refreshed
+        assert_eq!(BulletTrain::dpos(1).unwrap().target_yield_estimate, 9500);
+        assert_eq!(BulletTrain::dpos(1).unwrap().target_bonus_estimate, 1000);
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
+
+        //dpo1 receives full unused fund
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 9000); // 10000 - 1000
+        //dpo1 target estimates refreshed upon release of fare
+        assert_eq!(BulletTrain::dpos(1).unwrap().target_yield_estimate, 95);
+        assert_eq!(BulletTrain::dpos(1).unwrap().target_bonus_estimate, 100);
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 1));
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0);
+
+        run_to_block(10);
+        assert_ok!(BulletTrain::withdraw_fare_from_travel_cabin(
+            Origin::signed(ALICE),
+            1,
+            0
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 10000);
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 1000);
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 1));
+    });
+}
+
+#[test]
+fn release_of_fare_on_failure_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        make_default_large_travel_cabin(BOLT, 1);
+        //dpo0, expires at block 11
+        make_default_dpo(ALICE, Target::TravelCabin(0));
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(CAROL),
+            0,
+            1000, //1%
+            None
+        ));
+        assert_eq!(Balances::free_balance(CAROL), DEFAULT_BALANCE_USER - 1000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
+        //dpo1, expires at block 11
+        make_default_dpo(ALICE, Target::Dpo(0, 10000));
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(BOB),
+            1,
+            100, //1%
+            None
+        ));
+        assert_eq!(Balances::free_balance(BOB), DEFAULT_BALANCE_USER - 100);
+        fill_dpo_with_random_accounts(1, 100);
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0);
+
+        //dpo 1 buys dpo0
+        assert_ok!(BulletTrain::dpo_buy_dpo_share(
+            Origin::signed(ALICE),
+            1,
+            0,
+            10000
+        ));
+
+        //time's up, dpo0 fails to crowdfund enough for cabin
+        run_to_block(11);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 11010); //from dpo1, CAROL and manager
+        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
+        assert_eq!(Balances::free_balance(CAROL), DEFAULT_BALANCE_USER - 1); //todo: should be 50000, lost due to percent prevision
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
+        //dpo1 balance will need to be used elsewhere
+        assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 9999); //todo: should be 10000, lost due to percent prevision
+        assert_noop!(
+            BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 1),
+            Error::<Test>::ZeroBalanceToWithdraw
+        );
+        assert_eq!(Balances::free_balance(BOB), DEFAULT_BALANCE_USER - 100);
     });
 }
 
@@ -2644,130 +2810,6 @@ fn do_release_bonus_of_lead_dpo_with_referrer() {
             Balances::free_balance(ALICE),
             1000000 - 10000 + 70 + 100 + 20
         ); //self 70, bob 100, carol 20
-    });
-}
-
-/// child dpo has unused fund from parent pdo, but the fund is not going to be withdrawn until the
-/// travel ends and the fare ticket releases. At that moment, the unused fund and fare can be withdrawn at once.
-#[test]
-fn release_fare_from_dpo_including_unused_fund() {
-    ExtBuilder::default().build().execute_with(|| {
-        // cabin 0
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            10000,
-            10,
-            1
-        ));
-        // cabin 1
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            10000,
-            0,
-            10000,
-            10,
-            1
-        ));
-        //dpo 0
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            10000, // 10%
-            50,
-            800,
-            100,
-            None
-        ));
-        // dpo 1, buy 30% of dpo 0
-        // target amount: 30000
-        assert_ok!(Currencies::deposit(BOLT, &10, 3000));
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(10),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 30000), // 30%
-            3000,                  // 10%
-            50,
-            800,
-            99,
-            None
-        ));
-        //fill dpo1
-        for i in 11..20 {
-            assert_ok!(Currencies::deposit(BOLT, &i, 3000));
-            assert_ok!(BulletTrain::passenger_buy_dpo_share(
-                Origin::signed(i),
-                1,
-                3000, // 10%
-                None
-            ));
-            assert_eq!(Balances::free_balance(&i), 0);
-        }
-        // dpo 1 buy dpo 0
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(10),
-            1,
-            0,
-            30000
-        )); // 30%
-            //fill dpo0
-        for i in 21..27 {
-            assert_ok!(Currencies::deposit(BOLT, &i, 10000));
-            assert_ok!(BulletTrain::passenger_buy_dpo_share(
-                Origin::signed(i),
-                0,
-                10000, // 10%
-                None
-            ));
-            assert_eq!(Balances::free_balance(&i), 0);
-        }
-        // BOB buy cabin 0, making cabin 0 unavailable
-        assert_ok!(BulletTrain::passenger_buy_travel_cabin(
-            Origin::signed(BOB),
-            0
-        ));
-        // dpo1 buy travel_cabin0 (unavailable)
-        assert_noop!(
-            BulletTrain::dpo_buy_travel_cabin(Origin::signed(ALICE), 0, 0),
-            Error::<Test>::CabinNotAvailable
-        );
-        // dpo0 buy cabin 1
-        assert_ok!(BulletTrain::dpo_change_target(
-            Origin::signed(ALICE),
-            0,
-            Target::TravelCabin(1)
-        ));
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            1
-        ));
-
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 90000); // 100000 - 10000
-        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0); // keep 0
-
-        run_to_block(10);
-        assert_ok!(BulletTrain::withdraw_fare_from_travel_cabin(
-            Origin::signed(ALICE),
-            1,
-            0
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 100000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::COMPLETED);
-        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::ACTIVE);
-        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
-        assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 30000);
-        assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::COMPLETED);
-        assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(10), 1));
-        for i in 11..20 {
-            assert_eq!(Balances::free_balance(&i), 3000); // just deposit, without yield
-        }
     });
 }
 
