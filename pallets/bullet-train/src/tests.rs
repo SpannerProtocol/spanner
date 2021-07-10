@@ -1592,14 +1592,218 @@ fn dpo_release_yield_and_fare_works() {
 }
 
 #[test]
-fn todo_dpo_release_bonus_works() {
+fn dpo_fifo_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT);
+        make_default_large_travel_cabin(BOLT, 1);
+        //dpo0
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10000);
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Passenger(ALICE))
+                .unwrap()
+                .referrer,
+            Referrer::None //tip of iceberg
+        );
+        //dpo1 joins dpo0
+        make_default_dpo(JILL, Target::Dpo(0, 5000), 1000);
+        fill_dpo_with_random_accounts(1, 100);
+        //dpo2 joins dpo0 with internal referrer
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(JILL),
+            String::from("test").into_bytes(),
+            Target::Dpo(0, 5000),
+            1000,      //manager purchase amount
+            50,        //base fee, per thousand
+            800,       //direct referral rate, per thousand
+            10,        //end block
+            Some(BOB)  //referrer
+        ));
+        fill_dpo_with_random_accounts(2, 100);
+        //dpo3 joins dpo0 with external referrer
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(JILL),
+            String::from("test").into_bytes(),
+            Target::Dpo(0, 5000),
+            1000,       //manager purchase amount
+            50,         //base fee, per thousand
+            800,        //direct referral rate, per thousand
+            10,         //end block
+            Some(ADAM)  //referrer
+        ));
+        fill_dpo_with_random_accounts(3, 100);
+
+        //1st member BOB joins and is assigned to ALICE
+        assert_eq!(BulletTrain::dpos(0).unwrap().fifo, vec![]);
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(BOB),
+            0,
+            5000, // 5%
+            None
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Passenger(BOB))
+                .unwrap()
+                .referrer,
+            Referrer::MemberOfDpo(Buyer::Passenger(ALICE))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![Buyer::Passenger(BOB)]
+        );
+
+        //2nd member CAROL joins with internal referrer BOB
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(CAROL),
+            0,
+            5000, // 5%
+            Some(BOB)
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Passenger(CAROL))
+                .unwrap()
+                .referrer,
+            Referrer::MemberOfDpo(Buyer::Passenger(BOB))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![Buyer::Passenger(BOB), Buyer::Passenger(CAROL)]
+        );
+
+        //3rd member DYLAN joins with external referrer JILL
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(DYLAN),
+            0,
+            5000, // 5%
+            Some(JILL)
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Passenger(DYLAN))
+                .unwrap()
+                .referrer,
+            Referrer::External(JILL, Buyer::Passenger(BOB))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![Buyer::Passenger(CAROL), Buyer::Passenger(DYLAN)]
+        );
+
+        //4th member ELSA joins without referrer
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(ELSA),
+            0,
+            5000, // 5%
+            None
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Passenger(ELSA))
+                .unwrap()
+                .referrer,
+            Referrer::MemberOfDpo(Buyer::Passenger(CAROL))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![Buyer::Passenger(DYLAN), Buyer::Passenger(ELSA)]
+        );
+
+        //5th member FRED joins with manager ALICE as referrer
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(FRED),
+            0,
+            5000, // 5%
+            Some(ALICE)
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Passenger(FRED))
+                .unwrap()
+                .referrer,
+            Referrer::MemberOfDpo(Buyer::Passenger(ALICE))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![
+                Buyer::Passenger(DYLAN),
+                Buyer::Passenger(ELSA),
+                Buyer::Passenger(FRED)
+            ]
+        );
+
+        //6th member dpo1 joins with no referrer
+        assert_ok!(BulletTrain::dpo_buy_dpo_share(
+            Origin::signed(JILL),
+            1,
+            0,
+            5000, // 5%
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Dpo(1)).unwrap().referrer,
+            Referrer::MemberOfDpo(Buyer::Passenger(DYLAN))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![Buyer::Passenger(ELSA), Buyer::Passenger(FRED)]
+        );
+
+        //7th member dpo2 joins with internal referrer BOB
+        assert_ok!(BulletTrain::dpo_buy_dpo_share(
+            Origin::signed(JILL),
+            2,
+            0,
+            5000, // 5%
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Dpo(2)).unwrap().referrer,
+            Referrer::MemberOfDpo(Buyer::Passenger(BOB))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![Buyer::Passenger(ELSA), Buyer::Passenger(FRED)]
+        );
+
+        //8th member dpo3 joins with external referrer ADAM
+        assert_ok!(BulletTrain::dpo_buy_dpo_share(
+            Origin::signed(JILL),
+            3,
+            0,
+            5000, // 5%
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Dpo(3)).unwrap().referrer,
+            Referrer::External(ADAM, Buyer::Passenger(ELSA))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![Buyer::Passenger(FRED)]
+        );
+
+        //9th member joins with member dpo manager JILL as referrer
+        assert_ok!(BulletTrain::passenger_buy_dpo_share(
+            Origin::signed(GREG),
+            0,
+            5000, // 5%
+            Some(JILL)
+        ));
+        assert_eq!(
+            BulletTrain::dpo_members(0, Buyer::Passenger(GREG))
+                .unwrap()
+                .referrer,
+            Referrer::External(JILL, Buyer::Passenger(FRED))
+        );
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().fifo,
+            vec![Buyer::Passenger(GREG)]
+        );
     });
 }
 
 #[test]
-fn release_of_fare_on_completed_works() {
+fn dpo_release_bonus_works() {
+    ExtBuilder::default().build().execute_with(|| {
+        make_default_travel_cabin(BOLT);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 1000);
+    });
+}
+
+#[test]
+fn dpo_release_fare_completed_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_large_travel_cabin(BOLT, 2);
         make_default_dpo(ALICE, Target::TravelCabin(0), 10);
@@ -1726,7 +1930,7 @@ fn release_of_fare_on_completed_works() {
 }
 
 #[test]
-fn release_of_fare_for_dpo_with_unused_funds_works() {
+fn dpo_release_fare_of_unused_funds_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_large_travel_cabin(BOLT, 1);
         make_default_travel_cabin(BOLT);
@@ -1793,7 +1997,7 @@ fn release_of_fare_for_dpo_with_unused_funds_works() {
 }
 
 #[test]
-fn release_of_fare_on_failure_works() {
+fn dpo_release_fare_on_failure_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_large_travel_cabin(BOLT, 1);
         //dpo0, expires at block 11
@@ -1858,123 +2062,6 @@ fn dpo_fee_works() {
         make_default_dpo(ALICE, Target::TravelCabin(0), 1000); //10%
         assert_eq!(BulletTrain::dpos(3).unwrap().fee, 150);
         assert_eq!(BulletTrain::dpos(3).unwrap().base_fee, 50);
-    });
-}
-
-#[test]
-fn todo_refactor_nested_dpo_bonus_test() {
-    ExtBuilder::default().build().execute_with(|| {
-        for i in ALICE..JILL {
-            assert_ok!(Currencies::deposit(BOLT, &i, 100000000));
-        }
-        //set up travel_cabin and dpo (filled)
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            10000000,
-            1000000, //10% bonus
-            100000000,
-            10,
-            1
-        ));
-
-        //create lead_dpo, dpo 0
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            2000000, // 20%
-            50,
-            800,
-            10,
-            None
-        ));
-
-        //multiple layers of nested dpo. 10s each. and whose manager takes 10%.
-        //6 dpos in total
-        let mut target_amount = 2000000;
-        for l in 0..5 {
-            //create the next dpo to buy the other 10. dpo id = l + 1
-            assert_ok!(BulletTrain::create_dpo(
-                Origin::signed(ALICE),
-                String::from("test").into_bytes(),
-                Target::Dpo(l, target_amount),
-                target_amount / 5, // 20%
-                50,
-                800,
-                (9 - l).into(),
-                None
-            ));
-            target_amount /= 5;
-        }
-
-        //buys all the shares from bottom up
-        let mut amount = 640u128;
-        for l in 0..5 {
-            let dpo_id = 5 - l;
-            //4 more people filling the shares
-            for i in BOB..ELSA {
-                assert_ok!(BulletTrain::passenger_buy_dpo_share(
-                    Origin::signed(i),
-                    dpo_id,
-                    amount, // 20%
-                    None
-                ));
-            }
-            //for the last dpo, jill needs to buy it as well
-            if l == 0 {
-                assert_ok!(BulletTrain::passenger_buy_dpo_share(
-                    Origin::signed(JILL),
-                    dpo_id,
-                    amount, // 20%
-                    None
-                ));
-            }
-            amount *= 5;
-            //then the dpo should be fully filled. now commits to the target
-            //manager buy
-            assert_ok!(BulletTrain::dpo_buy_dpo_share(
-                Origin::signed(ALICE),
-                dpo_id,
-                dpo_id - 1,
-                amount // 20%
-            ));
-        }
-
-        // for dpo 0, buy the shares and commit to the cabin
-        for i in BOB..ELSA {
-            assert_ok!(BulletTrain::passenger_buy_dpo_share(
-                Origin::signed(i),
-                0,
-                2000000, // 20%
-                None
-            ));
-        }
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            0
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_bonus, 1000000);
-
-        // release bonus layer by layer and assert the balance
-        assert_ok!(BulletTrain::release_bonus_from_dpo(
-            Origin::signed(ALICE),
-            0
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_bonus, 0);
-
-        let mut bonus_exp = 160000;
-        for i in 1..6 {
-            println!("{}", i);
-            assert_eq!(BulletTrain::dpos(i).unwrap().vault_bonus, bonus_exp);
-            assert_ok!(BulletTrain::release_bonus_from_dpo(
-                Origin::signed(ALICE),
-                i
-            ));
-            bonus_exp = bonus_exp / 5;
-        }
     });
 }
 
