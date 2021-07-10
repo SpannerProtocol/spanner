@@ -16,11 +16,12 @@ fn make_default_mega_travel_cabin(token_id: crate::CurrencyId) -> () {
         String::from("test").into_bytes(),
         1000000, //deposit amount
         10000,   //bonus
-        100000,  //yield
-        10,      //maturity
+        1000000, //yield
+        100,     //maturity
         1,       //stockpile
     ));
 }
+
 fn make_default_large_travel_cabin(
     token_id: crate::CurrencyId,
     stockpile: TravelCabinInventoryIndex,
@@ -1726,166 +1727,170 @@ fn buy_target_after_grace_period_works() {
 }
 
 #[test]
-fn yield_commission_test() {
+fn manager_yield_commission_works() {
     ExtBuilder::default().build().execute_with(|| {
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            100000,
-            100,
-            1
-        ));
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            15000, // 15%
-            50,
-            800,
-            10,
-            None
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 200);
-        for i in BOB..JILL {
-            assert_ok!(BulletTrain::passenger_buy_dpo_share(
-                Origin::signed(i),
-                0,
-                10000, // 10%
-                None
-            ));
-        }
+        make_default_mega_travel_cabin(BOLT); //100000
+        make_default_dpo(BOB, Target::TravelCabin(0), 50000); //5%
+        assert_eq!(BulletTrain::dpos(0).unwrap().fee, 100);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
-            Origin::signed(ADAM),
+            Origin::signed(CAROL),
             0,
-            5000, // 5%
+            50000,
             None
         ));
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
+        fill_dpo_with_random_accounts(0, 100);
+        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(BOB), 0, 0));
+
+        //10% management fee.
+        //total 1000000 to release over 100 blocks, 10000 per block
+        //at each block, BOB will receive 1000 for commission and 450 for yield, CAROL will receive 450
+        //in case of slashing yield, BOB will receive 500 + 475, CAROL will receive 475
+
+        //case1: released by manager within grace period, no slashing
+        run_to_block(1);
+        assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
             Origin::signed(ALICE),
             0,
             0
         ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(1));
+        assert_eq!(BulletTrain::dpos(0).unwrap().total_yield_received, 10000);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 10000);
+        assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(BOB), 0)); //10000
+        assert!(System::events()
+            .iter()
+            .any(|a| a.event == Event::pallet_bullet_train(crate::Event::YieldReleased(BOB, 0))));
+        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
+        assert_eq!(
+            Balances::free_balance(BOB),
+            DEFAULT_BALANCE_USER - 50000 + 1000 + 450
+        );
+        assert_eq!(
+            Balances::free_balance(CAROL),
+            DEFAULT_BALANCE_USER - 50000 + 450
+        );
 
-        // 20% mgmt fee. giving 100k reward over 100 blocks, 1k each. 10 for one percent
-        // by default ALICE the manager will get 200 + 120 = 320 per block, BOB will get 80
-        // in case of slashing yield, ALICE the manager will get 100 + 130 = 280 per block, BOB will get 90
-        // in case of slashing yield and treasure hunting, ALICE the manager will get 99 + 128 = 227 per block, BOB will get 89
-
-        //alice has 1m - 20k - 100k (give yield) = 880k
-        //bob has 0.5m - 10k = 490k
-
-        //case: released by manager (+ 1 blocks)
+        // case2: released by member within grace period, no slashing
         run_to_block(2);
         assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
             Origin::signed(ALICE),
             0,
             0
         ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(2));
-        assert_eq!(BulletTrain::dpos(0).unwrap().total_yield_received, 2000); // 2/10 * 100000
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 2000);
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().total_yield_received,
+            10000 * 2
+        );
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 10000);
+        assert_ok!(BulletTrain::release_yield_from_dpo(
+            Origin::signed(CAROL),
+            0
+        )); //10000
+        assert_eq!(
+            Balances::free_balance(BOB),
+            DEFAULT_BALANCE_USER - 50000 + (1000 + 450) * 2
+        );
+        assert_eq!(
+            Balances::free_balance(CAROL),
+            DEFAULT_BALANCE_USER - 50000 + 450 * 2
+        );
+
+        //case3: released by non-member within grace period, no slashing
+        run_to_block(3);
+        assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            0
+        ));
+        assert_eq!(
+            BulletTrain::dpos(0).unwrap().total_yield_received,
+            10000 * 3
+        );
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 10000);
         assert_ok!(BulletTrain::release_yield_from_dpo(
             Origin::signed(ALICE),
             0
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
-        let expected_event = Event::pallet_bullet_train(crate::Event::YieldReleased(ALICE, 0));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
-        assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 2);
-        assert_eq!(Balances::free_balance(BOB), 490000 + 80 * 2);
-
-        //case: released by member (+ 5 blocks)
-        run_to_block(7);
-        assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            0
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(7));
-        assert_eq!(
-            BulletTrain::dpos(0).unwrap().total_yield_received,
-            2000 //withdrawn
-                + 1000 * 5 //accumulated since block 2
-        );
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 1000 * 5);
-        //previous 2000 already release
-        assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(BOB), 0));
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
-        let expected_event = Event::pallet_bullet_train(crate::Event::YieldReleased(BOB, 0));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
-        assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 2 + 320 * 5);
-        assert_eq!(Balances::free_balance(BOB), 490000 + 80 * 2 + 80 * 5);
-
-        //case: released by internal member (+ 20 blocks)
-        run_to_block(27);
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
-        assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            0
-        ));
-        assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 2 + 320 * 5); // no change
-
-        run_to_block(47);
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(27));
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 1000 * 20);
-        assert_eq!(
-            BulletTrain::dpos(0).unwrap().total_yield_received,
-            2000 + 5000 + 1000 * 20
-        );
-        assert_eq!(
-            BulletTrain::travel_cabin_buyer(0, 0)
-                .unwrap()
-                .yield_withdrawn,
-            2000 + 5000 + 1000 * 20
-        );
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 1000 * 20);
-        assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(BOB), 0));
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
-        let expected_event = Event::pallet_bullet_train(crate::Event::YieldReleased(BOB, 0));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
-        // alice gets slashed
-        // bob will get 20000 * (1 - 10%) / 10 = 1800
-        assert_eq!(Balances::free_balance(BOB), 490000 + 160 + 80 * 5 + 1800);
-
-        // alice will get 20000 * 10% + (20000 * 90% - 8 * 1800 - 900) = 4700
-        assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 7 + 4700);
-
-        //case: released by external member (+ 20 blocks), after the grace period 10 blocks
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
-        assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            0
-        ));
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(47));
-        assert_eq!(
-            BulletTrain::travel_cabin_buyer(0, 0)
-                .unwrap()
-                .yield_withdrawn,
-            2000 + 5000 + 1000 * 40
-        );
-        assert_eq!(
-            BulletTrain::dpos(0).unwrap().total_yield_received,
-            2000 + 5000 + 1000 * 20 * 2
-        );
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 1000 * 20);
-        run_to_block(67); // 47 -> 67
-        assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(389), 0));
-        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, None);
-        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 0);
-        let expected_event = Event::pallet_bullet_train(crate::Event::YieldReleased(389, 0));
-        assert!(System::events().iter().any(|a| a.event == expected_event));
-        assert_eq!(Balances::free_balance(ALICE), 985000 + 320 * 7 + 4700 * 2);
+        )); //10000
         assert_eq!(
             Balances::free_balance(BOB),
-            490000 + 160 + 80 * 5 + 1800 * 2
+            DEFAULT_BALANCE_USER - 50000 + (1000 + 450) * 3
+        );
+        assert_eq!(
+            Balances::free_balance(CAROL),
+            DEFAULT_BALANCE_USER - 50000 + 450 * 3
+        );
+
+        //case4: released by manager after grace period, no slashing
+        run_to_block(4);
+        assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            0
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(4));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 10000);
+
+        //grace period over
+        run_to_block(15);
+        assert_ok!(BulletTrain::release_yield_from_dpo(Origin::signed(BOB), 0)); //10000
+        assert_eq!(
+            Balances::free_balance(BOB),
+            DEFAULT_BALANCE_USER - 50000 + (1000 + 450) * 4
+        );
+        assert_eq!(
+            Balances::free_balance(CAROL),
+            DEFAULT_BALANCE_USER - 50000 + 450 * 4
+        );
+
+        //withdraw accumulated yield thus far, set up for next case
+        //11 blocks worth of yield
+        assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            0
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(15));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 110000);
+
+        //case5: released by member after grace period, slash manager
+        run_to_block(26);
+        assert_ok!(BulletTrain::release_yield_from_dpo(
+            Origin::signed(CAROL),
+            0
+        ));
+        assert_eq!(
+            Balances::free_balance(BOB),
+            DEFAULT_BALANCE_USER - 50000 + (1000 + 450) * 4 + (500 + 475) * 11
+        );
+        assert_eq!(
+            Balances::free_balance(CAROL),
+            DEFAULT_BALANCE_USER - 50000 + 450 * 4 + 475 * 11
+        );
+
+        //withdraw accumulated yield thus far, set up for next case
+        //11 blocks worth of yield
+        assert_ok!(BulletTrain::withdraw_yield_from_travel_cabin(
+            Origin::signed(ALICE),
+            0,
+            0
+        ));
+        assert_eq!(BulletTrain::dpos(0).unwrap().blk_of_last_yield, Some(26));
+        assert_eq!(BulletTrain::dpos(0).unwrap().vault_yield, 110000);
+
+        //case6: released by non-member after grace period, no slashing
+        run_to_block(37);
+        assert_ok!(BulletTrain::release_yield_from_dpo(
+            Origin::signed(DYLAN),
+            0
+        ));
+        assert_eq!(
+            Balances::free_balance(BOB),
+            DEFAULT_BALANCE_USER - 50000 + (1000 + 450) * 4 + (500 + 475) * (11 + 11)
+        );
+        assert_eq!(
+            Balances::free_balance(CAROL),
+            DEFAULT_BALANCE_USER - 50000 + 450 * 4 + 475 * (11 + 11)
         );
     });
 }
