@@ -469,7 +469,7 @@ fn milestone_rewards_released_correctly() {
 }
 
 #[test]
-fn create_dpo_targeting_travel_cabin_works() {
+fn dpo_create_targeting_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         //creating dpo for a non existing target
@@ -590,7 +590,7 @@ fn create_dpo_targeting_travel_cabin_works() {
 }
 
 #[test]
-fn create_dpo_targeting_dpo_works() {
+fn dpo_create_targeting_dpo_works() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
         make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
@@ -703,7 +703,7 @@ fn dpo_buy_dpo_share_works() {
 }
 
 #[test]
-fn dpo_buy_non_default_dpo_share_works() {
+fn todo_dpo_buy_non_default_dpo_share_works() {
     ExtBuilder::default().build().execute_with(|| {});
 }
 
