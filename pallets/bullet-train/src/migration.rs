@@ -116,11 +116,11 @@ pub fn migrate_travel_cabin_buyers<T: Config>() {
 pub fn migrate_dpos_and_members<T: Config>() {
     // transform the storage values from the old DpoInfo into the new format.
     let mut dpos = vec![DpoInfo{..Default::default()}; DpoCount::<T>::get() as usize];
-    Dpos::<T>::translate::<
+    Dpos::<T>::translate_values::<
         DeprecatedDpoInfo<Balance, T::BlockNumber, T::AccountId>,
         _
     >(
-        |_dpo_id, dpo| {
+        |dpo| {
             let target = match dpo.target.clone() {
                 DeprecatedTarget::TravelCabin(cabin_id) => Target::TravelCabin(cabin_id),
                 DeprecatedTarget::Dpo(dpo_id, _) => Target::Dpo(dpo_id, dpo.target_amount), // seat to token amount
@@ -186,3 +186,83 @@ pub fn migrate_dpos_and_members<T: Config>() {
         }
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use remote_externalities::{Builder, CacheMode};
+    use crate::{mock::*};
+    use std::{
+        fs,
+        path::Path,
+    };
+    use sp_core::storage::{StorageKey, StorageData};
+
+    const TEST_URI: &'static str = "http://localhost:9933";
+    type KeyPair = (StorageKey, StorageData);
+
+    #[derive(Clone, Eq, PartialEq, Debug, Default)]
+    pub struct TestRuntime;
+
+    #[tokio::test]
+    #[ignore = "needs remove node"]
+    async fn can_create_cache() {
+        Builder::new()
+            .uri(TEST_URI.into())
+            .cache_mode(CacheMode::UseElseCreate)
+            .module("BulletTrain")
+            .build()
+            .await
+            .execute_with(|| {});
+    }
+
+    #[test]
+    fn migrate_travel_cabin_buyers_test() {
+        let ext = ExtBuilder::default().build();
+        assimilate_storage_from_cache(ext).execute_with(|| {
+            assert_eq!(BulletTrain::dpo_count(), 25);
+
+            let count = BulletTrain::travel_cabin_count();
+            println!("count {:?}", count);
+            for i in 0..count {
+                let inv = BulletTrain::travel_cabin_inventory(i).unwrap();
+                println!("inv {:?}", inv);
+            }
+
+            let buyer_info = BulletTrain::travel_cabin_buyer(0, 1).unwrap();
+            println!("before {:?}", buyer_info);
+
+            migrate_travel_cabin_buyers::<Test>();
+            let buyer_info = BulletTrain::travel_cabin_buyer(0, 1).unwrap();
+            println!("after {:?}", buyer_info);
+        });
+    }
+
+    #[test]
+    fn migrate_dpos_and_members_test() {
+        let ext = ExtBuilder::default().build();
+        assimilate_storage_from_cache(ext).execute_with(|| {
+            migrate_dpos_and_members::<Test>();
+            let dpo = BulletTrain::dpos(1).unwrap();
+            println!("after {:?}", dpo);
+        });
+    }
+
+    fn assimilate_storage_from_cache(mut ext: sp_io::TestExternalities) -> sp_io::TestExternalities {
+        if let Ok(kv) = read_test_data() {
+            for (k, v) in kv {
+                let (k, v) = (k.0, v.0);
+                ext.insert(k, v);
+            }
+        }
+        ext
+    }
+
+    fn read_test_data() -> Result<Vec<KeyPair>, &'static str> {
+        let path = Path::new(".").join("migration_test_data");
+        fs::read(path)
+            .map_err(|_| "failed to read cache")
+            .and_then(|b| bincode::deserialize(&b[..]).map_err(|_| "failed to decode cache"))
+    }
+}
+
