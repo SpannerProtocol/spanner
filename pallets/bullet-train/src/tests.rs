@@ -703,11 +703,6 @@ fn dpo_buy_dpo_share_works() {
 }
 
 #[test]
-fn todo_dpo_buy_non_default_dpo_share_works() {
-    ExtBuilder::default().build().execute_with(|| {});
-}
-
-#[test]
 fn dpo_buy_non_default_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
         //travel cabin 0
@@ -753,7 +748,7 @@ fn dpo_buy_non_default_travel_cabin_works() {
 }
 
 #[test]
-fn dpo_buy_non_default_target_works() {
+fn dpo_buy_non_default_dpo_share_works() {
     ExtBuilder::default().build().execute_with(|| {
         //travel cabin 0
         make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
@@ -799,7 +794,7 @@ fn dpo_buy_non_default_target_works() {
             3,
             Target::Dpo(2, 20000),
         ));
-        //todo: change target event
+        //todo: get change target event
         dpo_buy_target(BOB, 3, 100);
         assert_eq!(BulletTrain::dpos(3).unwrap().target, Target::Dpo(2, 20000));
         assert_eq!(
