@@ -51,17 +51,22 @@ fn make_default_travel_cabin(token_id: crate::CurrencyId) -> () {
         10,    //stockpile
     ));
 }
-fn make_default_dpo(manager: AccountId, target: Target<Balance>, amount: Balance) -> () {
+fn make_default_dpo(
+    manager: AccountId,
+    target: Target<Balance>,
+    amount: Balance,
+    referrer: Option<AccountId>,
+) -> () {
     //costs manager 10
     assert_ok!(BulletTrain::create_dpo(
         Origin::signed(manager),
         String::from("test").into_bytes(),
-        target, //target
-        amount, //manager purchase amount
-        50,     //base fee, per thousand
-        800,    //direct referral rate, per thousand
-        10,     //end block
-        None    //referrer
+        target,   //target
+        amount,   //manager purchase amount
+        50,       //base fee, per thousand
+        800,      //direct referral rate, per thousand
+        10,       //end block
+        referrer  //referrer
     ));
 }
 
@@ -450,7 +455,7 @@ fn milestone_rewards_released_correctly() {
             30
         ));
         //receives milestone three only
-        make_default_dpo(DYLAN, Target::TravelCabin(0), 10);
+        make_default_dpo(DYLAN, Target::TravelCabin(0), 10, None);
         fill_dpo_with_random_accounts(0, 100);
         dpo_buy_target(DYLAN, 0, 100);
         assert_ok!(BulletTrain::release_milestone_reward(
@@ -562,7 +567,7 @@ fn create_dpo_targeting_travel_cabin_works() {
         //travel cabin requires 20000 in yield+bonus
         //costs manager 10
         run_to_block(1);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
 
         let record = |event| EventRecord {
             phase: Phase::Initialization,
@@ -609,7 +614,7 @@ fn create_dpo_targeting_dpo_works() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
         make_default_travel_cabin(BOLT);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
 
         //child dpo targets greater than max cap of parent dpo
         assert_noop!(
@@ -653,7 +658,7 @@ fn create_dpo_targeting_dpo_works() {
             ),
             Error::<Test>::TargetValueTooSmall
         );
-        make_default_dpo(BOB, Target::Dpo(0, 5000), 10);
+        make_default_dpo(BOB, Target::Dpo(0, 5000), 10, None);
         assert_eq!(BulletTrain::dpo_count(), 2);
     });
 }
@@ -663,11 +668,11 @@ fn dpo_buy_dpo_share_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_travel_cabin(BOLT);
         //dpo0
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         //dpo1, filled
-        make_default_dpo(BOB, Target::Dpo(0, 5000), 10);
+        make_default_dpo(BOB, Target::Dpo(0, 5000), 10, None);
         //dpo2
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
 
         //not enough funds
         assert_noop!(
@@ -732,7 +737,7 @@ fn dpo_buy_non_default_travel_cabin_works() {
         //travel cabin 2
         make_default_mega_travel_cabin(BOLT);
         //dpo0, fee 5% + 0.01% rounding to 0%
-        make_default_dpo(BOB, Target::TravelCabin(0), 10);
+        make_default_dpo(BOB, Target::TravelCabin(0), 10, None);
         fill_dpo_with_random_accounts(0, 100);
 
         //make travel cabin 0 unavailable
@@ -775,13 +780,13 @@ fn dpo_buy_non_default_target_works() {
         //travel cabin 1
         make_default_travel_cabin(BOLT);
         //dpo0, fee 5% + 0.01% rounding to 0%
-        make_default_dpo(BOB, Target::TravelCabin(0), 10);
+        make_default_dpo(BOB, Target::TravelCabin(0), 10, None);
         //dpo1, fee 5% + 0.02% rounding to 0%
-        make_default_dpo(BOB, Target::Dpo(0, 50000), 10);
+        make_default_dpo(BOB, Target::Dpo(0, 50000), 10, None);
         //dpo2, fee 5% + 0.02% rounding to 0%
-        make_default_dpo(BOB, Target::Dpo(0, 50000), 10);
+        make_default_dpo(BOB, Target::Dpo(0, 50000), 10, None);
         //dpo3, fee 5% + 0.04% rounding to 0%
-        make_default_dpo(BOB, Target::Dpo(1, 25000), 10);
+        make_default_dpo(BOB, Target::Dpo(1, 25000), 10, None);
         fill_dpo_with_random_accounts(3, 100);
 
         //dpo buying shares of another dpo
@@ -831,7 +836,7 @@ fn dpo_buy_non_default_target_works() {
 fn passenger_buy_dpo_share_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_travel_cabin(BOLT);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
 
         //passenger buys more than allowed share cap
         assert_noop!(
@@ -934,13 +939,13 @@ fn dpo_buy_dpo_share_partially_works() {
         //cabin 0
         make_default_large_travel_cabin(BOLT, 1);
         // dpo 0
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         // dpo 1, targets 20% of dpo 0, manager 10 BOLT
-        make_default_dpo(ALICE, Target::Dpo(0, 20000), 10);
+        make_default_dpo(ALICE, Target::Dpo(0, 20000), 10, None);
         // dpo 2, targets 20% of dpo 0, manager 10 BOLT
-        make_default_dpo(ALICE, Target::Dpo(0, 20000), 10);
+        make_default_dpo(ALICE, Target::Dpo(0, 20000), 10, None);
         // dpo 3, targets 20% of dpo 0, manager 10 BOLT
-        make_default_dpo(ALICE, Target::Dpo(0, 20000), 10);
+        make_default_dpo(ALICE, Target::Dpo(0, 20000), 10, None);
 
         //fill dpo1, BOB buys 30%, rest filled upto 60% by strangers
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
@@ -1108,20 +1113,20 @@ fn dpo_state_transitions_correctly() {
         //CREATED
         make_default_large_travel_cabin(BOLT, 2);
         //dpo0, targets travel cabin
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
         //dpo1, fails to crowdfund in time
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         fill_dpo_with_random_accounts(1, 50);
         assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::CREATED);
         //dpo2 purchases dpo0 and transitions from bonus
-        make_default_dpo(BOB, Target::Dpo(0, 10000), 10);
+        make_default_dpo(BOB, Target::Dpo(0, 10000), 10, None);
         assert_eq!(BulletTrain::dpos(2).unwrap().state, DpoState::CREATED);
         //dpo3, targets travel cabin
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::CREATED);
         //dpo4 purchases dpo3 and transitions from yield
-        make_default_dpo(BOB, Target::Dpo(3, 10000), 10);
+        make_default_dpo(BOB, Target::Dpo(3, 10000), 10, None);
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::CREATED);
 
         //CREATED -> ACTIVE
@@ -1155,7 +1160,7 @@ fn dpo_state_transitions_correctly() {
 
         //dpo3 buys travel cabin
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::ACTIVE);
-        dpo_buy_target(ALICE, 3 , 100);
+        dpo_buy_target(ALICE, 3, 100);
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::RUNNING);
 
         //dpo2 bonus released from dpo0
@@ -1341,7 +1346,7 @@ fn dpo_release_yield_and_fare_works() {
     //this tests the matrix of manager/member/non-member + over grace period/in grace period for yield distribution
     ExtBuilder::default().build().execute_with(|| {
         make_default_mega_travel_cabin(BOLT); //100000
-        make_default_dpo(BOB, Target::TravelCabin(0), 50000); //5%
+        make_default_dpo(BOB, Target::TravelCabin(0), 50000, None); //5%
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 100);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(CAROL),
@@ -1569,7 +1574,7 @@ fn dpo_fifo_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_large_travel_cabin(BOLT, 1);
         //dpo0
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10000);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10000, None);
         assert_eq!(
             BulletTrain::dpo_members(0, Buyer::Passenger(ALICE))
                 .unwrap()
@@ -1577,31 +1582,13 @@ fn dpo_fifo_works() {
             Referrer::None //tip of iceberg
         );
         //dpo1 joins dpo0
-        make_default_dpo(JILL, Target::Dpo(0, 5000), 1000);
+        make_default_dpo(JILL, Target::Dpo(0, 5000), 1000, None);
         fill_dpo_with_random_accounts(1, 100);
         //dpo2 joins dpo0 with internal referrer
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(JILL),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 5000),
-            1000,      //manager purchase amount
-            50,        //base fee, per thousand
-            800,       //direct referral rate, per thousand
-            10,        //end block
-            Some(BOB)  //referrer
-        ));
+        make_default_dpo(JILL, Target::Dpo(0, 5000), 1000, Some(BOB));
         fill_dpo_with_random_accounts(2, 100);
         //dpo3 joins dpo0 with external referrer
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(JILL),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 5000),
-            1000,       //manager purchase amount
-            50,         //base fee, per thousand
-            800,        //direct referral rate, per thousand
-            10,         //end block
-            Some(ADAM)  //referrer
-        ));
+        make_default_dpo(JILL, Target::Dpo(0, 5000), 1000, Some(ADAM));
         fill_dpo_with_random_accounts(3, 100);
 
         //1st member BOB joins and is assigned to ALICE
@@ -1757,18 +1744,9 @@ fn dpo_release_bonus_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_travel_cabin(BOLT);
         //dpo 0
-        make_default_dpo(ALICE, Target::TravelCabin(0), 1000);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 1000, None);
         //dpo1 with referrer
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(JILL),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 5000),
-            1000,      //manager purchase amount
-            50,        //base fee, per thousand
-            800,       //direct referral rate, per thousand
-            10,        //end block
-            Some(BOB)  //referrer
-        ));
+        make_default_dpo(JILL, Target::Dpo(0, 5000), 1000, Some(BOB));
     });
 }
 
@@ -1776,9 +1754,9 @@ fn dpo_release_bonus_works() {
 fn dpo_release_fare_completed_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_large_travel_cabin(BOLT, 2);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         assert_eq!(BulletTrain::dpos(0).unwrap().fare_withdrawn, false);
-        make_default_dpo(ALICE, Target::Dpo(0, 10000), 10);
+        make_default_dpo(ALICE, Target::Dpo(0, 10000), 10, None);
         assert_eq!(BulletTrain::dpos(1).unwrap().fare_withdrawn, false);
 
         //withdraw on created state (not expired)
@@ -1896,8 +1874,8 @@ fn dpo_release_fare_of_unused_funds_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_large_travel_cabin(BOLT, 1);
         make_default_travel_cabin(BOLT);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
-        make_default_dpo(ALICE, Target::Dpo(0, 10000), 10); //10%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
+        make_default_dpo(ALICE, Target::Dpo(0, 10000), 10, None); //10%
         fill_dpo_with_random_accounts(1, 100);
 
         dpo_buy_target(ALICE, 1, 100);
@@ -1954,7 +1932,7 @@ fn dpo_release_fare_on_failure_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_large_travel_cabin(BOLT, 1);
         //dpo0, expires at block 11
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(CAROL),
             0,
@@ -1964,7 +1942,7 @@ fn dpo_release_fare_on_failure_works() {
         assert_eq!(Balances::free_balance(CAROL), DEFAULT_BALANCE_USER - 1000);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
         //dpo1, expires at block 11
-        make_default_dpo(ALICE, Target::Dpo(0, 10000), 10);
+        make_default_dpo(ALICE, Target::Dpo(0, 10000), 10, None);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(BOB),
             1,
@@ -1998,16 +1976,16 @@ fn dpo_release_fare_on_failure_works() {
 fn dpo_fee_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_travel_cabin(BOLT); //10000
-        make_default_dpo(ALICE, Target::TravelCabin(0), 1); //0.01%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 1, None); //0.01%
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 50);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 50);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 10); //0.1%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10, None); //0.1%
         assert_eq!(BulletTrain::dpos(1).unwrap().fee, 51);
         assert_eq!(BulletTrain::dpos(1).unwrap().base_fee, 50);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 100); //1%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 100, None); //1%
         assert_eq!(BulletTrain::dpos(2).unwrap().fee, 60);
         assert_eq!(BulletTrain::dpos(2).unwrap().base_fee, 50);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 1000); //10%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 1000, None); //10%
         assert_eq!(BulletTrain::dpos(3).unwrap().fee, 150);
         assert_eq!(BulletTrain::dpos(3).unwrap().base_fee, 50);
     });
@@ -2021,33 +1999,33 @@ fn buy_target_after_grace_period_works() {
 
         //case 1
         //dpo0, target commit by manager, no slashing
-        make_default_dpo(ALICE, Target::TravelCabin(0), 5000); //5%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 5000, None); //5%
         fill_dpo_with_random_accounts(0, 100);
 
         //case 2
         //dpo1, target commit by member, manager fee slashed in half
-        make_default_dpo(ALICE, Target::TravelCabin(0), 5000); //5%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 5000, None); //5%
         fill_dpo_with_random_accounts(1, 100);
 
         //case 3
         //dpo2, target commit by non-member, no permission
-        make_default_dpo(ALICE, Target::TravelCabin(0), 5000); //5%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 5000, None); //5%
         fill_dpo_with_random_accounts(2, 100);
 
         //case 4
         //dpo3, target commit by member dpo manager, manager fee slashed in half
-        make_default_dpo(ALICE, Target::TravelCabin(0), 5000);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 5000, None);
         //dpo4, member dpo of dpo3
-        make_default_dpo(BOB, Target::Dpo(3, 10000), 500); //5%
+        make_default_dpo(BOB, Target::Dpo(3, 10000), 500, None); //5%
         fill_dpo_with_random_accounts(4, 100);
         dpo_buy_target(BOB, 4, 100);
         fill_dpo_with_random_accounts(3, 100);
 
         //case 5
         //dpo5, target commit by member dpo member, no permission
-        make_default_dpo(ALICE, Target::TravelCabin(0), 5000);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 5000, None);
         //dpo6, member dpo of dpo5
-        make_default_dpo(CAROL, Target::Dpo(5, 10000), 500); //5%
+        make_default_dpo(CAROL, Target::Dpo(5, 10000), 500, None); //5%
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(DYLAN),
             6,
@@ -2116,8 +2094,8 @@ fn rpc_api_get_travel_cabins_of_accounts_works() {
 fn rpc_api_get_dpos_of_accounts_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_mega_travel_cabin(BOLT);
-        make_default_dpo(ALICE, Target::TravelCabin(0), 100000);
-        make_default_dpo(ALICE, Target::Dpo(0, 100000), 5000);
+        make_default_dpo(ALICE, Target::TravelCabin(0), 100000, None);
+        make_default_dpo(ALICE, Target::Dpo(0, 100000), 5000, None);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(BOB),
             1,
@@ -2155,17 +2133,8 @@ fn dpo_change_larger_cabin_in_created_state() {
             10,
             1
         ));
-        // dpo 0
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            1000, // 10%
-            50,
-            800,
-            10,
-            None
-        ));
+        // dpo 0 takes 10% (1000)
+        make_default_dpo(ALICE, Target::TravelCabin(0), 1000, None);
 
         // can not change
         assert_noop!(
@@ -2246,28 +2215,10 @@ fn dpo_change_smaller_cabin_and_activate() {
             10,
             1
         ));
-        // dpo 0
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            10000, // 10%
-            50,
-            800,
-            10,
-            None
-        ));
-        // dpo 1 buy dpo 0 5%
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(BOB),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 10000), // 10%
-            2000,                  // 20%
-            50,
-            800,
-            10,
-            None
-        ));
+        // dpo 0 takes 10% (10000)
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10000, None);
+        // dpo 1 buy dpo0 5%
+        make_default_dpo(BOB, Target::Dpo(0, 10000), 2000, None);
         // join dpo 1 to fill it full, and dpo 1 buy dpo 0 as default
         for i in CAROL..GREG {
             assert_ok!(BulletTrain::passenger_buy_dpo_share(
@@ -2394,39 +2345,13 @@ fn dpo_change_target_to_non_default_dpo() {
             10,
             1
         ));
-        // dpo 0
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(0),
-            10000, // 10%
-            50,
-            800,
-            10,
-            None
-        ));
-        // dpo 1
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::TravelCabin(1),
-            9000, // 30%
-            50,
-            800,
-            10,
-            None
-        ));
-        // dpo 2 to dpo 0
-        assert_ok!(BulletTrain::create_dpo(
-            Origin::signed(ALICE),
-            String::from("test").into_bytes(),
-            Target::Dpo(0, 50000), // 50%
-            5000,                  // 10%
-            50,
-            800,
-            10,
-            None
-        ));
+        // dpo 0 manager takes 10%
+        make_default_dpo(ALICE, Target::TravelCabin(0), 10000, None);
+
+        // dpo 1 manager takes 30%
+        make_default_dpo(ALICE, Target::TravelCabin(1), 9000, None);
+        // dpo 2 takes 50% (50000) of dpo 0, manager takes 10%
+        make_default_dpo(ALICE, Target::Dpo(0, 50000), 5000, None);
         // make cabin 0 unavailable
         assert_ok!(BulletTrain::passenger_buy_travel_cabin(
             Origin::signed(ALICE),
