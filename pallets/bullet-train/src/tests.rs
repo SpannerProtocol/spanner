@@ -2092,27 +2092,9 @@ fn rpc_api_get_dpos_of_accounts_works() {
 fn dpo_change_larger_cabin_in_created_state() {
     ExtBuilder::default().build().execute_with(|| {
         // cabin 0
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            10000,
-            0,
-            1000,
-            10,
-            1
-        ));
+        make_default_travel_cabin(BOLT, (1, 0, 1, 1, 1));
         // cabin 1
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            2000,
-            10,
-            1
-        ));
+        make_default_travel_cabin(BOLT, (10, 0, 2, 1, 1));
         // dpo 0 takes 10% (1000)
         make_default_dpo(ALICE, Target::TravelCabin(0), 1000, None);
 
@@ -2152,27 +2134,9 @@ fn dpo_change_larger_cabin_in_created_state() {
 fn dpo_change_smaller_cabin_and_activate() {
     ExtBuilder::default().build().execute_with(|| {
         // cabin 0
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            5000,
-            10,
-            1
-        ));
+        make_default_travel_cabin(BOLT, (10, 0, 5, 1, 1));
         // cabin 1
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            10000,
-            0,
-            1000,
-            10,
-            1
-        ));
+        make_default_travel_cabin(BOLT, (1, 0, 1, 1, 1));
         // cabin 2
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
@@ -2293,27 +2257,9 @@ fn dpo_change_smaller_cabin_and_activate() {
 fn dpo_change_target_to_non_default_dpo() {
     ExtBuilder::default().build().execute_with(|| {
         // cabin 0
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            100000,
-            0,
-            2000,
-            10,
-            1
-        ));
+        make_default_travel_cabin(BOLT, (10, 0, 2, 1, 1));
         // cabin 1
-        assert_ok!(BulletTrain::create_travel_cabin(
-            Origin::signed(ALICE),
-            BOLT,
-            String::from("test").into_bytes(),
-            30000,
-            0,
-            30000,
-            10,
-            1
-        ));
+        make_default_travel_cabin(BOLT, (3, 0, 30, 1, 1));
         // cabin 2
         assert_ok!(BulletTrain::create_travel_cabin(
             Origin::signed(ALICE),
