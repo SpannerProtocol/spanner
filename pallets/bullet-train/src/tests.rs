@@ -88,6 +88,30 @@ fn fill_dpo_with_random_accounts(dpo_idx: DpoIndex, percent: u128) -> () {
     }
 }
 
+fn dpo_buy_target(who: AccountId, dpo_idx: DpoIndex, percent: u128) -> () {
+    let dpo = BulletTrain::dpos(dpo_idx).unwrap();
+    let buy_amount = dpo.target_amount * percent / 100;
+    assert!(dpo.vault_deposit >= buy_amount);
+    match dpo.target {
+        Target::TravelCabin(idx) => {
+            assert_eq!(percent, 100);
+            assert_ok!(BulletTrain::dpo_buy_travel_cabin(
+                Origin::signed(who),
+                dpo_idx,
+                idx
+            ));
+        }
+        Target::Dpo(idx, _) => {
+            assert_ok!(BulletTrain::dpo_buy_dpo_share(
+                Origin::signed(who),
+                dpo_idx,
+                idx,
+                buy_amount
+            ));
+        }
+    }
+}
+
 use orml_currencies::Event as CurrenciesEvent;
 use pallet_balances::Event as BalancesEvent;
 use std::cmp::min;
@@ -428,11 +452,7 @@ fn milestone_rewards_released_correctly() {
         //receives milestone three only
         make_default_dpo(DYLAN, Target::TravelCabin(0), 10);
         fill_dpo_with_random_accounts(0, 100);
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(DYLAN),
-            0, //buyer
-            0  //travel cabin index
-        ));
+        dpo_buy_target(DYLAN, 0, 100);
         assert_ok!(BulletTrain::release_milestone_reward(
             Origin::signed(ALICE),
             BOLT
@@ -676,12 +696,7 @@ fn dpo_buy_dpo_share_works() {
         );
 
         run_to_block(1);
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(BOB),
-            1,
-            0,
-            5000
-        ));
+        dpo_buy_target(BOB, 1, 100);
 
         assert_eq!(BulletTrain::dpos(1).unwrap().target, Target::Dpo(0, 5000));
         assert_eq!(BulletTrain::dpos(1).unwrap().target_maturity, 10);
@@ -745,7 +760,7 @@ fn dpo_buy_non_default_travel_cabin_works() {
         ));
 
         //dpo0 buys travel cabin 1 (spends 90000 less)
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(BOB), 0, 1));
+        dpo_buy_target(BOB, 0, 100);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 10000);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 90000);
@@ -800,12 +815,7 @@ fn dpo_buy_non_default_target_works() {
             Target::Dpo(2, 20000),
         ));
         //todo: change target event
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(BOB),
-            3,
-            2,
-            20000
-        ));
+        dpo_buy_target(BOB, 3, 100);
         assert_eq!(BulletTrain::dpos(3).unwrap().target, Target::Dpo(2, 20000));
         assert_eq!(
             BulletTrain::dpos(3).unwrap().target_yield_estimate,
@@ -977,26 +987,16 @@ fn dpo_buy_dpo_share_partially_works() {
             Error::<Test>::NoPermission
         );
 
-        // dpo 1 buy dpo 0 once 1%
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(ALICE),
-            1,
-            0,
-            1000, // 1%
-        ));
+        // dpo 1 buy dpo 0 once 1% (1000) of dpo0,
+        dpo_buy_target(ALICE, 1, 5);
 
         assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 12000);
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 11000);
         assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 1010);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 1010);
 
-        // dpo 1 buy dpo 0 twice 9%, total 10%
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(ALICE),
-            1,
-            0,
-            9000, // 9%
-        ));
+        // dpo 1 buy dpo 0 twice 9% (9000) of dpo0 total 10%
+        dpo_buy_target(ALICE, 1, 45);
         assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 12000);
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 2000);
         assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 10010);
@@ -1007,13 +1007,8 @@ fn dpo_buy_dpo_share_partially_works() {
         assert_eq!(BulletTrain::dpos(2).unwrap().total_fund, 18000);
         assert_eq!(BulletTrain::dpos(2).unwrap().vault_deposit, 18000);
 
-        // dpo 2 buy dpo 0
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(ALICE),
-            2,
-            0,
-            18000,
-        ));
+        // dpo2 buy 18% (18000) dpo0
+        dpo_buy_target(ALICE, 2, 90);
         assert_eq!(BulletTrain::dpos(2).unwrap().total_fund, 18000);
         assert_eq!(BulletTrain::dpos(2).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 10010 + 18000);
@@ -1037,12 +1032,8 @@ fn dpo_buy_dpo_share_partially_works() {
             ),
             Error::<Test>::DefaultTargetAvailable
         );
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(ALICE),
-            2,
-            0,
-            2000, // 2%
-        ));
+        //dpo2 buys remaining 2% (2000) of dpo0
+        dpo_buy_target(ALICE, 2, 10);
         assert_eq!(BulletTrain::dpos(2).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 10010 + 20000);
 
@@ -1137,23 +1128,13 @@ fn dpo_state_transitions_correctly() {
         //dpo2 filled and makes purchase
         assert_eq!(BulletTrain::dpos(2).unwrap().state, DpoState::CREATED);
         fill_dpo_with_random_accounts(2, 100);
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(BOB),
-            2,
-            0,
-            10000
-        ));
+        dpo_buy_target(BOB, 2, 100);
         assert_eq!(BulletTrain::dpos(2).unwrap().state, DpoState::ACTIVE);
 
         //dpo4 filled and makes purchase
         assert_eq!(BulletTrain::dpos(4).unwrap().state, DpoState::CREATED);
         fill_dpo_with_random_accounts(4, 100);
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(BOB),
-            4,
-            3,
-            10000
-        ));
+        dpo_buy_target(BOB, 4, 100);
         assert_eq!(BulletTrain::dpos(4).unwrap().state, DpoState::ACTIVE);
 
         //dpo0 filled
@@ -1169,20 +1150,12 @@ fn dpo_state_transitions_correctly() {
         //ACTIVE -> RUNNING
         //dpo0 buys travel cabin
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            0
-        ));
+        dpo_buy_target(ALICE, 0, 100);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::RUNNING);
 
         //dpo3 buys travel cabin
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::ACTIVE);
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            3,
-            0
-        ));
+        dpo_buy_target(ALICE, 3 , 100);
         assert_eq!(BulletTrain::dpos(3).unwrap().state, DpoState::RUNNING);
 
         //dpo2 bonus released from dpo0
@@ -1377,7 +1350,7 @@ fn dpo_release_yield_and_fare_works() {
             None
         ));
         fill_dpo_with_random_accounts(0, 100);
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(BOB), 0, 0));
+        dpo_buy_target(BOB, 0, 100);
 
         //10% management fee.
         //total 1000000 to release over 100 blocks, 10000 per block
@@ -1727,12 +1700,7 @@ fn dpo_fifo_works() {
         );
 
         //6th member dpo1 joins with no referrer
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(JILL),
-            1,
-            0,
-            5000, // 5%
-        ));
+        dpo_buy_target(JILL, 1, 100);
         assert_eq!(
             BulletTrain::dpo_members(0, Buyer::Dpo(1)).unwrap().referrer,
             Referrer::MemberOfDpo(Buyer::Passenger(DYLAN))
@@ -1743,12 +1711,7 @@ fn dpo_fifo_works() {
         );
 
         //7th member dpo2 joins with internal referrer BOB
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(JILL),
-            2,
-            0,
-            5000, // 5%
-        ));
+        dpo_buy_target(JILL, 2, 100);
         assert_eq!(
             BulletTrain::dpo_members(0, Buyer::Dpo(2)).unwrap().referrer,
             Referrer::MemberOfDpo(Buyer::Passenger(BOB))
@@ -1759,12 +1722,7 @@ fn dpo_fifo_works() {
         );
 
         //8th member dpo3 joins with external referrer ADAM
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(JILL),
-            3,
-            0,
-            5000, // 5%
-        ));
+        dpo_buy_target(JILL, 3, 100);
         assert_eq!(
             BulletTrain::dpo_members(0, Buyer::Dpo(3)).unwrap().referrer,
             Referrer::External(ADAM, Buyer::Passenger(ELSA))
@@ -1798,7 +1756,19 @@ fn dpo_fifo_works() {
 fn dpo_release_bonus_works() {
     ExtBuilder::default().build().execute_with(|| {
         make_default_travel_cabin(BOLT);
+        //dpo 0
         make_default_dpo(ALICE, Target::TravelCabin(0), 1000);
+        //dpo1 with referrer
+        assert_ok!(BulletTrain::create_dpo(
+            Origin::signed(JILL),
+            String::from("test").into_bytes(),
+            Target::Dpo(0, 5000),
+            1000,      //manager purchase amount
+            50,        //base fee, per thousand
+            800,       //direct referral rate, per thousand
+            10,        //end block
+            Some(BOB)  //referrer
+        ));
     });
 }
 
@@ -1827,13 +1797,9 @@ fn dpo_release_fare_completed_works() {
         ));
         assert_eq!(Balances::free_balance(BOB), DEFAULT_BALANCE_USER - 100);
         fill_dpo_with_random_accounts(1, 100);
+        //dpo1 buys target dpo0
+        dpo_buy_target(ALICE, 1, 100);
         //DYLAN and others buy dpo0
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(ALICE),
-            1,
-            0,
-            10000
-        ));
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
             Origin::signed(DYLAN),
             0,
@@ -1850,11 +1816,7 @@ fn dpo_release_fare_completed_works() {
         );
 
         //dpo0 buys travel cabin
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            0
-        ));
+        dpo_buy_target(ALICE, 0, 100);
         assert_eq!(
             BulletTrain::travel_cabin_buyer(0, 0)
                 .unwrap()
@@ -1938,12 +1900,7 @@ fn dpo_release_fare_of_unused_funds_works() {
         make_default_dpo(ALICE, Target::Dpo(0, 10000), 10); //10%
         fill_dpo_with_random_accounts(1, 100);
 
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(ALICE),
-            1,
-            0,
-            10000
-        ));
+        dpo_buy_target(ALICE, 1, 100);
         fill_dpo_with_random_accounts(0, 100);
 
         //make travel cabin 0 unavailable
@@ -1962,11 +1919,7 @@ fn dpo_release_fare_of_unused_funds_works() {
         ));
         assert_eq!(BulletTrain::dpos(0).unwrap().target_yield_estimate, 1000);
         assert_eq!(BulletTrain::dpos(0).unwrap().target_bonus_estimate, 1000);
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            1
-        ));
+        dpo_buy_target(ALICE, 0, 100);
 
         //dpo0 receives full unused fund
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 90000); // 100000 - 10000
@@ -2023,12 +1976,7 @@ fn dpo_release_fare_on_failure_works() {
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0);
 
         //dpo 1 buys dpo0
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(ALICE),
-            1,
-            0,
-            10000
-        ));
+        dpo_buy_target(ALICE, 1, 100);
 
         //time's up, dpo0 fails to crowdfund enough for cabin
         run_to_block(11);
@@ -2092,12 +2040,7 @@ fn buy_target_after_grace_period_works() {
         //dpo4, member dpo of dpo3
         make_default_dpo(BOB, Target::Dpo(3, 10000), 500); //5%
         fill_dpo_with_random_accounts(4, 100);
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(BOB),
-            4,
-            3,
-            10000
-        ));
+        dpo_buy_target(BOB, 4, 100);
         fill_dpo_with_random_accounts(3, 100);
 
         //case 5
@@ -2112,31 +2055,18 @@ fn buy_target_after_grace_period_works() {
             None
         ));
         fill_dpo_with_random_accounts(6, 100);
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(CAROL),
-            6,
-            5,
-            10000
-        ));
+        dpo_buy_target(CAROL, 6, 100);
         fill_dpo_with_random_accounts(5, 100);
 
         //time's up!
         run_to_block(DpoMakePurchaseGracePeriod::get() + 1);
 
         //case 1, dpo0
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            0
-        ));
+        dpo_buy_target(ALICE, 0, 100);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 100);
 
         //case 2, dpo1
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(1000),
-            1,
-            0
-        ));
+        dpo_buy_target(1000, 1, 100);
         assert_eq!(BulletTrain::dpos(1).unwrap().fee, 50);
 
         //case 3, dpo2
@@ -2146,7 +2076,7 @@ fn buy_target_after_grace_period_works() {
         );
 
         //case 4, dpo3
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(Origin::signed(BOB), 3, 0));
+        dpo_buy_target(BOB, 3, 100);
         assert_eq!(BulletTrain::dpos(3).unwrap().fee, 50);
 
         //case 5, dpo5
@@ -2348,12 +2278,8 @@ fn dpo_change_smaller_cabin_and_activate() {
             ));
         }
         assert_eq!(BulletTrain::dpos(1).unwrap().state, DpoState::ACTIVE);
-        assert_ok!(BulletTrain::dpo_buy_dpo_share(
-            Origin::signed(BOB),
-            1,
-            0,
-            10000
-        )); // 10%
+        //10% (10000) of target
+        dpo_buy_target(BOB, 1, 100);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 20000);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
 
@@ -2403,11 +2329,7 @@ fn dpo_change_smaller_cabin_and_activate() {
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
 
         // do buy a target
-        assert_ok!(BulletTrain::dpo_buy_travel_cabin(
-            Origin::signed(ALICE),
-            0,
-            2
-        ));
+        dpo_buy_target(ALICE, 0, 100);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 15000);
         assert_eq!(BulletTrain::dpos(0).unwrap().total_share, 20000);
@@ -2541,7 +2463,7 @@ fn dpo_change_target_to_non_default_dpo() {
             Error::<Test>::DpoTargetToChild
         );
 
-        // dpo 0 buy dpo 1 partially
+        // dpo0 buy dpo1 partially
         assert_ok!(BulletTrain::dpo_buy_dpo_share(
             Origin::signed(ALICE),
             0,
