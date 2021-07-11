@@ -8,49 +8,28 @@ use orml_traits::MultiCurrency;
 use pallet_bullet_train_primitives::{DpoIndex, TravelCabinInventoryIndex};
 use sp_runtime::FixedPointNumber;
 
-fn make_default_mega_travel_cabin(token_id: crate::CurrencyId) -> () {
-    //costs 200000
+fn make_default_travel_cabin(
+    token_id: crate::CurrencyId,
+    mul: (
+        Balance,
+        Balance,
+        Balance,
+        BlockNumber,
+        TravelCabinInventoryIndex,
+    ),
+) -> () {
     assert_ok!(BulletTrain::create_travel_cabin(
         Origin::signed(ALICE),
         token_id,
         String::from("test").into_bytes(),
-        1000000, //deposit amount
-        10000,   //bonus
-        1000000, //yield
-        100,     //maturity
-        1,       //stockpile
+        10000 * mul.0, //deposit amount
+        1000 * mul.1,  //bonus
+        1000 * mul.2,  //yield
+        10 * mul.3,    //maturity
+        1 * mul.4,     //stockpile
     ));
 }
 
-fn make_default_large_travel_cabin(
-    token_id: crate::CurrencyId,
-    stockpile: TravelCabinInventoryIndex,
-) -> () {
-    //costs 200000
-    assert_ok!(BulletTrain::create_travel_cabin(
-        Origin::signed(ALICE),
-        token_id,
-        String::from("test").into_bytes(),
-        100000,    //deposit amount
-        10000,     //bonus
-        100000,    //yield
-        10,        //maturity
-        stockpile, //stockpile
-    ));
-}
-fn make_default_travel_cabin(token_id: crate::CurrencyId) -> () {
-    //costs 20000
-    assert_ok!(BulletTrain::create_travel_cabin(
-        Origin::signed(ALICE),
-        token_id,
-        String::from("test").into_bytes(),
-        10000, //deposit amount
-        1000,  //bonus
-        1000,  //yield
-        10,    //maturity
-        10,    //stockpile
-    ));
-}
 fn make_default_dpo(
     manager: AccountId,
     target: Target<Balance>,
@@ -126,7 +105,7 @@ fn create_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
         //Create TravelCabin
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         //check count increment
         assert_eq!(BulletTrain::travel_cabin_count(), 1);
         //check info
@@ -183,7 +162,7 @@ fn issue_additional_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
         //Create TravelCabin
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
 
         assert_noop!(
             BulletTrain::issue_additional_travel_cabin(
@@ -214,7 +193,7 @@ fn issue_additional_travel_cabin_works() {
 #[test]
 fn passenger_buy_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         //start events after making travel cabin
         run_to_block(1);
 
@@ -343,7 +322,7 @@ fn create_milestone_reward_works() {
 #[test]
 fn creating_reward_for_past_milestone_fails() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         assert_ok!(BulletTrain::create_milestone_reward(
             Origin::signed(ALICE),
             BOLT,
@@ -378,7 +357,7 @@ fn creating_reward_for_past_milestone_fails() {
 fn milestone_rewards_released_correctly() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
 
         //(1) milestone one created
         //(2) milestone one hit by BOB
@@ -491,7 +470,7 @@ fn milestone_rewards_released_correctly() {
 #[test]
 fn create_dpo_targeting_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         //creating dpo for a non existing target
         assert_noop!(
             BulletTrain::create_dpo(
@@ -613,7 +592,7 @@ fn create_dpo_targeting_travel_cabin_works() {
 fn create_dpo_targeting_dpo_works() {
     ExtBuilder::default().build().execute_with(|| {
         run_to_block(1);
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
 
         //child dpo targets greater than max cap of parent dpo
@@ -666,7 +645,7 @@ fn create_dpo_targeting_dpo_works() {
 #[test]
 fn dpo_buy_dpo_share_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         //dpo0
         make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         //dpo1, filled
@@ -731,11 +710,11 @@ fn dpo_buy_non_default_dpo_share_works() {
 fn dpo_buy_non_default_travel_cabin_works() {
     ExtBuilder::default().build().execute_with(|| {
         //travel cabin 0
-        make_default_large_travel_cabin(BOLT, 1);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
         //travel cabin 1
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         //travel cabin 2
-        make_default_mega_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (100, 10, 1000, 10, 1));
         //dpo0, fee 5% + 0.01% rounding to 0%
         make_default_dpo(BOB, Target::TravelCabin(0), 10, None);
         fill_dpo_with_random_accounts(0, 100);
@@ -776,9 +755,9 @@ fn dpo_buy_non_default_travel_cabin_works() {
 fn dpo_buy_non_default_target_works() {
     ExtBuilder::default().build().execute_with(|| {
         //travel cabin 0
-        make_default_large_travel_cabin(BOLT, 1);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
         //travel cabin 1
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         //dpo0, fee 5% + 0.01% rounding to 0%
         make_default_dpo(BOB, Target::TravelCabin(0), 10, None);
         //dpo1, fee 5% + 0.02% rounding to 0%
@@ -835,7 +814,7 @@ fn dpo_buy_non_default_target_works() {
 #[test]
 fn passenger_buy_dpo_share_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
 
         //passenger buys more than allowed share cap
@@ -937,7 +916,7 @@ fn passenger_buy_dpo_share_works() {
 fn dpo_buy_dpo_share_partially_works() {
     ExtBuilder::default().build().execute_with(|| {
         //cabin 0
-        make_default_large_travel_cabin(BOLT, 1);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
         // dpo 0
         make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         // dpo 1, targets 20% of dpo 0, manager 10 BOLT
@@ -1111,7 +1090,7 @@ fn dpo_buy_dpo_share_partially_works() {
 fn dpo_state_transitions_correctly() {
     ExtBuilder::default().build().execute_with(|| {
         //CREATED
-        make_default_large_travel_cabin(BOLT, 2);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 2));
         //dpo0, targets travel cabin
         make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
@@ -1214,7 +1193,7 @@ fn dpo_state_transitions_correctly() {
 #[test]
 fn passenger_withdraw_yield_and_fare_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT); //10000
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10)); //10000
         assert_ok!(BulletTrain::passenger_buy_travel_cabin(
             Origin::signed(BOB),
             0
@@ -1345,7 +1324,7 @@ fn passenger_withdraw_yield_and_fare_works() {
 fn dpo_release_yield_and_fare_works() {
     //this tests the matrix of manager/member/non-member + over grace period/in grace period for yield distribution
     ExtBuilder::default().build().execute_with(|| {
-        make_default_mega_travel_cabin(BOLT); //100000
+        make_default_travel_cabin(BOLT, (100, 10, 1000, 10, 1)); //100000
         make_default_dpo(BOB, Target::TravelCabin(0), 50000, None); //5%
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 100);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
@@ -1572,7 +1551,7 @@ fn dpo_release_yield_and_fare_works() {
 #[test]
 fn dpo_fifo_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_large_travel_cabin(BOLT, 1);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
         //dpo0
         make_default_dpo(ALICE, Target::TravelCabin(0), 10000, None);
         assert_eq!(
@@ -1742,8 +1721,9 @@ fn dpo_fifo_works() {
 #[test]
 fn dpo_release_bonus_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT);
-        //dpo 0
+        // deposit: 100000 bonus: 10000
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
+        //dpo0 with no referrer
         make_default_dpo(ALICE, Target::TravelCabin(0), 1000, None);
         //dpo1 with referrer
         make_default_dpo(JILL, Target::Dpo(0, 5000), 1000, Some(BOB));
@@ -1753,7 +1733,7 @@ fn dpo_release_bonus_works() {
 #[test]
 fn dpo_release_fare_completed_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_large_travel_cabin(BOLT, 2);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 2));
         make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         assert_eq!(BulletTrain::dpos(0).unwrap().fare_withdrawn, false);
         make_default_dpo(ALICE, Target::Dpo(0, 10000), 10, None);
@@ -1872,8 +1852,8 @@ fn dpo_release_fare_completed_works() {
 #[test]
 fn dpo_release_fare_of_unused_funds_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_large_travel_cabin(BOLT, 1);
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         make_default_dpo(ALICE, Target::Dpo(0, 10000), 10, None); //10%
         fill_dpo_with_random_accounts(1, 100);
@@ -1930,7 +1910,7 @@ fn dpo_release_fare_of_unused_funds_works() {
 #[test]
 fn dpo_release_fare_on_failure_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_large_travel_cabin(BOLT, 1);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
         //dpo0, expires at block 11
         make_default_dpo(ALICE, Target::TravelCabin(0), 10, None);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
@@ -1975,7 +1955,7 @@ fn dpo_release_fare_on_failure_works() {
 #[test]
 fn dpo_fee_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT); //10000
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10)); //10000
         make_default_dpo(ALICE, Target::TravelCabin(0), 1, None); //0.01%
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 50);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 50);
@@ -1995,7 +1975,7 @@ fn dpo_fee_works() {
 fn buy_target_after_grace_period_works() {
     ExtBuilder::default().build().execute_with(|| {
         //all dpos will be filled in block 0
-        make_default_large_travel_cabin(BOLT, 5);
+        make_default_travel_cabin(BOLT, (10, 10, 100, 1, 5));
 
         //case 1
         //dpo0, target commit by manager, no slashing
@@ -2068,8 +2048,8 @@ fn buy_target_after_grace_period_works() {
 #[test]
 fn rpc_api_get_travel_cabins_of_accounts_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_travel_cabin(BOLT);
-        make_default_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
+        make_default_travel_cabin(BOLT, (1, 1, 1, 1, 10));
         assert_ok!(BulletTrain::passenger_buy_travel_cabin(
             Origin::signed(BOB),
             0
@@ -2093,7 +2073,7 @@ fn rpc_api_get_travel_cabins_of_accounts_works() {
 #[test]
 fn rpc_api_get_dpos_of_accounts_works() {
     ExtBuilder::default().build().execute_with(|| {
-        make_default_mega_travel_cabin(BOLT);
+        make_default_travel_cabin(BOLT, (100, 10, 1000, 10, 1));
         make_default_dpo(ALICE, Target::TravelCabin(0), 100000, None);
         make_default_dpo(ALICE, Target::Dpo(0, 100000), 5000, None);
         assert_ok!(BulletTrain::passenger_buy_dpo_share(
