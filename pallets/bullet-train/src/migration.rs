@@ -116,11 +116,11 @@ pub fn migrate_travel_cabin_buyers<T: Config>() {
 pub fn migrate_dpos_and_members<T: Config>() {
     // transform the storage values from the old DpoInfo into the new format.
     let mut dpos = vec![DpoInfo{..Default::default()}; DpoCount::<T>::get() as usize];
-    Dpos::<T>::translate_values::<
+    Dpos::<T>::translate::<
         DeprecatedDpoInfo<Balance, T::BlockNumber, T::AccountId>,
         _
     >(
-        |dpo| {
+        |_dpo_id, dpo| {
             let target = match dpo.target.clone() {
                 DeprecatedTarget::TravelCabin(cabin_id) => Target::TravelCabin(cabin_id),
                 DeprecatedTarget::Dpo(dpo_id, _) => Target::Dpo(dpo_id, dpo.target_amount), // seat to token amount
