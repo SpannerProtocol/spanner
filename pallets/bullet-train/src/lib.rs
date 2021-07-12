@@ -1425,6 +1425,7 @@ impl<T: Config> Pallet<T> {
                 // when the target dpo that this dpo has bought partially becomes active,
                 // this dpo should also become active
                 if dpo.state == DpoState::CREATED || dpo.state == DpoState::ACTIVE {
+                    Self::refresh_dpo_target_info(dpo)?;
                     dpo.state = DpoState::RUNNING;
                     if dpo.vault_deposit > 0 {
                         Self::update_dpo_inflow(
@@ -1432,8 +1433,6 @@ impl<T: Config> Pallet<T> {
                             dpo.vault_deposit,
                             PaymentType::UnusedFund,
                         )?;
-                    } else {
-                        Self::refresh_dpo_target_info(dpo)?;
                     }
                 }
                 dpo.vault_bonus = dpo.vault_bonus.saturating_add(amount);
@@ -1460,8 +1459,6 @@ impl<T: Config> Pallet<T> {
                             dpo.vault_deposit,
                             PaymentType::UnusedFund,
                         )?;
-                    } else {
-                        Self::refresh_dpo_target_info(dpo)?;
                     }
                 }
                 if dpo.blk_of_last_yield.is_none() {
