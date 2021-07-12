@@ -129,7 +129,7 @@ pub fn migrate_dpos_and_members<T: Config>() {
             let total_fund = match dpo.state {
                 DpoState::CREATED => dpo.vault_deposit,
                 DpoState::ACTIVE | DpoState::RUNNING | DpoState::COMPLETED => dpo.target_amount,
-                DpoState::FAILED => 0, // ??
+                DpoState::FAILED => 0,
             };
 
             let dpo = DpoInfo{
@@ -191,22 +191,171 @@ pub fn migrate_dpos_and_members<T: Config>() {
 mod tests {
     use super::*;
     use remote_externalities::{Builder, CacheMode};
-    use crate::{mock::*};
     use std::{
         fs,
         path::Path,
     };
     use sp_core::storage::{StorageKey, StorageData};
+    use crate as pallet_bullet_train;
+    use sp_core::{
+        H256, crypto::{AccountId32, Ss58Codec}
+    };
+    use frame_support::{construct_runtime, parameter_types, weights::Weight, ord_parameter_types};
+    use frame_system::EnsureSignedBy;
+    use sp_runtime::{
+        traits::{BlakeTwo256, IdentityLookup}, Perbill,
+    };
+    use primitives::{TokenSymbol, Amount};
+    use orml_currencies::BasicCurrencyAdapter;
+    use orml_traits::parameter_type_with_key;
+    use primitives::{BlockNumber, AccountId, Header};
 
+    type Balance = u128;
     const TEST_URI: &'static str = "http://localhost:9933";
     type KeyPair = (StorageKey, StorageData);
 
-    #[derive(Clone, Eq, PartialEq, Debug, Default)]
-    pub struct TestRuntime;
+    parameter_types! {
+        pub const BlockHashCount: u32 = 250;
+        pub const MaximumBlockWeight: Weight = 1024;
+        pub const MaximumBlockLength: u32 = 2 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    }
+    impl frame_system::Config for Test {
+        type BaseCallFilter = ();
+        type Origin = Origin;
+        type Call = Call;
+        type Index = u64;
+        type BlockNumber = BlockNumber;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = AccountId;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = Event;
+        type BlockHashCount = BlockHashCount;
+        type BlockWeights = ();
+        type BlockLength = ();
+        type DbWeight = ();
+        type Version = ();
+        type PalletInfo = PalletInfo;
+        type AccountData = pallet_balances::AccountData<Balance>;
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
+        type SystemWeightInfo = ();
+        type SS58Prefix = ();
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 1;
+    }
+    impl pallet_balances::Config for Test {
+        type MaxLocks = ();
+        type Balance = Balance;
+        type Event = Event;
+        type DustRemoval = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type AccountStore = System;
+        type WeightInfo = ();
+    }
+
+    parameter_types! {
+        pub const GetNativeCurrencyId: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
+    }
+    impl orml_currencies::Config for Test {
+        type Event = Event;
+        type MultiCurrency = Tokens;
+        type NativeCurrency = BasicCurrencyAdapter<Test, Balances, Amount, BlockNumber>;
+        type GetNativeCurrencyId = GetNativeCurrencyId;
+        type WeightInfo = ();
+    }
+
+    parameter_type_with_key! {
+        pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
+            Default::default()
+        };
+    }
+    impl orml_tokens::Config for Test {
+        type Event = Event;
+        type Balance = Balance;
+        type Amount = Amount;
+        type CurrencyId = CurrencyId;
+        type WeightInfo = ();
+        type ExistentialDeposits = ExistentialDeposits;
+        type OnDust = ();
+    }
+
+    ord_parameter_types! {
+        pub const Alice: AccountId = AccountId32::new([0; 32]);
+    }
+
+    parameter_types!{
+        pub const BulletTrainId: ModuleId = ModuleId(*b"sp/blttn");
+        pub const ReleaseYieldGracePeriod: BlockNumber = 10;
+        pub const DpoMakePurchaseGracePeriod: BlockNumber = 10;
+        pub const DpoSharePercentCap: (u8, u8) = (1, 2); // 50%
+        pub const DpoSharePercentMinimum: (u8, u8) = (3, 100); // 3%
+        pub const DpoPartialBuySharePercentMin: (u8, u8) = (1, 100); // 1%
+        pub const PassengerSharePercentCap: (u8, u8) = (3, 10); // 30%
+        pub const PassengerSharePercentMinimum: (u8, u8) = (1, 100); // 1%
+        pub const ManagerSlashPerThousand: u32 = 500;
+        pub const ManagementFeeCap: u32 = 200; // per thousand
+        pub const MilestoneRewardMinimum: Balance = 10;
+        pub const CabinYieldRewardMinimum: Balance = 0;
+        pub const CabinBonusRewardMinimum: Balance = 0;
+    }
+    impl Config for Test {
+        type Event = Event;
+        type Currency = Currencies;
+        type ModuleId = BulletTrainId;
+        type ReleaseYieldGracePeriod = ReleaseYieldGracePeriod;
+        type DpoMakePurchaseGracePeriod = DpoMakePurchaseGracePeriod;
+        type MilestoneRewardMinimum = MilestoneRewardMinimum;
+        type CabinYieldRewardMinimum = CabinYieldRewardMinimum;
+        type CabinBonusRewardMinimum = CabinBonusRewardMinimum;
+        type DpoSharePercentCap = DpoSharePercentCap;
+        type DpoSharePercentMinimum = DpoSharePercentMinimum;
+        type DpoPartialBuySharePercentMin = DpoPartialBuySharePercentMin;
+        type PassengerSharePercentCap = PassengerSharePercentCap;
+        type PassengerSharePercentMinimum = PassengerSharePercentMinimum;
+        type ManagerSlashPerThousand = ManagerSlashPerThousand;
+        type ManagementFeeCap = ManagementFeeCap;
+        type EngineerOrigin = EnsureSignedBy<Alice, AccountId>;
+        type WeightInfo = weights::SubstrateWeight<Test>;
+    }
+
+    type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+    type Block = frame_system::mocking::MockBlock<Test>;
+
+    // Configure a mock runtime to test the pallet.
+    construct_runtime!(
+        pub enum Test where
+            Block = Block,
+            NodeBlock = Block,
+            UncheckedExtrinsic = UncheckedExtrinsic,
+        {
+            System: frame_system::{Module, Call, Config, Storage, Event<T>},
+            BulletTrain: pallet_bullet_train::{Module, Storage, Call, Event<T>},
+            Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
+            Currencies: orml_currencies::{Module, Call, Event<T>},
+            Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        }
+    );
+
+    // Build genesis storage according to the mock runtime.
+    struct ExtBuilder {
+    }
+
+    impl ExtBuilder {
+        pub fn build(self) -> sp_io::TestExternalities {
+            frame_system::GenesisConfig::default()
+                .build_storage::<Test>()
+                .unwrap().into()
+        }
+    }
 
     #[tokio::test]
-    #[ignore = "needs remove node"]
-    async fn can_create_cache() {
+    #[ignore]
+    async fn create_test_data_from_remote() {
         Builder::new()
             .uri(TEST_URI.into())
             .cache_mode(CacheMode::UseElseCreate)
@@ -218,33 +367,78 @@ mod tests {
 
     #[test]
     fn migrate_travel_cabin_buyers_test() {
-        let ext = ExtBuilder::default().build();
+        let ext = ExtBuilder{}.build();
         assimilate_storage_from_cache(ext).execute_with(|| {
-            assert_eq!(BulletTrain::dpo_count(), 25);
-
-            let count = BulletTrain::travel_cabin_count();
-            println!("count {:?}", count);
-            for i in 0..count {
-                let inv = BulletTrain::travel_cabin_inventory(i).unwrap();
-                println!("inv {:?}", inv);
-            }
-
-            let buyer_info = BulletTrain::travel_cabin_buyer(0, 1).unwrap();
-            println!("before {:?}", buyer_info);
-
             migrate_travel_cabin_buyers::<Test>();
-            let buyer_info = BulletTrain::travel_cabin_buyer(0, 1).unwrap();
-            println!("after {:?}", buyer_info);
+            let buyer_info = BulletTrain::travel_cabin_buyer(0, 0).unwrap();
+            assert_eq!(buyer_info, TravelCabinBuyerInfo{
+                buyer: Buyer::Passenger(
+                    match AccountId::from_string("5CahfWQJC1MQCV75CRUJPagncbPsBiRbLYyTofefDTnu7Nwh") {
+                        Ok(addr) => addr,
+                        _ => AccountId::default()
+                    }
+                ),
+                purchase_blk: 5715,
+                yield_withdrawn: 70000000000u128,
+                fare_withdrawn: true,
+            })
         });
     }
 
     #[test]
     fn migrate_dpos_and_members_test() {
-        let ext = ExtBuilder::default().build();
+        let ext = ExtBuilder{}.build();
         assimilate_storage_from_cache(ext).execute_with(|| {
             migrate_dpos_and_members::<Test>();
-            let dpo = BulletTrain::dpos(1).unwrap();
-            println!("after {:?}", dpo);
+            assert_eq!(BulletTrain::dpo_count(), 25);
+
+            // dpo1 before migration: target_amount 150000000000000u128, failed state
+            let dpo1 = BulletTrain::dpos(1).unwrap();
+            let amount = 150000000000000u128;
+            assert_eq!(dpo1.index, 1);
+            assert_eq!(dpo1.target_amount, amount);
+            assert_eq!(dpo1.target, Target::Dpo(0, amount));
+            assert_eq!(dpo1.total_share, 0);
+            assert_eq!(dpo1.total_fund, 0);
+            assert_eq!(dpo1.state, DpoState::FAILED);
+
+            // dpo15 before migration: target_amount 3000000000000u128, running state
+            let dpo15 = BulletTrain::dpos(15).unwrap();
+            let amount = 3000000000000u128;
+            assert_eq!(dpo15.index, 15);
+            assert_eq!(dpo15.target_amount, amount);
+            assert_eq!(dpo15.target, Target::Dpo(14, amount));
+            assert_eq!(dpo15.total_share, amount);
+            assert_eq!(dpo15.total_fund, amount);
+            assert_eq!(dpo15.state, DpoState::RUNNING);
+
+            // dpo20 before migration: target_amount 150000000000000u128, deposit_amount 1500000000000, created state
+            let dpo20 = BulletTrain::dpos(20).unwrap();
+            let target_amount = 10000000000000u128;
+            let deposit_amount = 1500000000000u128;
+            assert_eq!(dpo20.index, 20);
+            assert_eq!(dpo20.target_amount, target_amount);
+            assert_eq!(dpo20.vault_deposit, deposit_amount);
+            assert_eq!(dpo20.target, Target::TravelCabin(0));
+            assert_eq!(dpo20.total_share, deposit_amount);
+            assert_eq!(dpo20.total_fund, deposit_amount);
+            assert_eq!(dpo20.state, DpoState::CREATED);
+
+            // dpo15 members
+            let member_info = BulletTrain::dpo_members(15, Buyer::Passenger(
+                match AccountId::from_string("5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL") {
+                    Ok(addr) => addr,
+                    _ => AccountId::default()
+                }
+            )).unwrap();
+            assert_eq!(member_info.share, 300000000000u128); // 10%
+            let member_info = BulletTrain::dpo_members(15, Buyer::Passenger(
+                match AccountId::from_string("5Hmjimwf6wg999jCCr4RNr6fUPGCkgdBRtAeubhnCcYSq5ju") {
+                    Ok(addr) => addr,
+                    _ => AccountId::default()
+                }
+            )).unwrap();
+            assert_eq!(member_info.share, 450000000000u128); // 15%
         });
     }
 
@@ -258,6 +452,7 @@ mod tests {
         ext
     }
 
+    /// state at hammer block 714752 (hash: 0x9bd06bf11ec710f1719db33019085321c4250e2c1b7aa09f7d4776cd29b3f8c9)
     fn read_test_data() -> Result<Vec<KeyPair>, &'static str> {
         let path = Path::new(".").join("migration_test_data");
         fs::read(path)
