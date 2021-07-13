@@ -36,7 +36,8 @@
     "buyer": "Buyer",
     "purchase_blk": "BlockNumber",
     "yield_withdrawn": "Balance",
-    "fare_withdrawn": "bool"
+    "fare_withdrawn": "bool",
+    "blk_of_last_withdraw": "BlockNumber"
   },
   "MilestoneRewardInfo": {
     "token_id": "CurrencyId",
@@ -54,7 +55,7 @@
   },
   "Target": {
     "_enum": {
-      "Dpo": "(DpoIndex, Balance)",
+      "Dpo": "(DpoIndex, u8)",
       "TravelCabin": "TravelCabinIndex"
     }
   },
@@ -75,17 +76,13 @@
     "target_amount": "Balance",
     "target_yield_estimate": "Balance",
     "target_bonus_estimate": "Balance",
-    "total_share": "Balance",
-    "rate": "(Balance, Balance)",
+    "amount_per_seat": "Balance",
+    "empty_seats": "u8",
     "fifo": "Vec<Buyer>",
-    "base_fee": "u32",
-    "fee": "u32",
-    "fee_slashed": "bool",
     "vault_deposit": "Balance",
     "vault_withdraw": "Balance",
     "vault_yield": "Balance",
     "vault_bonus": "Balance",
-    "total_fund": "Balance",
     "total_yield_received": "Balance",
     "total_bonus_received": "Balance",
     "total_milestone_received": "Balance",
@@ -95,11 +92,13 @@
     "state": "DpoState",
     "referrer": "Option<AccountId>",
     "fare_withdrawn": "bool",
-    "direct_referral_rate": "u32"
+    "direct_referral_rate": "u32",
+    "fee": "u32",
+    "fee_slashed": "bool"
   },
   "DpoMemberInfo": {
     "buyer": "Buyer",
-    "share": "Balance",
+    "number_of_seats": "u8",
     "referrer": "Referrer"
   },
   "Referrer": {

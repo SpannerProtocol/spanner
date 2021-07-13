@@ -85,6 +85,10 @@
       [
         "fare_withdrawn",
         "bool"
+      ],
+      [
+        "blk_of_last_withdraw",
+        "BlockNumber"
       ]
     ]
   },
@@ -120,7 +124,7 @@
     "type_mapping": [
       [
         "Dpo",
-        "(DpoIndex, Balance)"
+        "(DpoIndex, u8)"
       ],
       [
         "TravelCabin",
@@ -185,28 +189,16 @@
         "Balance"
       ],
       [
-        "total_share",
+        "amount_per_seat",
         "Balance"
       ],
       [
-        "rate",
-        "(Balance, Balance)"
+        "empty_seats",
+        "u8"
       ],
       [
         "fifo",
         "Vec<Buyer>"
-      ],
-      [
-        "base_fee",
-        "u32"
-      ],
-      [
-        "fee",
-        "u32"
-      ],
-      [
-        "fee_slashed",
-        "bool"
       ],
       [
         "vault_deposit",
@@ -222,10 +214,6 @@
       ],
       [
         "vault_bonus",
-        "Balance"
-      ],
-      [
-        "total_fund",
         "Balance"
       ],
       [
@@ -267,6 +255,14 @@
       [
         "direct_referral_rate",
         "u32"
+      ],
+      [
+        "fee",
+        "u32"
+      ],
+      [
+        "fee_slashed",
+        "bool"
       ]
     ]
   },
@@ -278,8 +274,8 @@
         "Buyer"
       ],
       [
-        "share",
-        "Balance"
+        "number_of_seats",
+        "u8"
       ],
       [
         "referrer",

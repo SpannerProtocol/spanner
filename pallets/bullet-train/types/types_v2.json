@@ -1,24 +1,4 @@
 {
-  "AssetId": "u32",
-  "Weight": "u64",
-  "Amount": "i128",
-  "AmountOf": "Amount",
-  "TokenSymbol": {
-    "_enum": [
-      "BOLT",
-      "WUSD",
-      "BBOT",
-      "NCAT",
-      "PLKT"
-    ]
-  },
-  "CurrencyId": {
-    "_enum": {
-      "Token": "TokenSymbol",
-      "DexShare": "(TokenSymbol, TokenSymbol)"
-    }
-  },
-  "CurrencyIdOf": "CurrencyId",
   "TravelCabinIndex": "u32",
   "TravelCabinInventoryIndex": "u16",
   "DpoIndex": "u32",
@@ -36,7 +16,8 @@
     "buyer": "Buyer",
     "purchase_blk": "BlockNumber",
     "yield_withdrawn": "Balance",
-    "fare_withdrawn": "bool"
+    "fare_withdrawn": "bool",
+    "blk_of_last_withdraw": "BlockNumber"
   },
   "MilestoneRewardInfo": {
     "token_id": "CurrencyId",
@@ -54,7 +35,7 @@
   },
   "Target": {
     "_enum": {
-      "Dpo": "(DpoIndex, Balance)",
+      "Dpo": "(DpoIndex, u8)",
       "TravelCabin": "TravelCabinIndex"
     }
   },
@@ -75,17 +56,13 @@
     "target_amount": "Balance",
     "target_yield_estimate": "Balance",
     "target_bonus_estimate": "Balance",
-    "total_share": "Balance",
-    "rate": "(Balance, Balance)",
+    "amount_per_seat": "Balance",
+    "empty_seats": "u8",
     "fifo": "Vec<Buyer>",
-    "base_fee": "u32",
-    "fee": "u32",
-    "fee_slashed": "bool",
     "vault_deposit": "Balance",
     "vault_withdraw": "Balance",
     "vault_yield": "Balance",
     "vault_bonus": "Balance",
-    "total_fund": "Balance",
     "total_yield_received": "Balance",
     "total_bonus_received": "Balance",
     "total_milestone_received": "Balance",
@@ -95,11 +72,13 @@
     "state": "DpoState",
     "referrer": "Option<AccountId>",
     "fare_withdrawn": "bool",
-    "direct_referral_rate": "u32"
+    "direct_referral_rate": "u32",
+    "fee": "u32",
+    "fee_slashed": "bool"
   },
   "DpoMemberInfo": {
     "buyer": "Buyer",
-    "share": "Balance",
+    "number_of_seats": "u8",
     "referrer": "Referrer"
   },
   "Referrer": {
@@ -119,33 +98,5 @@
       "WithdrawOnCompletion",
       "WithdrawOnFailure"
     ]
-  },
-  "PoolId": {
-    "_enum": {
-      "DexYieldFarming": "CurrencyId"
-    }
-  },
-  "PoolInfo": {
-    "total_shares": "Balance",
-    "total_rewards": "Balance",
-    "total_withdrawn_rewards": "Balance"
-  },
-  "Price": "FixedU128",
-  "ExchangeRate": "FixedU128",
-  "Ratio": "FixedU128",
-  "Rate": "FixedU128",
-  "TradingPair": "(CurrencyId, CurrencyId)",
-  "TradingPairStatus": {
-    "_enum": {
-      "NotEnabled": null,
-      "Provisioning": "TradingPairProvisionParameters",
-      "Enabled": null
-    }
-  },
-  "TradingPairProvisionParameters": {
-    "min_contribution": "(Balance, Balance)",
-    "target_provision": "(Balance, Balance)",
-    "accumulated_provision": "(Balance, Balance)",
-    "not_before": "BlockNumber"
   }
 }
