@@ -885,6 +885,20 @@ pub mod module {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn set_dpo_base_fee(
+            origin: OriginFor<T>,
+            dpo_idx: DpoIndex,
+            base_fee: u32,
+        ) -> DispatchResultWithPostInfo {
+            let _ = T::EngineerOrigin::ensure_origin(origin)?;
+            let mut dpo = Self::dpos(dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
+            dpo.base_fee = base_fee;
+            Dpos::<T>::insert(dpo_idx, dpo);
+            Ok(().into())
+        }
+
         #[pallet::weight(< T as Config >::WeightInfo::passenger_buy_travel_cabin())]
         #[transactional]
         pub fn passenger_buy_travel_cabin(
