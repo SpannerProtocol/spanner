@@ -981,12 +981,6 @@ pub mod module {
                 target_entity.token_id() == buyer_dpo.token_id,
                 Error::<T>::InvalidTargetForDpo
             );
-            if buyer_dpo.state == DpoState::ACTIVE {
-                ensure!(
-                    target_entity.target_amount() <= buyer_dpo.total_fund,
-                    Error::<T>::NotAllowedToChangeLargerTarget
-                );
-            }
             if let TargetEntity::Dpo(target_dpo, target_amount) = &target_entity {
                 // ensure target min and cap
                 Self::ensure_valid_dpo_purchase_amount(
@@ -1022,10 +1016,18 @@ pub mod module {
                 Error::<T>::NotAllowedToChangeTarget
             );
             // ensure the buyer_dpo in a correct state and no partial purchase
-            ensure!(
-                buyer_dpo.state == DpoState::CREATED || buyer_dpo.state == DpoState::ACTIVE,
-                Error::<T>::DpoWrongState
-            );
+            // and can not change to larger target if in active state
+            match buyer_dpo.state {
+                DpoState::CREATED | DpoState::ACTIVE => {
+                    if buyer_dpo.state == DpoState::ACTIVE {
+                        ensure!(
+                            target_entity.target_amount() <= buyer_dpo.total_fund,
+                            Error::<T>::NotAllowedToChangeLargerTarget
+                        );
+                    }
+                }
+                _ => Err(Error::<T>::DpoWrongState)?
+            }
 
             // (d) refresh target info and state
             Self::refresh_dpo_info_for_new_target(&mut buyer_dpo, &target_entity, true)?;

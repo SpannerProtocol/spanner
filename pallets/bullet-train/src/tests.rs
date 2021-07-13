@@ -750,6 +750,7 @@ fn dpo_buy_non_default_travel_cabin_works() {
 #[test]
 fn dpo_buy_non_default_dpo_share_works() {
     ExtBuilder::default().build().execute_with(|| {
+        run_to_block(1);
         //travel cabin 0
         make_default_travel_cabin(BOLT, (10, 10, 100, 1, 1));
         //travel cabin 1
@@ -760,31 +761,31 @@ fn dpo_buy_non_default_dpo_share_works() {
         make_default_dpo(BOB, Target::Dpo(0, 50000), 10, 10, None);
         //dpo2, fee 5% + 0.02% rounding to 0%
         make_default_dpo(BOB, Target::Dpo(0, 50000), 10, 10, None);
-        //dpo3, fee 5% + 0.04% rounding to 0%
-        make_default_dpo(BOB, Target::Dpo(1, 25000), 10, 10, None);
+        //dpo3, fee 5% + 0.05% rounding to 0%
+        make_default_dpo(BOB, Target::Dpo(1, 20000), 10, 10, None);
         fill_dpo_with_dummy_accounts(3, 100);
 
         //dpo buying shares of another dpo
         //dpo3 buys dpo2 shares (dpo1 still available)
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_share(Origin::signed(BOB), 3, 2, 25000),
+            BulletTrain::dpo_buy_dpo_share(Origin::signed(BOB), 3, 2, 20000),
             Error::<Test>::NotAllowedToChangeTarget
         );
         assert_noop!(
-            BulletTrain::dpo_change_target(Origin::signed(BOB), 3, Target::Dpo(2, 25000)),
+            BulletTrain::dpo_change_target(Origin::signed(BOB), 3, Target::Dpo(2, 20000)),
             Error::<Test>::DefaultTargetAvailable
         );
 
         fill_dpo_with_dummy_accounts(1, 100);
         //dpo3 buys dpo1 shares (none left)
         assert_noop!(
-            BulletTrain::dpo_buy_dpo_share(Origin::signed(BOB), 3, 1, 25000),
+            BulletTrain::dpo_buy_dpo_share(Origin::signed(BOB), 3, 1, 20000),
             Error::<Test>::DpoWrongState
         );
 
         //dpo3 changes target to dpo2 (not affordable)
         assert_noop!(
-            BulletTrain::dpo_change_target(Origin::signed(BOB), 3, Target::Dpo(2, 25001),),
+            BulletTrain::dpo_change_target(Origin::signed(BOB), 3, Target::Dpo(2, 20001),),
             Error::<Test>::NotAllowedToChangeLargerTarget
         );
 
@@ -792,18 +793,22 @@ fn dpo_buy_non_default_dpo_share_works() {
         assert_ok!(BulletTrain::dpo_change_target(
             Origin::signed(BOB),
             3,
-            Target::Dpo(2, 20000),
+            Target::Dpo(2, 10000),
         ));
-        //todo: get change target event
+        let expected_event = Event::pallet_bullet_train(crate::Event::DpoTargetChanged(
+            BOB, 3, Target::Dpo(2, 10000),
+        ));
+        assert!(System::events().iter().any(|a| a.event == expected_event));
+
         dpo_buy_target(BOB, 3, 100);
-        assert_eq!(BulletTrain::dpos(3).unwrap().target, Target::Dpo(2, 20000));
+        assert_eq!(BulletTrain::dpos(3).unwrap().target, Target::Dpo(2, 10000));
         assert_eq!(
             BulletTrain::dpos(3).unwrap().target_yield_estimate,
-            20000 * 950 / 1000 * 950 / 1000
+            10000 * 950 / 1000 * 950 / 1000
         );
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_deposit, 0);
-        assert_eq!(BulletTrain::dpos(3).unwrap().total_fund, 20000);
-        assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 5000);
+        assert_eq!(BulletTrain::dpos(3).unwrap().total_fund, 10000);
+        assert_eq!(BulletTrain::dpos(3).unwrap().vault_withdraw, 10000);
     });
 }
 
