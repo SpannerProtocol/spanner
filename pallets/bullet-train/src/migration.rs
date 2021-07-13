@@ -132,7 +132,7 @@ pub fn migrate_dpos_and_members<T: Config>() {
                 DpoState::FAILED => 0,
             };
 
-            let dpo = DpoInfo{
+            let new_dpo = DpoInfo{
                 index: dpo.index,
                 name: dpo.name,
                 token_id: dpo.token_id,
@@ -164,8 +164,8 @@ pub fn migrate_dpos_and_members<T: Config>() {
                 fare_withdrawn: dpo.fare_withdrawn,
                 direct_referral_rate: dpo.direct_referral_rate,
             };
-            dpos[dpo.index as usize] = dpo.clone();
-            Some(dpo)
+            dpos[dpo.index as usize] = new_dpo.clone();
+            Some(new_dpo)
         }
     );
 
