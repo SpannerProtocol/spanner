@@ -421,6 +421,7 @@ pub mod module {
             Balance,
         ),
         FareWithdrawnFromTravelCabin(T::AccountId, TravelCabinIndex, TravelCabinInventoryIndex),
+        DpoTargetChanged(T::AccountId, DpoIndex, Target<Balance>),
     }
 
     #[pallet::storage]
@@ -992,7 +993,7 @@ pub mod module {
             // change the target only by the manager
             let signer = ensure_signed(origin)?;
             ensure!(
-                Self::is_buyer_manager(&buyer_dpo, &Buyer::Passenger(signer)),
+                Self::is_buyer_manager(&buyer_dpo, &Buyer::Passenger(signer.clone())),
                 Error::<T>::NoPermission
             );
             // original target unavailable
@@ -1019,6 +1020,7 @@ pub mod module {
                 Self::activate_dpo(&mut buyer_dpo);
             }
             Dpos::<T>::insert(buyer_dpo.index, &buyer_dpo);
+            Self::deposit_event(Event::DpoTargetChanged(signer, buyer_dpo_idx, new_target));
             Ok(().into())
         }
 
