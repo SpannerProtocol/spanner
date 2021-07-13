@@ -921,8 +921,8 @@ pub mod module {
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             let target = Target::TravelCabin(travel_cabin_idx);
-            let buyer = Buyer::Dpo(buyer_dpo_idx);
-            Self::do_dpo_buy_a_target(signer, buyer, target)?;
+            let buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
+            Self::do_dpo_buy_a_target(signer, buyer_dpo, target)?;
             Ok(().into())
         }
 
@@ -953,8 +953,8 @@ pub mod module {
         ) -> DispatchResultWithPostInfo {
             let signer = ensure_signed(origin)?;
             let target = Target::Dpo(target_dpo_idx, amount);
-            let buyer = Buyer::Dpo(buyer_dpo_idx);
-            Self::do_dpo_buy_a_target(signer, buyer, target)?;
+            let buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
+            Self::do_dpo_buy_a_target(signer, buyer_dpo, target)?;
             Ok(().into())
         }
 
@@ -2175,121 +2175,115 @@ impl<T: Config> Pallet<T> {
 
     fn do_dpo_buy_a_target(
         signer: T::AccountId,
-        buyer: Buyer<T::AccountId>,
+        mut buyer_dpo: DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         target: Target<Balance>,
     ) -> DispatchResult {
-        if let Buyer::Dpo(buyer_dpo_idx) = buyer {
-            // (a) ensure target available
-            let target_entity = Self::is_target_available(&target)?;
-            // ensure buyer exist
-            let mut buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
+        // (a) ensure target available
+        let target_entity = Self::is_target_available(&target)?;
+        let buyer = Buyer::Dpo(buyer_dpo.index);
+        let target_compare = Self::compare_targets(&target, &buyer_dpo.target);
+        match target_entity.clone() {
+            TargetEntity::TravelCabin(travel_cabin, inv_idx) => {
+                // (b) ensure buyer and target compliance
+                ensure!(target_compare == TargetCompare::Same, Error::<T>::NotAllowedToChangeTarget);
+                ensure!(buyer_dpo.state == DpoState::ACTIVE, Error::<T>::DpoWrongState);
 
-            let target_compare = Self::compare_targets(&target, &buyer_dpo.target);
-            match target_entity.clone() {
-                TargetEntity::TravelCabin(travel_cabin, inv_idx) => {
-                    // (b) ensure buyer and target compliance
-                    ensure!(target_compare == TargetCompare::Same, Error::<T>::NotAllowedToChangeTarget);
-                    ensure!(buyer_dpo.state == DpoState::ACTIVE, Error::<T>::DpoWrongState);
+                // (c) do buy action
+                // transfer from the buyer to pallet account
+                Self::update_dpo_outflow(
+                    &mut buyer_dpo,
+                    travel_cabin.deposit_amount,
+                    PaymentType::Deposit,
+                )?;
+                // insert record
+                Self::insert_cabin_purchase_record(&travel_cabin, inv_idx, buyer.clone());
 
-                    // (c) do buy action
-                    // transfer from the buyer to pallet account
-                    Self::update_dpo_outflow(
-                        &mut buyer_dpo,
-                        travel_cabin.deposit_amount,
-                        PaymentType::Deposit,
-                    )?;
-                    // insert record
-                    Self::insert_cabin_purchase_record(&travel_cabin, inv_idx, buyer.clone());
-
-                    // (d) post buy
-                    Self::do_dpo_post_buy_travel_cabin(&travel_cabin, &mut buyer_dpo, signer.clone())?;
-                }
-                TargetEntity::Dpo(mut target_dpo, target_amount) => {
-                    // (b) ensure buyer and target compliance
-                    // same target or to same dpo
-                    ensure!(target_compare != TargetCompare::Different, Error::<T>::NotAllowedToChangeTarget);
-                    // if the buyer_dpo in a correct state
-                    ensure!(
+                // (d) post buy
+                Self::do_dpo_post_buy_travel_cabin(&travel_cabin, &mut buyer_dpo, signer.clone())?;
+            }
+            TargetEntity::Dpo(mut target_dpo, target_amount) => {
+                // (b) ensure buyer and target compliance
+                // same target or to same dpo
+                ensure!(target_compare != TargetCompare::Different, Error::<T>::NotAllowedToChangeTarget);
+                // if the buyer_dpo in a correct state
+                ensure!(
                         buyer_dpo.state == DpoState::CREATED || buyer_dpo.state == DpoState::ACTIVE,
                         Error::<T>::DpoWrongState
                     );
-                    // ensure the dpo has enough balance to buy
-                    ensure!(buyer_dpo.vault_deposit >= target_amount, Error::<T>::TargetValueTooBig);
+                // ensure the dpo has enough balance to buy
+                ensure!(buyer_dpo.vault_deposit >= target_amount, Error::<T>::TargetValueTooBig);
 
-                    // ensure the target and reward can be split evenly
-                    Self::ensure_min_dpo_target_for_splitting(&target_dpo, target_amount)?;
+                // ensure the target and reward can be split evenly
+                Self::ensure_min_dpo_target_for_splitting(&target_dpo, target_amount)?;
 
-                    if target_compare == TargetCompare::SameDpo { // partial buy
-                        let target_remainder_of_target_dpo = target_dpo.target_amount.saturating_sub(target_dpo.total_fund);
-                        let min_amount_require = Self::percentage_from_num_tuple(T::DpoPartialBuySharePercentMin::get())
-                            .saturating_mul_int(target_dpo.target_amount);
-                        // the amount of partial purchase should be more than minimum requirement (1%),
-                        // unless the remaining shares of the original target is less than 1%
-                        if target_remainder_of_target_dpo >= min_amount_require {
-                            ensure!(target_amount >= min_amount_require, Error::<T>::PurchaseAtLeastOnePercent);
-                        } else {
-                            ensure!(target_amount == target_remainder_of_target_dpo, Error::<T>::PurchaseAllRemainder);
-                        }
+                if target_compare == TargetCompare::SameDpo { // partial buy
+                    let target_remainder_of_target_dpo = target_dpo.target_amount.saturating_sub(target_dpo.total_fund);
+                    let min_amount_require = Self::percentage_from_num_tuple(T::DpoPartialBuySharePercentMin::get())
+                        .saturating_mul_int(target_dpo.target_amount);
+                    // the amount of partial purchase should be more than minimum requirement (1%),
+                    // unless the remaining shares of the original target is less than 1%
+                    if target_remainder_of_target_dpo >= min_amount_require {
+                        ensure!(target_amount >= min_amount_require, Error::<T>::PurchaseAtLeastOnePercent);
+                    } else {
+                        ensure!(target_amount == target_remainder_of_target_dpo, Error::<T>::PurchaseAllRemainder);
+                    }
 
-                        // when buyer dpo becomes active, it should buy the original target completely,
-                        // instead of buying partially, unless the target is unavailable
-                        // spent_amount = total_fund - vault_deposit, to_be_spent_amount = target_amount - spent_amount
-                        // to_be_spent_amount may not be equal to vault_deposit, if total_fund is larger than target_amount (changed to smaller target)
-                        let to_be_spent_amount = buyer_dpo.target_amount.saturating_sub(
-                            buyer_dpo.total_fund.saturating_sub(buyer_dpo.vault_deposit)
-                        );
-                        if buyer_dpo.state == DpoState::ACTIVE && target_amount != to_be_spent_amount {
-                            ensure!(
+                    // when buyer dpo becomes active, it should buy the original target completely,
+                    // instead of buying partially, unless the target is unavailable
+                    // spent_amount = total_fund - vault_deposit, to_be_spent_amount = target_amount - spent_amount
+                    // to_be_spent_amount may not be equal to vault_deposit, if total_fund is larger than target_amount (changed to smaller target)
+                    let to_be_spent_amount = buyer_dpo.target_amount.saturating_sub(
+                        buyer_dpo.total_fund.saturating_sub(buyer_dpo.vault_deposit)
+                    );
+                    if buyer_dpo.state == DpoState::ACTIVE && target_amount != to_be_spent_amount {
+                        ensure!(
                                 // the remaining shares of original target is unavailable
                                 Self::is_target_available(
                                     &Target::Dpo(target_dpo.index, to_be_spent_amount)
                                 ).is_err(),
                                 Error::<T>::DefaultTargetAvailable
                             );
-                        }
-                        // buy target partially only by manager when the buyer dpo is in created state
-                        if buyer_dpo.state == DpoState::CREATED {
-                            ensure!(
+                    }
+                    // buy target partially only by manager when the buyer dpo is in created state
+                    if buyer_dpo.state == DpoState::CREATED {
+                        ensure!(
                                 Self::is_buyer_manager(&buyer_dpo, &Buyer::Passenger(signer.clone())),
                                 Error::<T>::NoPermission
                             );
-                        }
                     }
-
-                    // (c) pay the target dpo
-                    Self::dpo_outflow_to_dpo(
-                        &mut buyer_dpo,
-                        &mut target_dpo,
-                        target_amount,
-                        PaymentType::Deposit,
-                    )?;
-                    Self::insert_buyer_to_target_dpo(
-                        &mut target_dpo,
-                        target_amount,
-                        buyer.clone(),
-                        None,
-                    )?;
-
-                    // (d) post buy, refresh target info and return unused fund if needed
-                    // dpo_post_buy_check should be called after insert_buyer_to_target_dpo because
-                    // dpo target info refresh may rely on parent dpo member info
-                    Self::do_dpo_post_buy_dpo(
-                        &mut buyer_dpo,
-                        &target_dpo,
-                        signer.clone(),
-                    )?;
-                    Dpos::<T>::insert(target_dpo.index, &target_dpo); // save target dpo
                 }
+
+                // (c) pay the target dpo
+                Self::dpo_outflow_to_dpo(
+                    &mut buyer_dpo,
+                    &mut target_dpo,
+                    target_amount,
+                    PaymentType::Deposit,
+                )?;
+                Self::insert_buyer_to_target_dpo(
+                    &mut target_dpo,
+                    target_amount,
+                    buyer.clone(),
+                    None,
+                )?;
+
+                // (d) post buy, refresh target info and return unused fund if needed
+                // dpo_post_buy_check should be called after insert_buyer_to_target_dpo because
+                // dpo target info refresh may rely on parent dpo member info
+                Self::do_dpo_post_buy_dpo(
+                    &mut buyer_dpo,
+                    &target_dpo,
+                    signer.clone(),
+                )?;
+                Dpos::<T>::insert(target_dpo.index, &target_dpo); // save target dpo
             }
-            Dpos::<T>::insert(buyer_dpo_idx, &buyer_dpo); // save buyer dpo
-            Self::deposit_event_for_buying_a_target(
-                signer,
-                buyer,
-                target_entity,
-            );
-        } else {
-            Err(Error::<T>::InvalidBuyerType)?
         }
+        Dpos::<T>::insert(buyer_dpo.index, &buyer_dpo); // save buyer dpo
+        Self::deposit_event_for_buying_a_target(
+            signer,
+            buyer,
+            target_entity,
+        );
         Ok(())
     }
 
