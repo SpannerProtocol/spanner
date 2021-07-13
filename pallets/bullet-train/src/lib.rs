@@ -109,7 +109,7 @@ pub struct TravelCabinBuyerInfo<Balance, AccountId, BlockNumber> {
     fare_withdrawn: bool,
 }
 
-#[derive(Encode, Decode, Default, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Debug)]
 pub struct MilestoneRewardInfo<Balance> {
     token_id: CurrencyId,
     deposited: Balance,
