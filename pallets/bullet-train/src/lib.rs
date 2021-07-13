@@ -966,11 +966,10 @@ pub mod module {
             buyer_dpo_idx: DpoIndex,
             new_target: Target<Balance>,
         ) -> DispatchResultWithPostInfo {
-            // (a) ensure target is available and buyer exists
+            // (a) ensure target ok
+            // ensure target is available
             let target_entity = Self::is_target_available(&new_target)?;
             let mut buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
-
-            // (b) check target compliance
             // not retarget to the same dpo
             ensure!(
                 Self::compare_targets(&new_target, &buyer_dpo.target) == TargetCompare::Different,
@@ -998,7 +997,7 @@ pub mod module {
                 }
             }
 
-            // (c) check buyer dpo compliance
+            // (b) ensure buy_dpo ok
             // change the target only by the manager
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -1029,7 +1028,7 @@ pub mod module {
                 _ => Err(Error::<T>::DpoWrongState)?
             }
 
-            // (d) refresh target info and state
+            // (c) refresh target info and state
             Self::refresh_dpo_info_for_new_target(&mut buyer_dpo, &target_entity, true)?;
             // update dpo state if fund is enough
             if buyer_dpo.total_fund >= buyer_dpo.target_amount
