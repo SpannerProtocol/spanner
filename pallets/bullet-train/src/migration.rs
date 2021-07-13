@@ -72,28 +72,33 @@ pub struct DeprecatedDpoMemberInfo<AccountId> {
 /// Apply all of the migrations from 2_0_0 to 3_0_0.
 /// Be aware that this migration is intended to be used only for the mentioned versions.
 pub fn migrate_to_v3<T: Config>() -> Weight {
-    frame_support::debug::RuntimeLogger::init(); // TODO: init debugger ?
+    frame_support::debug::RuntimeLogger::init();
 
-    let maybe_storage_version = <frame_system::Module<T>>::storage_version();
+    let maybe_storage_version = <Pallet<T>>::storage_version();
     frame_support::debug::info!(
 		"Running migration for bullet-train with storage version {:?}",
 		maybe_storage_version
 	);
-    match maybe_storage_version {
-        Some(storage_version) if storage_version == PalletVersion::new(2, 0, 0) => {
+    if let Some(storage_version) = maybe_storage_version {
+        frame_support::debug::info!(
+            "current storage version {:?}.{:?}.{:?}",
+            storage_version.major,
+            storage_version.minor,
+            storage_version.patch,
+        );
+        if storage_version == PalletVersion::new(2, 0, 0) {
             // do migrations
             migrate_travel_cabin_buyers::<T>();
             migrate_dpos_and_members::<T>();
-            Weight::max_value()
+            frame_support::debug::info!("successful migration");
+            return Weight::max_value();
         }
-        _ => {
-            frame_support::debug::warn!(
-				"Attempted to apply migration to V3 but failed because storage version is {:?}",
-				maybe_storage_version
-			);
-            0
-        },
     }
+    frame_support::debug::warn!(
+            "Attempted to apply migration to V3 but failed because storage version is {:?}",
+            maybe_storage_version
+        );
+    0
 }
 
 pub fn migrate_travel_cabin_buyers<T: Config>() {
