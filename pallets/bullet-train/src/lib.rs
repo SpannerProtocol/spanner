@@ -814,7 +814,7 @@ pub mod module {
             // (b) ensure target min and cap
             let new_dpo_idx = Self::dpo_count();
             if let TargetEntity::Dpo(target_dpo, target_amount) = target_entity.clone() {
-                Self::ensure_target_amount_within_legit_range_for_buying_dpo(
+                Self::ensure_valid_dpo_purchase_amount(
                     &target_dpo,
                     target_amount,
                     Buyer::Dpo(new_dpo_idx),
@@ -989,7 +989,7 @@ pub mod module {
             }
             if let TargetEntity::Dpo(target_dpo, target_amount) = &target_entity {
                 // ensure target min and cap
-                Self::ensure_target_amount_within_legit_range_for_buying_dpo(
+                Self::ensure_valid_dpo_purchase_amount(
                     target_dpo,
                     *target_amount,
                     Buyer::Dpo(buyer_dpo_idx),
@@ -1893,7 +1893,9 @@ impl<T: Config> Pallet<T> {
         (target_yield_estimate, target_bonus_estimate)
     }
 
-    fn ensure_dpo_target_min_for_splitting_evenly(
+    // TODO: deprecated
+    /// ensure dpo target minimum amount for splitting evenly
+    fn ensure_min_dpo_target_for_splitting(
         target_dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         target_amount: Balance,
     ) -> DispatchResult {
@@ -2150,7 +2152,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn ensure_target_amount_within_legit_range_for_buying_dpo(
+    fn ensure_valid_dpo_purchase_amount(
         target_dpo: &DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         target_amount: Balance,
         buyer: Buyer<T::AccountId>,
@@ -2164,7 +2166,7 @@ impl<T: Config> Pallet<T> {
 
         // if buyer is a dpo, ensure that the target and reward can be split evenly within it
         if let Buyer::Dpo(_) = buyer {
-            Self::ensure_dpo_target_min_for_splitting_evenly(&target_dpo, target_amount)?;
+            Self::ensure_min_dpo_target_for_splitting(&target_dpo, target_amount)?;
         }
         Ok(())
     }
@@ -2213,7 +2215,7 @@ impl<T: Config> Pallet<T> {
                     ensure!(buyer_dpo.vault_deposit >= target_amount, Error::<T>::TargetValueTooBig);
 
                     // ensure the target and reward can be split evenly
-                    Self::ensure_dpo_target_min_for_splitting_evenly(&target_dpo, target_amount)?;
+                    Self::ensure_min_dpo_target_for_splitting(&target_dpo, target_amount)?;
 
                     if target_compare == TargetCompare::SameDpo { // partial buy
                         let target_remainder_of_target_dpo = target_dpo.target_amount.saturating_sub(target_dpo.total_fund);
