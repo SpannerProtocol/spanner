@@ -297,6 +297,7 @@ mod tests {
         pub const PassengerSharePercentMinimum: (u8, u8) = (1, 100); // 1%
         pub const ManagerSlashPerThousand: u32 = 500;
         pub const ManagementFeeCap: u32 = 200; // per thousand
+        pub const ManagementBaseFeeCap: u32 = 50; // per thousand
         pub const MilestoneRewardMinimum: Balance = 10;
         pub const CabinYieldRewardMinimum: Balance = 0;
         pub const CabinBonusRewardMinimum: Balance = 0;
@@ -317,6 +318,7 @@ mod tests {
         type PassengerSharePercentMinimum = PassengerSharePercentMinimum;
         type ManagerSlashPerThousand = ManagerSlashPerThousand;
         type ManagementFeeCap = ManagementFeeCap;
+        type ManagementBaseFeeCap = ManagementBaseFeeCap;
         type EngineerOrigin = EnsureSignedBy<Alice, AccountId>;
         type WeightInfo = weights::SubstrateWeight<Test>;
     }

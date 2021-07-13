@@ -84,8 +84,6 @@ mod migration;
 
 use weights::WeightInfo;
 
-//per thousand
-pub const BASE_FEE_CAP: u32 = 50;
 pub const TARGET_AMOUNT_MINIMUM: Balance = 100;
 pub const DPO_YIELD_REWARD_MINIMUM: Balance = 100;
 
@@ -325,7 +323,10 @@ pub mod module {
         type ManagerSlashPerThousand: Get<u32>;
 
         #[pallet::constant]
-        type ManagementFeeCap: Get<u32>;
+        type ManagementFeeCap: Get<u32>; //per thousand
+
+        #[pallet::constant]
+        type ManagementBaseFeeCap: Get<u32>; //per thousand
 
         type EngineerOrigin: EnsureOrigin<Self::Origin, Success=Self::AccountId>;
 
@@ -822,7 +823,7 @@ pub mod module {
 
             // (c) verify the attributes of new dpo
             //check commission rate base does not exceed cap
-            ensure!(base_fee <= BASE_FEE_CAP, Error::<T>::ExceededRateCap);
+            ensure!(base_fee <= T::ManagementBaseFeeCap::get(), Error::<T>::ExceededRateCap);
             ensure!(direct_referral_rate <= 1000, Error::<T>::ExceededRateCap);
             // ending of this dpo must be in the future
             let now = <frame_system::Module<T>>::block_number();

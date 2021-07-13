@@ -1094,6 +1094,7 @@ parameter_types! {
     pub const PassengerSharePercentMinimum: (u8, u8) = (1, 100); // 1%
     pub const ManagerSlashPerThousand: u32 = 500;
     pub const ManagementFeeCap: u32 = 200; // per thousand
+    pub const ManagementBaseFeeCap: u32 = 50; // per thousand
 }
 impl pallet_bullet_train::Config for Runtime {
     type Event = Event;
@@ -1111,6 +1112,7 @@ impl pallet_bullet_train::Config for Runtime {
     type PassengerSharePercentMinimum = PassengerSharePercentMinimum;
     type ManagerSlashPerThousand = ManagerSlashPerThousand;
     type ManagementFeeCap = ManagementFeeCap;
+    type ManagementBaseFeeCap = ManagementBaseFeeCap;
     type EngineerOrigin = pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>;
     type WeightInfo = pallet_bullet_train::weights::SubstrateWeight<Runtime>;
 }
