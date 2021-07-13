@@ -1015,7 +1015,7 @@ pub mod module {
                 Error::<T>::NotAllowedToChangeTarget
             );
             // ensure the buyer_dpo in a correct state and no partial purchase
-            // and can not change to larger target if in active state
+            // and ensure the buyer_dpo can afford the new target if in active state
             match buyer_dpo.state {
                 DpoState::CREATED | DpoState::ACTIVE => {
                     if buyer_dpo.state == DpoState::ACTIVE {
