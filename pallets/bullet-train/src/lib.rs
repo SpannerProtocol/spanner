@@ -860,7 +860,7 @@ pub mod module {
                 referrer: referrer.clone(),
                 ..Default::default()
             };
-            Self::refresh_dpo_info_for_new_target(&mut new_dpo, &target_entity, false)?;
+            Self::refresh_dpo_target_info_for_new_target(&mut new_dpo, &target_entity, false)?;
 
             Self::dpo_inflow(
                 &manager,
@@ -1029,7 +1029,7 @@ pub mod module {
             }
 
             // (c) refresh target info and state
-            Self::refresh_dpo_info_for_new_target(&mut buyer_dpo, &target_entity, true)?;
+            Self::refresh_dpo_target_info_for_new_target(&mut buyer_dpo, &target_entity, true)?;
             // update dpo state if fund is enough
             if buyer_dpo.total_fund >= buyer_dpo.target_amount
                 && buyer_dpo.state == DpoState::CREATED {
@@ -1347,19 +1347,19 @@ impl<T: Config> Pallet<T> {
 
     /// dpo target's amount may be outdated if its target dpo changes the target.
     /// check if the target changed or not and refresh the target info
-    fn refresh_dpo_target_info(
+    fn refresh_dpo_target_info_if_needed(
         dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
     ) -> DispatchResult {
         let target = Self::get_dpo_latest_target_from_its_target(dpo)?;
         if target.1 != dpo.target { // new target, to refresh dpo target info
-            Self::refresh_dpo_info_for_new_target(dpo, &target.0, true)?;
+            Self::refresh_dpo_target_info_for_new_target(dpo, &target.0, true)?;
         }
         Ok(())
     }
 
     /// update target, estimate of yield and bonus, amount and rate
     /// also the token_id just to be double sure
-    fn refresh_dpo_info_for_new_target(
+    fn refresh_dpo_target_info_for_new_target(
         dpo: &mut DpoInfo<Balance, T::BlockNumber, T::AccountId>,
         new_target: &TargetEntity<Balance, T::BlockNumber, T::AccountId>,
         fee_update_allowed: bool,
@@ -1438,12 +1438,12 @@ impl<T: Config> Pallet<T> {
                     Self::activate_dpo(dpo);
                 }
             }
-            PaymentType::Bonus => {
+            PaymentType::Bonus | PaymentType::Yield  => {
                 // active or created -> running
                 // when the target dpo that this dpo has bought partially becomes active,
                 // this dpo should also become active
                 if dpo.state == DpoState::CREATED || dpo.state == DpoState::ACTIVE {
-                    Self::refresh_dpo_target_info(dpo)?;
+                    Self::refresh_dpo_target_info_if_needed(dpo)?;
                     dpo.state = DpoState::RUNNING;
                     if dpo.vault_deposit > 0 {
                         Self::update_dpo_inflow(
@@ -1453,8 +1453,17 @@ impl<T: Config> Pallet<T> {
                         )?;
                     }
                 }
-                dpo.vault_bonus = dpo.vault_bonus.saturating_add(amount);
-                dpo.total_bonus_received = dpo.total_bonus_received.saturating_add(amount);
+                if let PaymentType::Bonus = payment_type {
+                    dpo.vault_bonus = dpo.vault_bonus.saturating_add(amount);
+                    dpo.total_bonus_received = dpo.total_bonus_received.saturating_add(amount);
+                } else { // yield
+                    if dpo.blk_of_last_yield.is_none() {
+                        let now = <frame_system::Module<T>>::block_number();
+                        dpo.blk_of_last_yield = Some(now);
+                    }
+                    dpo.vault_yield = dpo.vault_yield.saturating_add(amount);
+                    dpo.total_yield_received = dpo.total_yield_received.saturating_add(amount);
+                }
             }
             PaymentType::MilestoneReward => {
                 if dpo.blk_of_last_yield.is_none() {
@@ -1464,31 +1473,9 @@ impl<T: Config> Pallet<T> {
                 dpo.vault_yield = dpo.vault_yield.saturating_add(amount);
                 dpo.total_milestone_received = dpo.total_milestone_received.saturating_add(amount);
             }
-            PaymentType::Yield => {
-                // active or created -> running
-                // when the target dpo that this dpo has bought partially becomes active,
-                // this dpo should also become active
-                if dpo.state == DpoState::CREATED || dpo.state == DpoState::ACTIVE {
-                    Self::refresh_dpo_target_info(dpo)?;
-                    dpo.state = DpoState::RUNNING;
-                    if dpo.vault_deposit > 0 {
-                        Self::update_dpo_inflow(
-                            dpo,
-                            dpo.vault_deposit,
-                            PaymentType::UnusedFund,
-                        )?;
-                    }
-                }
-                if dpo.blk_of_last_yield.is_none() {
-                    let now = <frame_system::Module<T>>::block_number();
-                    dpo.blk_of_last_yield = Some(now);
-                }
-                dpo.vault_yield = dpo.vault_yield.saturating_add(amount);
-                dpo.total_yield_received = dpo.total_yield_received.saturating_add(amount);
-            }
             PaymentType::UnusedFund => {
                 // to return unused fund means that the dpo has a new smaller target
-                Self::refresh_dpo_target_info(dpo)?;
+                Self::refresh_dpo_target_info_if_needed(dpo)?;
                 // when the target dpo that this dpo has bought partially becomes active,
                 // this dpo should also become active
                 if dpo.state == DpoState::CREATED {
