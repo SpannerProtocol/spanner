@@ -838,7 +838,7 @@ pub mod module {
             ensure!(manager_purchase_amount <= max_amount_for_manager, Error::<T>::ExceededShareCap);
 
             // (d) construct the new dpo
-            let fee = Self::calculate_fee(
+            let fee = Self::calc_dpo_manager_fee(
                 base_fee,
                 manager_purchase_amount,
                 target_entity.target_amount(),
@@ -1392,7 +1392,7 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::InvalidIndex)?;
             let manager_amount = Self::percentage_from_num_tuple(dpo.rate)
                 .saturating_mul_int(manager_info.share);
-            let fee = Self::calculate_fee(
+            let fee = Self::calc_dpo_manager_fee(
                 dpo.base_fee,
                 manager_amount,
                 new_target_amount,
@@ -1405,7 +1405,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn calculate_fee(
+    fn calc_dpo_manager_fee(
         base_fee: u32,
         manager_amount: Balance,
         target_amount: Balance,
