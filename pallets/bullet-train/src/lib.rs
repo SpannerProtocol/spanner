@@ -831,7 +831,7 @@ pub mod module {
 
             // check if the amount that the manager buys is over the cap
             let manager = ensure_signed(origin)?;
-            let (_, max_amount_for_manager) = Self::legit_range_for_buying_dpo(
+            let (_, max_amount_for_manager) = Self::legit_dpo_shares_purchase_constraints(
                 target_entity.target_amount(),
                 Buyer::Passenger(manager.clone())
             );
@@ -1677,7 +1677,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn legit_range_for_buying_dpo(
+    fn legit_dpo_shares_purchase_constraints(
         target_dpo_amount: Balance,
         buyer: Buyer<T::AccountId>,
     ) -> (Balance, Balance) {
@@ -2158,7 +2158,7 @@ impl<T: Config> Pallet<T> {
         target_amount: Balance,
         buyer: Buyer<T::AccountId>,
     ) -> DispatchResult {
-        let (min_amount, max_amount) = Self::legit_range_for_buying_dpo(
+        let (min_amount, max_amount) = Self::legit_dpo_shares_purchase_constraints(
             target_dpo.target_amount,
             buyer.clone(),
         );
@@ -2299,7 +2299,7 @@ impl<T: Config> Pallet<T> {
                 TargetEntity::Dpo(mut target_dpo, target_amount) => {
                     //ensure share min and cap
                     let target_remainder = target_dpo.target_amount.saturating_sub(target_dpo.total_fund);
-                    let (min_amount, max_amount) = Self::legit_range_for_buying_dpo(
+                    let (min_amount, max_amount) = Self::legit_dpo_shares_purchase_constraints(
                         target_dpo.target_amount,
                         buyer.clone(),
                     );
