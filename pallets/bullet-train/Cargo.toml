@@ -1,12 +1,12 @@
 [package]
 authors = ['Spanner Developers']
-description = 'POC FRAME pallet'
+description = 'bullet train pallet'
 edition = '2018'
 homepage = 'https://www.spanner.network/'
 license = 'Unlicense'
 name = 'pallet-bullet-train'
 repository = ''
-version = '2.0.0'
+version = '3.0.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -35,6 +35,7 @@ pallet-bullet-train-primitives = { version = "2.0.0", default-features = false, 
 [dev-dependencies]
 sp-core = { version = '3.0.0', default-features = false }
 sp-io = { version = '3.0.0', default-features = false }
+bincode = "1.3.1"
 
 [features]
 default = ['std']

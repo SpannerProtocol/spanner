@@ -1081,14 +1081,17 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
 parameter_types! {
     pub const ReleaseYieldGracePeriod: BlockNumber = 7 * DAYS;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 7 * DAYS;
-    pub const TreasureHuntingGracePeriod: BlockNumber = 7 * DAYS;
     pub const MilestoneRewardMinimum: Balance = 10_000_000_000;
     pub const CabinYieldRewardMinimum: Balance = 10_000_000_000;
     pub const CabinBonusRewardMinimum: Balance = 10_000_000_000;
-    pub const DpoSeatCap: u8 = 30;
-    pub const DpoSeats: u8 = 100;
-    pub const PassengerSeatCap: u8 = 15;
+    pub const DpoSharePercentCap: (u8, u8) = (1, 2); // 50%
+    pub const DpoSharePercentMinimum: (u8, u8) = (3, 100); // 3%
+    pub const DpoPartialBuySharePercentMin: (u8, u8) = (1, 100); // 1%
+    pub const PassengerSharePercentCap: (u8, u8) = (3, 10); // 30%
+    pub const PassengerSharePercentMinimum: (u8, u8) = (1, 100); // 1%
     pub const ManagerSlashPerThousand: u32 = 500;
+    pub const ManagementFeeCap: u32 = 200; // per thousand
+    pub const ManagementBaseFeeCap: u32 = 50; // per thousand
 }
 impl pallet_bullet_train::Config for Runtime {
     type Event = Event;
@@ -1096,14 +1099,17 @@ impl pallet_bullet_train::Config for Runtime {
     type ModuleId = BulletTrainId;
     type ReleaseYieldGracePeriod = ReleaseYieldGracePeriod;
     type DpoMakePurchaseGracePeriod = DpoMakePurchaseGracePeriod;
-    type TreasureHuntingGracePeriod = TreasureHuntingGracePeriod;
     type MilestoneRewardMinimum = MilestoneRewardMinimum;
     type CabinYieldRewardMinimum = CabinYieldRewardMinimum;
     type CabinBonusRewardMinimum = CabinBonusRewardMinimum;
-    type DpoSeatCap = DpoSeatCap;
-    type DpoSeats = DpoSeats;
-    type PassengerSeatCap = PassengerSeatCap;
+    type DpoSharePercentCap = DpoSharePercentCap;
+    type DpoSharePercentMinimum = DpoSharePercentMinimum;
+    type DpoPartialBuySharePercentMin = DpoPartialBuySharePercentMin;
+    type PassengerSharePercentCap = PassengerSharePercentCap;
+    type PassengerSharePercentMinimum = PassengerSharePercentMinimum;
     type ManagerSlashPerThousand = ManagerSlashPerThousand;
+    type ManagementFeeCap = ManagementFeeCap;
+    type ManagementBaseFeeCap = ManagementBaseFeeCap;
     type EngineerOrigin = pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>;
     type WeightInfo = pallet_bullet_train::weights::SubstrateWeight<Runtime>;
 }

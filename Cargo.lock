@@ -1604,6 +1604,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "form_urlencoded"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fc25a87fa4fd2094bffb06925852034d90a17f0d1e05197d4956d3555752191"
+dependencies = [
+ "matches",
+ "percent-encoding 2.1.0",
+]
+
+[[package]]
 name = "frame-benchmarking"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate.git?rev=e03ca38d45f438932ec92bf69a40b6b16b6ec643#e03ca38d45f438932ec92bf69a40b6b16b6ec643"
@@ -3314,7 +3324,7 @@ dependencies = [
  "quicksink",
  "rw-stream-sink",
  "soketto",
- "url 2.1.1",
+ "url 2.2.2",
  "webpki-roots",
 ]
 
@@ -3620,7 +3630,7 @@ checksum = "0840c1c50fd55e521b247f949c241c9997709f23bd7f023b9762cd561e935656"
 dependencies = [
  "log",
  "mio",
- "miow 0.3.5",
+ "miow 0.3.7",
  "winapi 0.3.9",
 ]
 
@@ -3649,11 +3659,10 @@ dependencies = [
 
 [[package]]
 name = "miow"
-version = "0.3.5"
+version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07b88fb9795d4d36d62a012dfbf49a8f5cf12751f36d31a9dbe66d528e58979e"
+checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
 dependencies = [
- "socket2",
  "winapi 0.3.9",
 ]
 
@@ -4417,8 +4426,9 @@ dependencies = [
 
 [[package]]
 name = "pallet-bullet-train"
-version = "2.0.0"
+version = "3.0.0"
 dependencies = [
+ "bincode",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5044,7 +5054,7 @@ dependencies = [
  "serde",
  "static_assertions",
  "unsigned-varint 0.7.0",
- "url 2.1.1",
+ "url 2.2.2",
 ]
 
 [[package]]
@@ -5114,7 +5124,7 @@ dependencies = [
  "libc",
  "log",
  "mio-named-pipes",
- "miow 0.3.5",
+ "miow 0.3.7",
  "rand 0.7.3",
  "tokio 0.1.22",
  "tokio-named-pipes",
@@ -5179,7 +5189,7 @@ dependencies = [
  "rand 0.7.3",
  "sha-1",
  "slab",
- "url 2.1.1",
+ "url 2.2.2",
 ]
 
 [[package]]
@@ -9549,10 +9559,11 @@ dependencies = [
 
 [[package]]
 name = "url"
-version = "2.1.1"
+version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "829d4a8476c35c9bf0bbce5a3b23f4106f79728039b726d292bb93bc106787cb"
+checksum = "a507c383b2d33b5fc35d1861e77e6b383d158b2da5e14fe51b83dfedf6fd578c"
 dependencies = [
+ "form_urlencoded",
  "idna 0.2.0",
  "matches",
  "percent-encoding 2.1.0",
