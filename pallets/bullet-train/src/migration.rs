@@ -147,7 +147,7 @@ pub fn migrate_dpos_and_members<T: Config>() {
                 target_amount: dpo.target_amount,
                 target_yield_estimate: dpo.target_yield_estimate,
                 target_bonus_estimate: dpo.target_bonus_estimate,
-                total_share: total_fund, // equal to fund, when rate = 1
+                issued_shares: total_fund, // equal to fund, when rate = 1
                 rate: (1, 1),
                 fifo: dpo.fifo,
                 base_fee: 0, // TODO: get from off-chain
@@ -391,7 +391,7 @@ mod tests {
             assert_eq!(dpo1.index, 1);
             assert_eq!(dpo1.target_amount, amount);
             assert_eq!(dpo1.target, Target::Dpo(0, amount));
-            assert_eq!(dpo1.total_share, 0);
+            assert_eq!(dpo1.issued_shares, 0);
             assert_eq!(dpo1.total_fund, 0);
             assert_eq!(dpo1.state, DpoState::FAILED);
 
@@ -401,7 +401,7 @@ mod tests {
             assert_eq!(dpo15.index, 15);
             assert_eq!(dpo15.target_amount, amount);
             assert_eq!(dpo15.target, Target::Dpo(14, amount));
-            assert_eq!(dpo15.total_share, amount);
+            assert_eq!(dpo15.issued_shares, amount);
             assert_eq!(dpo15.total_fund, amount);
             assert_eq!(dpo15.state, DpoState::RUNNING);
 
@@ -413,7 +413,7 @@ mod tests {
             assert_eq!(dpo20.target_amount, target_amount);
             assert_eq!(dpo20.vault_deposit, deposit_amount);
             assert_eq!(dpo20.target, Target::TravelCabin(0));
-            assert_eq!(dpo20.total_share, deposit_amount);
+            assert_eq!(dpo20.issued_shares, deposit_amount);
             assert_eq!(dpo20.total_fund, deposit_amount);
             assert_eq!(dpo20.state, DpoState::CREATED);
 

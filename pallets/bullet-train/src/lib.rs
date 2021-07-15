@@ -184,9 +184,9 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     target_amount: Balance,
     target_yield_estimate: Balance,
     target_bonus_estimate: Balance,
-    // dpo internal share, tokenization in the future
-    total_share: Balance,
-    // rate=total_fund/total_share, represents that one unit share be equivalent to the number
+    // dpo internal shares, tokenization in the future
+    issued_shares: Balance,
+    // rate=total_fund/issued_shares, represents that one unit share be equivalent to the number
     // of the target token, default rate=1
     rate: (Balance, Balance),
     fifo: Vec<Buyer<AccountId>>,
@@ -1488,7 +1488,7 @@ impl<T: Config> Pallet<T> {
                 dpo.vault_deposit = dpo.vault_deposit.saturating_sub(amount);
                 dpo.total_fund = dpo.total_fund.saturating_sub(amount);
                 dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount);
-                dpo.rate = (dpo.total_fund, dpo.total_share); // refresh rate
+                dpo.rate = (dpo.total_fund, dpo.issued_shares); // refresh rate
             }
             PaymentType::WithdrawOnCompletion => {
                 dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount);
@@ -1694,7 +1694,7 @@ impl<T: Config> Pallet<T> {
         // update dpo total share, share = token / rate
         let rate = Self::percentage_from_num_tuple(target_dpo.rate);
         let share = rate.reciprocal().unwrap_or_default().saturating_mul_int(amount);
-        target_dpo.total_share = target_dpo.total_share.saturating_add(share);
+        target_dpo.issued_shares = target_dpo.issued_shares.saturating_add(share);
 
         // add new member and update member share
         let member = Self::dpo_members(target_dpo.index, buyer.clone());
@@ -1739,8 +1739,8 @@ impl<T: Config> Pallet<T> {
 
         // step 1 (divide): bonus are firstly given to each receiving share (if targeting a cabin, then 100% share. Otherwise, remove the Manager's)
         let (is_lead_dpo, total_receivable_share) = match dpo.target {
-            Target::Dpo(_, _) => (false, dpo.total_share.saturating_sub(manager_info.share)),
-            Target::TravelCabin(_) => (true, dpo.total_share),
+            Target::Dpo(_, _) => (false, dpo.issued_shares.saturating_sub(manager_info.share)),
+            Target::TravelCabin(_) => (true, dpo.issued_shares),
         };
 
         // step 2 (emit): compute the distributable bonus (if the member is a dpo, only its managers portion (in parent dpo). Otherwise, all of them)
@@ -1786,7 +1786,7 @@ impl<T: Config> Pallet<T> {
                     Self::dpo_members(member_dpo_idx, Buyer::Passenger(member_dpo.manager))
                         .ok_or(Error::<T>::InvalidIndex)?;
                 let reserve_bonus = Self::percentage_from_num_tuple(
-                    (member_dpo.total_share.saturating_sub(member_manager_info.share), member_dpo.total_share)
+                    (member_dpo.issued_shares.saturating_sub(member_manager_info.share), member_dpo.issued_shares)
                 ).saturating_mul_int(emit_bonus);
 
                 Self::dpo_outflow_to_member_account(
@@ -1913,7 +1913,7 @@ impl<T: Config> Pallet<T> {
         for member_info in dpo_members.into_iter() {
             if Self::is_buyer_manager(dpo, &member_info.buyer) { continue; };
             let percent = Self::percentage_from_num_tuple(
-                (member_info.share, dpo.total_share)
+                (member_info.share, dpo.issued_shares)
             );
             let amount = percent.saturating_mul_int(total_amount);
             Self::dpo_outflow_to_member_account(dpo, member_info.buyer, amount, payment_type)?;
