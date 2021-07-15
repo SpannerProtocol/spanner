@@ -148,7 +148,7 @@ pub fn migrate_dpos_and_members<T: Config>() {
                 target_yield_estimate: dpo.target_yield_estimate,
                 target_bonus_estimate: dpo.target_bonus_estimate,
                 issued_shares: total_fund, // equal to fund, when rate = 1
-                rate: (1, 1),
+                share_rate: (1, 1),
                 fifo: dpo.fifo,
                 base_fee: 0, // TODO: get from off-chain
                 fee: dpo.fee,

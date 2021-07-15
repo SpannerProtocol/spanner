@@ -186,9 +186,9 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     target_bonus_estimate: Balance,
     // dpo internal shares, tokenization in the future
     issued_shares: Balance,
-    // rate=total_fund/issued_shares, represents that one unit share be equivalent to the number
+    // share_rate=total_fund/issued_shares, represents that one unit share be equivalent to the number
     // of the target token, default rate=1
-    rate: (Balance, Balance),
+    share_rate: (Balance, Balance),
     fifo: Vec<Buyer<AccountId>>,
     // fee rate, per thousand, target related
     base_fee: u32,
@@ -849,7 +849,7 @@ pub mod module {
                 name,
                 target,
                 manager: manager.clone(),
-                rate: (1, 1), // default rate=1
+                share_rate: (1, 1), // default rate=1
                 base_fee,
                 fee,
                 fee_slashed: false,
@@ -1390,7 +1390,7 @@ impl<T: Config> Pallet<T> {
             // recompute fee
             let manager_info = Self::dpo_members(dpo.index, Buyer::Passenger(dpo.manager.clone()))
                 .ok_or(Error::<T>::InvalidIndex)?;
-            let manager_amount = Self::percentage_from_num_tuple(dpo.rate)
+            let manager_amount = Self::percentage_from_num_tuple(dpo.share_rate)
                 .saturating_mul_int(manager_info.share);
             let fee = Self::calc_dpo_manager_fee(
                 dpo.base_fee,
@@ -1488,7 +1488,7 @@ impl<T: Config> Pallet<T> {
                 dpo.vault_deposit = dpo.vault_deposit.saturating_sub(amount);
                 dpo.total_fund = dpo.total_fund.saturating_sub(amount);
                 dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount);
-                dpo.rate = (dpo.total_fund, dpo.issued_shares); // refresh rate
+                dpo.share_rate = (dpo.total_fund, dpo.issued_shares); // refresh rate
             }
             PaymentType::WithdrawOnCompletion => {
                 dpo.vault_withdraw = dpo.vault_withdraw.saturating_add(amount);
@@ -1544,7 +1544,7 @@ impl<T: Config> Pallet<T> {
                     ).ok_or(Error::<T>::InvalidIndex)?;
 
                     let latest_target_amount = Self::percentage_from_num_tuple(
-                        target_dpo.rate
+                        target_dpo.share_rate
                     ).saturating_mul_int(member_dpo_info.share);
                     latest_target_amount
                 };
@@ -1692,7 +1692,7 @@ impl<T: Config> Pallet<T> {
         referrer_account: Option<T::AccountId>,
     ) -> DispatchResult {
         // update dpo total share, share = token / rate
-        let rate = Self::percentage_from_num_tuple(target_dpo.rate);
+        let rate = Self::percentage_from_num_tuple(target_dpo.share_rate);
         let share = rate.reciprocal().unwrap_or_default().saturating_mul_int(amount);
         target_dpo.issued_shares = target_dpo.issued_shares.saturating_add(share);
 
@@ -2298,7 +2298,7 @@ impl<T: Config> Pallet<T> {
                         let member = Self::dpo_members(target_dpo.index, buyer.clone());
                         let bought_amount = match member {
                             Some(member_info) => {
-                                Self::percentage_from_num_tuple(target_dpo.rate)
+                                Self::percentage_from_num_tuple(target_dpo.share_rate)
                                     .saturating_mul_int(member_info.share)
                             }
                             None => 0,

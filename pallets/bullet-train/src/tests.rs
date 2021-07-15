@@ -579,7 +579,7 @@ fn dpo_create_targeting_travel_cabin_works() {
         assert_eq!(BulletTrain::dpos(0).unwrap().target_yield_estimate, 1000);
         assert_eq!(BulletTrain::dpos(0).unwrap().target_bonus_estimate, 1000);
         assert_eq!(BulletTrain::dpos(0).unwrap().issued_shares, 10);
-        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1));
+        assert_eq!(BulletTrain::dpos(0).unwrap().share_rate, (1, 1));
         assert_eq!(BulletTrain::dpos(0).unwrap().base_fee, 50);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 51);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 10);
@@ -693,7 +693,7 @@ fn dpo_buy_dpo_share_works() {
         );
         assert_eq!(BulletTrain::dpos(1).unwrap().target_bonus_estimate, 500);
         assert_eq!(BulletTrain::dpos(1).unwrap().issued_shares, 5000);
-        assert_eq!(BulletTrain::dpos(1).unwrap().rate, (1, 1));
+        assert_eq!(BulletTrain::dpos(1).unwrap().share_rate, (1, 1));
         assert_eq!(BulletTrain::dpos(1).unwrap().base_fee, 50);
         assert_eq!(BulletTrain::dpos(1).unwrap().fee, 52);
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 0);
@@ -1063,7 +1063,7 @@ fn dpo_buy_dpo_share_partially_works() {
         assert_eq!(BulletTrain::dpos(3).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(3).unwrap().total_fund, 10000);
         assert_eq!(BulletTrain::dpos(3).unwrap().issued_shares, 12000);
-        assert_eq!(BulletTrain::dpos(3).unwrap().rate, (10000, 12000));
+        assert_eq!(BulletTrain::dpos(3).unwrap().share_rate, (10000, 12000));
 
         // dpo1 still in created state and target info outdated before bonus or yield flows in,
         // even thought dpo 0 became active
@@ -1083,7 +1083,7 @@ fn dpo_buy_dpo_share_partially_works() {
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 10000);
         assert_eq!(BulletTrain::dpos(1).unwrap().issued_shares, 12000);
-        assert_eq!(BulletTrain::dpos(1).unwrap().rate, (10000, 12000));
+        assert_eq!(BulletTrain::dpos(1).unwrap().share_rate, (10000, 12000));
     });
 }
 
@@ -2454,7 +2454,7 @@ fn dpo_change_larger_cabin_in_created_state() {
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 1000);
         assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 1000);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 60); // from 15% to 6%
-        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1)); // 1:1
+        assert_eq!(BulletTrain::dpos(0).unwrap().share_rate, (1, 1)); // 1:1
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::CREATED);
     });
 }
@@ -2524,7 +2524,7 @@ fn dpo_change_smaller_cabin_and_activate() {
         assert_eq!(BulletTrain::dpos(0).unwrap().issued_shares, 20000);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 150); // still 15%
-        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1)); // 1:1
+        assert_eq!(BulletTrain::dpos(0).unwrap().share_rate, (1, 1)); // 1:1
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
 
         // make cabin 1 unavailable
@@ -2549,7 +2549,7 @@ fn dpo_change_smaller_cabin_and_activate() {
         assert_eq!(BulletTrain::dpos(0).unwrap().issued_shares, 20000);
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().fee, 150); // still 15%
-        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (1, 1)); // 1:1
+        assert_eq!(BulletTrain::dpos(0).unwrap().share_rate, (1, 1)); // 1:1
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::ACTIVE);
 
         // do buy a target
@@ -2557,7 +2557,7 @@ fn dpo_change_smaller_cabin_and_activate() {
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_deposit, 0);
         assert_eq!(BulletTrain::dpos(0).unwrap().total_fund, 15000);
         assert_eq!(BulletTrain::dpos(0).unwrap().issued_shares, 20000);
-        assert_eq!(BulletTrain::dpos(0).unwrap().rate, (15000, 20000));
+        assert_eq!(BulletTrain::dpos(0).unwrap().share_rate, (15000, 20000));
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 5000);
         assert_eq!(BulletTrain::dpos(0).unwrap().state, DpoState::RUNNING); // bonus flows into dpo 0
 
@@ -2571,14 +2571,14 @@ fn dpo_change_smaller_cabin_and_activate() {
         assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 10000); // target 7500 + unused 2500
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 0); // still not released from dpo 0 yet
         assert_eq!(BulletTrain::dpos(1).unwrap().issued_shares, 10000);
-        assert_eq!(BulletTrain::dpos(1).unwrap().rate, (1, 1));
+        assert_eq!(BulletTrain::dpos(1).unwrap().share_rate, (1, 1));
         // release unused fund from dpo 0
         assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
         assert_eq!(BulletTrain::dpos(1).unwrap().target_amount, 7500);
         assert_eq!(BulletTrain::dpos(1).unwrap().total_fund, 7500);
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 2500);
         assert_eq!(BulletTrain::dpos(1).unwrap().issued_shares, 10000);
-        assert_eq!(BulletTrain::dpos(1).unwrap().rate, (7500, 10000));
+        assert_eq!(BulletTrain::dpos(1).unwrap().share_rate, (7500, 10000));
     });
 }
 
