@@ -185,11 +185,11 @@
         "Balance"
       ],
       [
-        "total_share",
+        "issued_shares",
         "Balance"
       ],
       [
-        "rate",
+        "share_rate",
         "(Balance, Balance)"
       ],
       [
