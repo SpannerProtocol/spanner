@@ -13,7 +13,8 @@ cargo build --release
 cargo test
 cargo test -- --ignored
 # run benchmark test
-cargo test -p pallet-balances --features runtime-benchmarks
+cd pallets/bullet-train
+cargo test --features runtime-benchmarks
 
 # run a temporary local node (no data is stored)
 target/release/substrate --dev --tmp
