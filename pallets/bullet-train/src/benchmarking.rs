@@ -73,7 +73,7 @@ fn passenger_buy_traver_cabin<T: Config>(
     Ok(())
 }
 
-fn funded_fill_dpo_except_share<T: Config>(idx: DpoIndex) -> Result<(), &'static str> {
+fn funded_fill_dpo_share<T: Config>(idx: DpoIndex) -> Result<(), &'static str> {
     let target_dpo = BulletTrain::<T>::dpos(idx).unwrap();
     let share_cap_percent = T::PassengerSharePercentCap::get();
     let share_cap = Percentage::checked_from_rational(share_cap_percent.0, share_cap_percent.1)
@@ -220,7 +220,7 @@ benchmarks! {
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 1, 1)?;
         let manager: T::AccountId = funded_account::<T>("manager", 0);
         funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15, 1)?;
-        funded_fill_dpo_except_share::<T>(0)?;
+        funded_fill_dpo_share::<T>(0)?;
 
     }: _(RawOrigin::Signed(manager.clone()), 0, 0)
     verify{
@@ -262,7 +262,7 @@ benchmarks! {
         //dpo 1, target to take 15% share
         funded_create_dpo::<T>(manager.clone(), Target::Dpo(0, 15_000_000_000), 2_250_000_000, 9)?;
 
-        funded_fill_dpo_except_share::<T>(1)?;
+        funded_fill_dpo_share::<T>(1)?;
 
     }: _(RawOrigin::Signed(manager), 1, 0, 15_000_000_000)
     verify{
@@ -273,7 +273,7 @@ benchmarks! {
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 0, 1)?;
         let manager: T::AccountId = funded_account::<T>("manager", 0);
         funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 10)?;
-        funded_fill_dpo_except_share::<T>(0)?;
+        funded_fill_dpo_share::<T>(0)?;
         BulletTrain::<T>::dpo_buy_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
         BulletTrain::<T>::withdraw_fare_from_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
     }: _(RawOrigin::Signed(manager), 0)
@@ -286,7 +286,7 @@ benchmarks! {
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 0, 1)?;
         let manager: T::AccountId = funded_account::<T>("manager", 0);
         funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 10)?;
-        funded_fill_dpo_except_share::<T>(0)?;
+        funded_fill_dpo_share::<T>(0)?;
         BulletTrain::<T>::dpo_buy_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
         BulletTrain::<T>::withdraw_yield_from_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
     }: _(RawOrigin::Signed(manager), 0)
@@ -299,7 +299,7 @@ benchmarks! {
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 0, 1)?;
         let manager: T::AccountId = funded_account::<T>("manager", 0);
         funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 10)?;
-        funded_fill_dpo_except_share::<T>(0)?;
+        funded_fill_dpo_share::<T>(0)?;
         BulletTrain::<T>::dpo_buy_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
     }: _(RawOrigin::Signed(manager), 0)
     verify{

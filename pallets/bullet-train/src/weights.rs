@@ -49,77 +49,77 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn create_milestone_reward() -> Weight {
-		(78_989_000 as Weight)
+		(158_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	fn release_milestone_reward() -> Weight {
-		(33_363_000 as Weight)
+		(70_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	fn create_travel_cabin() -> Weight {
-		(79_489_000 as Weight)
+		(166_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
 	fn issue_additional_travel_cabin() -> Weight {
-		(80_451_000 as Weight)
+		(168_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	fn withdraw_fare_from_travel_cabin() -> Weight {
-		(71_514_000 as Weight)
+		(151_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	fn withdraw_yield_from_travel_cabin() -> Weight {
-		(70_262_000 as Weight)
+		(146_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	fn create_dpo() -> Weight {
-		(84_829_000 as Weight)
+		(178_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(6 as Weight))
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
 	fn passenger_buy_travel_cabin() -> Weight {
-		(129_294_000 as Weight)
+		(260_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(6 as Weight))
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
 	fn dpo_buy_travel_cabin() -> Weight {
-		(57_839_000 as Weight)
+		(115_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	fn dpo_change_target() -> Weight {
-		(48_201_000 as Weight)
+		(94_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	fn passenger_buy_dpo_share() -> Weight {
-		(81_974_000 as Weight)
+		(166_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(4 as Weight))
 	}
 	fn dpo_buy_dpo_share() -> Weight {
-		(55_624_000 as Weight)
+		(110_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(3 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	fn release_fare_from_dpo() -> Weight {
-		(222_379_000 as Weight)
+		(475_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(11 as Weight))
 			.saturating_add(T::DbWeight::get().writes(6 as Weight))
 	}
 	fn release_yield_from_dpo() -> Weight {
-		(255_852_000 as Weight)
+		(524_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(11 as Weight))
 			.saturating_add(T::DbWeight::get().writes(6 as Weight))
 	}
 	fn release_bonus_from_dpo() -> Weight {
-		(296_728_000 as Weight)
+		(611_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(10 as Weight))
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
