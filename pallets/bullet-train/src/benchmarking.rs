@@ -42,8 +42,8 @@ fn mint_travel_cabin<T: Config>(
 
 fn funded_create_dpo<T: Config>(
     manager: T::AccountId,
-    target: Target,
-    manager_seats: u8,
+    target: Target<Balance>,
+    manager_share: Balance,
     end: BlockNumber,
 ) -> Result<(), &'static str> {
     // set balance
@@ -52,7 +52,7 @@ fn funded_create_dpo<T: Config>(
         RawOrigin::Signed(manager).into(),
         b"benchmarking".to_vec(),
         target,
-        manager_seats,
+        manager_share,
         50,
         800,
         end.into(),
@@ -61,25 +61,38 @@ fn funded_create_dpo<T: Config>(
     Ok(())
 }
 
-fn funded_fill_dpo_except_seats<T: Config>(idx: DpoIndex) -> Result<(), &'static str> {
+fn passenger_buy_traver_cabin<T: Config>(
+    passenger: T::AccountId,
+    cabin_idx: TravelCabinIndex,
+) -> Result<(), &'static str> {
+    T::Currency::update_balance(BOLT, &passenger, Balance::MAX.unique_saturated_into())?;
+    BulletTrain::<T>::passenger_buy_travel_cabin(
+        RawOrigin::Signed(passenger).into(),
+        cabin_idx,
+    )?;
+    Ok(())
+}
+
+fn funded_fill_dpo_except_share<T: Config>(idx: DpoIndex) -> Result<(), &'static str> {
     let target_dpo = BulletTrain::<T>::dpos(idx).unwrap();
-    let seat_cap = T::PassengerSeatCap::get();
+    let share_cap_percent = T::PassengerSharePercentCap::get();
+    let share_cap = Percentage::checked_from_rational(share_cap_percent.0, share_cap_percent.1)
+        .unwrap_or_default().saturating_mul_int(target_dpo.target_amount);
     let mut acc_index = 0;
-    let mut seats_left = target_dpo.empty_seats;
-    for _ in (0..seats_left).step_by(seat_cap.into()) {
+    let mut share_left = target_dpo.target_amount.saturating_sub(target_dpo.total_fund);
+    while share_left > 0 {
         let buyer: T::AccountId = funded_account::<T>("dpo_buyer", acc_index);
-        let take_seats = min(seats_left, seat_cap);
+        let take_share = min(share_left, share_cap);
         let referrer = None;
-        BulletTrain::<T>::passenger_buy_dpo_seats(
+        BulletTrain::<T>::passenger_buy_dpo_share(
             RawOrigin::Signed(buyer).into(),
             idx,
-            take_seats,
+            take_share,
             referrer,
         )?;
         acc_index += 1;
-        seats_left -= take_seats;
+        share_left -= take_share;
     }
-
     Ok(())
 }
 
@@ -207,50 +220,60 @@ benchmarks! {
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 1, 1)?;
         let manager: T::AccountId = funded_account::<T>("manager", 0);
         funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15, 1)?;
-        funded_fill_dpo_except_seats::<T>(0)?;
+        funded_fill_dpo_except_share::<T>(0)?;
 
     }: _(RawOrigin::Signed(manager.clone()), 0, 0)
     verify{
         assert_eq!(BulletTrain::<T>::travel_cabin_buyer(0, 0).unwrap().buyer, Buyer::Dpo(0));
     }
 
-    passenger_buy_dpo_seats{
+    dpo_change_target{
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 1, 1)?;
-
         let manager: T::AccountId = funded_account::<T>("manager", 0);
-        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15, 1)?;
+        mint_travel_cabin::<T>(BOLT, 50_000_000_000, 10_000_000_000, 10_000_000_000, 1, 1)?;
+        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 1)?;
+        passenger_buy_traver_cabin::<T>(manager.clone(), 0)?; // make cabin 0 unavailable
 
-        let buyer: T::AccountId = funded_account::<T>("buyer", 0);
-        let amount_per_seat: Balance = 1_000_000_000;
-        let take_seats: u8 = 15;
-        let by_amount = amount_per_seat.saturating_mul(take_seats.into());
-        T::Currency::update_balance(BOLT, &buyer, by_amount.unique_saturated_into())?;
-    }: _(RawOrigin::Signed(buyer.clone()), 0, take_seats, None)
+    }: _(RawOrigin::Signed(manager.clone()), 0, Target::TravelCabin(1))
     verify{
-        assert_eq!(BulletTrain::<T>::dpos(0).unwrap().empty_seats, 70);
+        assert_eq!(BulletTrain::<T>::dpos(0).unwrap().target, Target::TravelCabin(1));
     }
 
-    dpo_buy_dpo_seats{
+    passenger_buy_dpo_share{
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 1, 1)?;
 
         let manager: T::AccountId = funded_account::<T>("manager", 0);
-        //dpo 0, manager takes 15 seats
-        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15, 10)?;
-        //dpo 1, target to take 15 seats
-        funded_create_dpo::<T>(manager.clone(), Target::Dpo(0, 15), 15, 9)?;
+        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 1)?;
 
-        funded_fill_dpo_except_seats::<T>(1)?;
-
-    }: _(RawOrigin::Signed(manager), 1, 0, 15)
+        let buyer: T::AccountId = funded_account::<T>("buyer", 0);
+        let take_share: Balance = 15_000_000_000;
+        T::Currency::update_balance(BOLT, &buyer, take_share.unique_saturated_into())?;
+    }: _(RawOrigin::Signed(buyer.clone()), 0, take_share, None)
     verify{
-        assert_eq!(BulletTrain::<T>::dpos(0).unwrap().empty_seats, 70);
+        assert_eq!(BulletTrain::<T>::dpos(0).unwrap().vault_deposit, 30_000_000_000);
+    }
+
+    dpo_buy_dpo_share{
+        mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 1, 1)?;
+
+        let manager: T::AccountId = funded_account::<T>("manager", 0);
+        //dpo 0, manager takes 15% share
+        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 10)?;
+        //dpo 1, target to take 15% share
+        funded_create_dpo::<T>(manager.clone(), Target::Dpo(0, 15_000_000_000), 2_250_000_000, 9)?;
+
+        funded_fill_dpo_except_share::<T>(1)?;
+
+    }: _(RawOrigin::Signed(manager), 1, 0, 15_000_000_000)
+    verify{
+        assert_eq!(BulletTrain::<T>::dpos(0).unwrap().vault_deposit, 30_000_000_000);
     }
 
     release_fare_from_dpo{
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 0, 1)?;
         let manager: T::AccountId = funded_account::<T>("manager", 0);
-        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15, 10)?;
-        funded_fill_dpo_except_seats::<T>(0)?;
+        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 10)?;
+        funded_fill_dpo_except_share::<T>(0)?;
         BulletTrain::<T>::dpo_buy_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
         BulletTrain::<T>::withdraw_fare_from_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
     }: _(RawOrigin::Signed(manager), 0)
@@ -262,8 +285,8 @@ benchmarks! {
     release_yield_from_dpo{
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 0, 1)?;
         let manager: T::AccountId = funded_account::<T>("manager", 0);
-        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15, 10)?;
-        funded_fill_dpo_except_seats::<T>(0)?;
+        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 10)?;
+        funded_fill_dpo_except_share::<T>(0)?;
         BulletTrain::<T>::dpo_buy_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
         BulletTrain::<T>::withdraw_yield_from_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
     }: _(RawOrigin::Signed(manager), 0)
@@ -275,8 +298,8 @@ benchmarks! {
     release_bonus_from_dpo{
         mint_travel_cabin::<T>(BOLT, 100_000_000_000, 10_000_000_000, 10_000_000_000, 0, 1)?;
         let manager: T::AccountId = funded_account::<T>("manager", 0);
-        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15, 10)?;
-        funded_fill_dpo_except_seats::<T>(0)?;
+        funded_create_dpo::<T>(manager.clone(), Target::TravelCabin(0), 15_000_000_000, 10)?;
+        funded_fill_dpo_except_share::<T>(0)?;
         BulletTrain::<T>::dpo_buy_travel_cabin(RawOrigin::Signed(manager.clone()).into(), 0, 0)?;
     }: _(RawOrigin::Signed(manager), 0)
     verify{
@@ -354,16 +377,23 @@ mod tests {
     }
 
     #[test]
-    fn passenger_buy_dpo_seats() {
+    fn dpo_change_target() {
         ExtBuilder::default().build().execute_with(|| {
-            assert_ok!(test_benchmark_passenger_buy_dpo_seats::<Test>());
+            assert_ok!(test_benchmark_dpo_change_target::<Test>());
         });
     }
 
     #[test]
-    fn dpo_buy_dpo_seats() {
+    fn passenger_buy_dpo_share() {
         ExtBuilder::default().build().execute_with(|| {
-            assert_ok!(test_benchmark_dpo_buy_dpo_seats::<Test>());
+            assert_ok!(test_benchmark_passenger_buy_dpo_share::<Test>());
+        });
+    }
+
+    #[test]
+    fn dpo_buy_dpo_share() {
+        ExtBuilder::default().build().execute_with(|| {
+            assert_ok!(test_benchmark_dpo_buy_dpo_share::<Test>());
         });
     }
 

@@ -926,7 +926,7 @@ pub mod module {
             Ok(().into())
         }
 
-        #[pallet::weight(< T as Config >::WeightInfo::passenger_buy_dpo_seats())]
+        #[pallet::weight(< T as Config >::WeightInfo::passenger_buy_dpo_share())]
         #[transactional]
         pub fn passenger_buy_dpo_share(
             origin: OriginFor<T>,
@@ -943,7 +943,7 @@ pub mod module {
 
         /// only for the dpo manager to call within the grace period.
         /// any member can call after the grace period
-        #[pallet::weight(< T as Config >::WeightInfo::dpo_buy_dpo_seats())]
+        #[pallet::weight(< T as Config >::WeightInfo::dpo_buy_dpo_share())]
         #[transactional]
         pub fn dpo_buy_dpo_share(
             origin: OriginFor<T>,
@@ -959,7 +959,7 @@ pub mod module {
         }
 
         /// dpo can change its target at any time when the target is unavailable
-        #[pallet::weight(0)]// TODO: benchmark weight
+        #[pallet::weight(< T as Config >::WeightInfo::dpo_change_target())]
         #[transactional]
         pub fn dpo_change_target(
             origin: OriginFor<T>,
