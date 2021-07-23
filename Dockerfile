@@ -40,7 +40,7 @@ RUN ldd /usr/local/bin/substrate && \
 
 # Shrinking
 RUN rm -rf /usr/lib/python* && \
-	rm -rf /usr/bin /usr/sbin /usr/share/man
+	rm -rf /usr/sbin /usr/share/man
 
 USER substrate
 EXPOSE 30333 9933 9944 9615
