@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, HasCompact};
-use common::DexManager;
 use frame_support::{
     ensure,
     traits::{
@@ -19,6 +18,7 @@ use sp_runtime::traits::{Dispatchable, UniqueSaturatedInto, Zero};
 use sp_runtime::{traits::AccountIdConversion, DispatchResult, RuntimeDebug};
 use sp_runtime::{FixedPointNumber, FixedU128, ModuleId};
 use sp_std::prelude::*;
+use support::traits::DexManager;
 
 #[cfg(test)]
 mod mock;
@@ -287,8 +287,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidCurrencyId
         );
         ensure!(
-            Self::share_and_withdrawn_reward(PoolId::DexYieldFarming(lp_token), &who).0
-                >= amount,
+            Self::share_and_withdrawn_reward(PoolId::DexYieldFarming(lp_token), &who).0 >= amount,
             Error::<T>::NotEnough
         );
 

@@ -20,7 +20,7 @@ sp-std = { version = "3.0.0", default-features = false }
 orml-traits = { path = "../../orml/traits", default-features = false }
 orml-tokens = { path = "../../orml/tokens", default-features = false }
 primitives = { package = "node-primitives", path = "../../primitives", default-features = false }
-common = { package = "pallet-common", path = "../common", default-features = false }
+support = { package = "pallet-support", path = "../support", default-features = false }
 
 [dev-dependencies]
 sp-io = { default-features = false, version = '3.0.0' }
@@ -40,7 +40,7 @@ std = [
     "orml-traits/std",
     "orml-tokens/std",
     "primitives/std",
-    "common/std",
+    "support/std",
     "frame-benchmarking/std",
 ]
 runtime-benchmarks = [

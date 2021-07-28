@@ -2,10 +2,17 @@ use crate::{
     mock::*, Buyer, DpoMemberInfo, DpoState, Error, MilestoneRewardInfo, Referrer, Target,
     TargetCompare, TravelCabinInfo,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{
+    assert_noop, assert_ok,
+    sp_runtime::traits::{BlakeTwo256, Hash},
+    weights::GetDispatchInfo,
+};
 use frame_system::{EventRecord, Phase};
 use orml_traits::MultiCurrency;
-use sp_runtime::FixedPointNumber;
+use pallet_support::{DpoIndex, TravelCabinInventoryIndex};
+use pallet_voting::Event as VotingEvent;
+use parity_scale_codec::Encode;
+use sp_runtime::{DispatchError, FixedPointNumber};
 
 fn make_default_travel_cabin(
     token_id: crate::CurrencyId,
@@ -380,14 +387,14 @@ fn milestone_rewards_released_correctly() {
 
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_bullet_train(crate::Event::MilestoneRewardReleased(
-            ALICE, BOLT, 10000, 30,
-        ))));
+                ALICE, BOLT, 10000, 30,
+            ))));
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_balances(BalancesEvent::Transfer(
-            BulletTrain::account_id(),
-            BOB,
-            30
-        ))));
+                BulletTrain::account_id(),
+                BOB,
+                30
+            ))));
 
         //(1) milestone two created
         //(2) milestone two hit by BOB and CAROL
@@ -409,20 +416,20 @@ fn milestone_rewards_released_correctly() {
         ));
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_bullet_train(crate::Event::MilestoneRewardReleased(
-            ALICE, BOLT, 20000, 30,
-        ))));
+                ALICE, BOLT, 20000, 30,
+            ))));
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_balances(BalancesEvent::Transfer(
-            BulletTrain::account_id(),
-            BOB,
-            15
-        ))));
+                BulletTrain::account_id(),
+                BOB,
+                15
+            ))));
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_balances(BalancesEvent::Transfer(
-            BulletTrain::account_id(),
-            CAROL,
-            15,
-        ))));
+                BulletTrain::account_id(),
+                CAROL,
+                15,
+            ))));
 
         //(1) milestone three created
         //(2) milestone three hit by BOB, CAROL and DPO_0
@@ -443,20 +450,20 @@ fn milestone_rewards_released_correctly() {
         ));
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_bullet_train(crate::Event::MilestoneRewardReleased(
-            ALICE, BOLT, 30000, 30,
-        ))));
+                ALICE, BOLT, 30000, 30,
+            ))));
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_balances(BalancesEvent::Transfer(
-            BulletTrain::account_id(),
-            BOB,
-            10
-        ))));
+                BulletTrain::account_id(),
+                BOB,
+                10
+            ))));
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_balances(BalancesEvent::Transfer(
-            BulletTrain::account_id(),
-            CAROL,
-            10,
-        ))));
+                BulletTrain::account_id(),
+                CAROL,
+                10,
+            ))));
         //directly credit dpo, without actually transferring funds
         assert_eq!(BulletTrain::dpos(0).unwrap().total_milestone_received, 10);
 
@@ -795,7 +802,9 @@ fn dpo_buy_non_default_dpo_share_works() {
             Target::Dpo(2, 10000),
         ));
         let expected_event = Event::pallet_bullet_train(crate::Event::DpoTargetChanged(
-            BOB, 3, Target::Dpo(2, 10000),
+            BOB,
+            3,
+            Target::Dpo(2, 10000),
         ));
         assert!(System::events().iter().any(|a| a.event == expected_event));
 
@@ -904,11 +913,11 @@ fn passenger_buy_dpo_share_works() {
         ));
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_bullet_train(crate::Event::DpoTargetPurchased(
-            BOB,
-            Buyer::Passenger(BOB),
-            0,
-            90,
-        ))));
+                BOB,
+                Buyer::Passenger(BOB),
+                0,
+                90,
+            ))));
     });
 }
 
@@ -1923,16 +1932,16 @@ fn dpo_release_bonus_with_0_direct_referral_rate_works() {
             Balances::free_balance(ALICE),
             1000000 - 15000 + 105 + 100 + 100
         ); // 150 * 70% (30% to ADAM as external referrer)
-        // + 100 from bob + 100 from Carol
+           // + 100 from bob + 100 from Carol
         assert_eq!(Balances::free_balance(ADAM), 500000 + 45); // 150 * 30%
-        // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
+                                                               // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
         assert_eq!(Balances::free_balance(BOB), 487000 + 0 + 100); // carol 0 + dylan 100
         assert_eq!(Balances::free_balance(CAROL), 487000 + 0 + 100); // dylan 0 + elsa 100
         assert_eq!(Balances::free_balance(DYLAN), 487000 + 0 + 150); // elsa 0 +  Fred (150 * 20% = 30)
         assert_eq!(Balances::free_balance(ELSA), 487000 + 0 + 45); //fred 0 + DPO1 300 * 15% * 100% = 45
-        // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
+                                                                   // FRED took 15 so the base is = 500000 - 15000 - 3000 = 482000 + x
         assert_eq!(Balances::free_balance(FRED), 482000); // DPO1 0
-        // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
+                                                          // base for JILL = 500000 - 4500 = 495500, but got 30 + 6 from DPO 1
 
         // release bonus of dpo1. 1% share worths 3 bonus.
         assert_ok!(BulletTrain::release_bonus_from_dpo(
@@ -2023,7 +2032,7 @@ fn dpo_release_bonus_internally_works() {
             Balances::free_balance(ALICE),
             1000000 - 15000 + 105 + 100 + 20
         ); // 150 * 70% (30% to ADAM as external referrer)
-        // + 100 from bob + 20 from Carol
+           // + 100 from bob + 20 from Carol
         assert_eq!(Balances::free_balance(ADAM), 500000 + 45); // 150 * 30%
 
         // base for everyone is BOB, CAROL, DYLAN and ELSA = 500000 - 10000 - 3000 = 487000 + x
@@ -2050,10 +2059,10 @@ fn dpo_release_bonus_internally_works() {
         assert_eq!(Balances::free_balance(ELSA), 487000 + 120 + 9 + 24 + 6); // Fred 24 + Greg 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
         assert_eq!(Balances::free_balance(FRED), 482000 + 36 + 24 + 6); // Gred 24 + hugh 6
-        // balancer for greg and hugh = 500000 - 3000 (10% shares, 300 each)
+                                                                        // balancer for greg and hugh = 500000 - 3000 (10% shares, 300 each)
         assert_eq!(Balances::free_balance(GREG), 500000 - 3000 + 24 + 9); // Hugh 24 + Ivan 9
         assert_eq!(Balances::free_balance(HUGH), 500000 - 3000 + 36); // Ivan 36
-        // balancer for greg and hugh = 500000 - 4500 (15% shares)
+                                                                      // balancer for greg and hugh = 500000 - 4500 (15% shares)
         assert_eq!(Balances::free_balance(IVAN), 500000 - 4500);
     });
 }
@@ -2132,8 +2141,8 @@ fn dpo_release_fare_completed_works() {
         );
         assert!(System::events().iter().any(|a| a.event
             == Event::pallet_bullet_train(crate::Event::FareWithdrawnFromTravelCabin(
-            ALICE, 0, 0
-        ))));
+                ALICE, 0, 0
+            ))));
 
         //no fare left to withdraw from travel cabin
         assert_noop!(
@@ -2209,14 +2218,14 @@ fn dpo_release_fare_of_unused_funds_works() {
 
         //dpo0 receives full unused fund
         assert_eq!(BulletTrain::dpos(0).unwrap().vault_withdraw, 90000); // 100000 - 10000
-        //dpo1 target estimates not yet refreshed
+                                                                         //dpo1 target estimates not yet refreshed
         assert_eq!(BulletTrain::dpos(1).unwrap().target_yield_estimate, 9500);
         assert_eq!(BulletTrain::dpos(1).unwrap().target_bonus_estimate, 1000);
         assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 0));
 
         //dpo1 receives full unused fund
         assert_eq!(BulletTrain::dpos(1).unwrap().vault_withdraw, 9000); // 10000 - 1000
-        //dpo1 target estimates refreshed upon release of fare
+                                                                        //dpo1 target estimates refreshed upon release of fare
         assert_eq!(BulletTrain::dpos(1).unwrap().target_yield_estimate, 95);
         assert_eq!(BulletTrain::dpos(1).unwrap().target_bonus_estimate, 100);
         assert_ok!(BulletTrain::release_fare_from_dpo(Origin::signed(ALICE), 1));
@@ -2728,7 +2737,6 @@ fn dispatch_with_voting_origin() {
     });
 }
 
-use pallet_voting::Event as VotingEvent;
 #[test]
 fn dispatch_voting_incorrectly() {
     ExtBuilder::default().build().execute_with(|| {

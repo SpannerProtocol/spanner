@@ -22,7 +22,7 @@ version = '2.0.0'
 serde = { version = "1.0.101", optional = true }
 frame-support = { version = "3.0.0", default-features = false }
 frame-system = { version = "3.0.0", default-features = false }
-common = { package = "pallet-common", path = "../common", default-features = false }
+support = { package = "pallet-support", path = "../support", default-features = false }
 primitives = { package = "node-primitives", path = "../../primitives", default-features = false }
 sp-runtime = { version = "3.0.0", default-features = false }
 sp-std = { version = "3.0.0", default-features = false }
@@ -43,7 +43,7 @@ std = [
     'codec/std',
     'frame-support/std',
     'frame-system/std',
-    'common/std',
+    'support/std',
     'primitives/std',
     'sp-runtime/std',
     'sp-std/std',

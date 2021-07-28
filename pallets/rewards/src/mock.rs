@@ -1,15 +1,17 @@
 use super::*;
 use crate as pallet_rewards;
-use frame_support::{dispatch::DispatchError, weights::Weight, construct_runtime, parameter_types, sp_std};
-use primitives::{TokenSymbol, Amount};
-use sp_core::H256;
-use sp_runtime::{testing::Header, traits::IdentityLookup, Perbill};
-pub use common::{DexManager, Price, Ratio};
+use frame_support::traits::{OnFinalize, OnInitialize};
+use frame_support::{
+    construct_runtime, dispatch::DispatchError, parameter_types, sp_std, weights::Weight,
+};
 use frame_system::EnsureRoot;
-use sp_runtime::traits::BlakeTwo256;
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
-use frame_support::traits::{OnFinalize, OnInitialize};
+use primitives::{Amount, TokenSymbol};
+use sp_core::H256;
+use sp_runtime::traits::BlakeTwo256;
+use sp_runtime::{testing::Header, traits::IdentityLookup, Perbill};
+pub use support::{traits::DexManager, Price, Ratio};
 
 pub type AccountId = u128;
 pub type BlockNumber = u64;
@@ -26,10 +28,10 @@ pub const BOLT_WUSD_LP: CurrencyId = CurrencyId::DexShare(TokenSymbol::BOLT, Tok
 pub const BOLT_WUSD_POOL: PoolId = PoolId::DexYieldFarming(BOLT_WUSD_LP);
 
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: Weight = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const BlockHashCount: u64 = 250;
+    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockLength: u32 = 2 * 1024;
+    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 impl frame_system::Config for Test {
     type BaseCallFilter = ();
@@ -58,8 +60,8 @@ impl frame_system::Config for Test {
 
 parameter_types! {
     pub BlockWeights: frame_system::limits::BlockWeights =
-		frame_system::limits::BlockWeights::simple_max(1_000_000);
-	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
+        frame_system::limits::BlockWeights::simple_max(1_000_000);
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
 impl pallet_scheduler::Config for Test {
     type Event = Event;
@@ -73,7 +75,7 @@ impl pallet_scheduler::Config for Test {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u64 = 1;
+    pub const ExistentialDeposit: u64 = 1;
 }
 impl pallet_balances::Config for Test {
     type MaxLocks = ();
@@ -86,7 +88,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const GetNativeCurrencyId: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
+    pub const GetNativeCurrencyId: CurrencyId = CurrencyId::Token(TokenSymbol::BOLT);
 }
 impl orml_currencies::Config for Test {
     type Event = Event;
@@ -97,9 +99,9 @@ impl orml_currencies::Config for Test {
 }
 
 parameter_type_with_key! {
-	pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
-		Default::default()
-	};
+    pub ExistentialDeposits: |currency_id: CurrencyId| -> Balance {
+        Default::default()
+    };
 }
 impl orml_tokens::Config for Test {
     type Event = Event;
@@ -113,7 +115,10 @@ impl orml_tokens::Config for Test {
 
 pub struct MockDEX;
 impl DexManager<AccountId, CurrencyId, Balance> for MockDEX {
-    fn get_liquidity_pool(currency_id_a: CurrencyId, currency_id_b: CurrencyId) -> (Balance, Balance) {
+    fn get_liquidity_pool(
+        currency_id_a: CurrencyId,
+        currency_id_b: CurrencyId,
+    ) -> (Balance, Balance) {
         match (currency_id_a, currency_id_b) {
             (WUSD, NCAT) => (500, 100),
             (WUSD, PLKT) => (400, 100),
@@ -153,10 +158,10 @@ impl DexManager<AccountId, CurrencyId, Balance> for MockDEX {
 }
 
 parameter_types! {
-	pub const AccumulatePeriod: BlockNumber = 10;
-	pub const StartDelay: BlockNumber = 2;
-	pub const RewardsModuleId: ModuleId = ModuleId(*b"span/rwd");
-	pub const MinimumYieldFarmingReward: Balance = 10;
+    pub const AccumulatePeriod: BlockNumber = 10;
+    pub const StartDelay: BlockNumber = 2;
+    pub const RewardsModuleId: ModuleId = ModuleId(*b"span/rwd");
+    pub const MinimumYieldFarmingReward: Balance = 10;
 }
 impl Config for Test {
     type Event = Event;
@@ -175,18 +180,18 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		RewardsModule: pallet_rewards::{Module, Storage, Call, Event<T>},
-		Tokens: orml_tokens::{Module, Storage, Event<T>},
-		Currencies: orml_currencies::{Module, Call, Event<T>},
-		Scheduler: pallet_scheduler::{Module, Storage, Call, Event<T>},
-		Balances: pallet_balances::{Module, Call, Storage, Event<T>},
-	}
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        RewardsModule: pallet_rewards::{Module, Storage, Call, Event<T>},
+        Tokens: orml_tokens::{Module, Storage, Event<T>},
+        Currencies: orml_currencies::{Module, Call, Event<T>},
+        Scheduler: pallet_scheduler::{Module, Storage, Call, Event<T>},
+        Balances: pallet_balances::{Module, Call, Storage, Event<T>},
+    }
 );
 
 #[derive(Default)]

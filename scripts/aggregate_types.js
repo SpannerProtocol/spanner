@@ -12,7 +12,7 @@ const folders = [
     "primitives",
     "pallets/bullet-train",
     "pallets/rewards",
-    "pallets/common",
+    "pallets/support",
     "pallets/dex"
 ]
 

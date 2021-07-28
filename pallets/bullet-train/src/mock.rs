@@ -3,9 +3,9 @@ use crate as pallet_bullet_train;
 use frame_support::ord_parameter_types;
 use frame_support::{construct_runtime, parameter_types, weights::Weight};
 use frame_system::EnsureSignedBy;
-use pallet_voting::EnsureVotingGroup;
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
+use pallet_voting::EnsureVotingGroup;
 use primitives::{Amount, TokenSymbol};
 use sp_core::H256;
 use sp_runtime::{
@@ -106,9 +106,9 @@ impl orml_tokens::Config for Test {
 }
 
 ord_parameter_types! {
-	pub const Alice: AccountId = 0;
-	pub const MaxProposals: ProposalIndex = 10;
-	pub const MaxMembers: MemberCount = 100;
+    pub const Alice: AccountId = 0;
+    pub const MaxProposals: ProposalIndex = 10;
+    pub const MaxMembers: MemberCount = 100;
 }
 impl pallet_voting::Config for Test {
     type Origin = Origin;
@@ -173,6 +173,7 @@ construct_runtime!(
         Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
         Currencies: orml_currencies::{Module, Call, Event<T>},
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Voting: pallet_voting::{Module, Call, Storage, Event<T>, Origin<T>},
     }
 );
 
@@ -194,11 +195,7 @@ impl Default for ExtBuilder {
                 (ALICE, PLKT, 1_000_000u128),
                 (BOB, PLKT, DEFAULT_BALANCE_USER),
                 (CAROL, PLKT, DEFAULT_BALANCE_USER),
-                (
-                    BulletTrain::eng_account_id(),
-                    PLKT,
-                    DEFAULT_BALANCE_SYSTEM,
-                ),
+                (BulletTrain::eng_account_id(), PLKT, DEFAULT_BALANCE_SYSTEM),
                 (BulletTrain::account_id(), WUSD, DEFAULT_BALANCE_SYSTEM),
             ],
             balance_endowed_accounts: vec![
