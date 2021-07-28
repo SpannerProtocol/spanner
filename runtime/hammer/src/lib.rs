@@ -42,6 +42,7 @@ use frame_system::{
 };
 pub use node_primitives::{AccountId, CurrencyId, Signature, TokenSymbol};
 use node_primitives::{AccountIndex, Amount, Balance, BlockNumber, Hash, Index, Moment};
+use pallet_support::{ProposalIndex, MemberCount};
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 use pallet_grandpa::fg_primitives;
@@ -1079,6 +1080,19 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
 }
 
 parameter_types! {
+    pub const VotingMaxProposals: ProposalIndex = 10;
+	pub const VotingMaxMembers: MemberCount = 100;
+}
+impl pallet_voting::Config for Runtime {
+    type Origin = Origin;
+    type Event = Event;
+    type Proposal = Call;
+    type MaxProposals = VotingMaxProposals;
+    type MaxMembers = VotingMaxMembers;
+    type WeightInfo = pallet_voting::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
     pub const ReleaseYieldGracePeriod: BlockNumber = 7 * DAYS;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 7 * DAYS;
     pub const MilestoneRewardMinimum: Balance = 10_000_000_000;
@@ -1112,6 +1126,9 @@ impl pallet_bullet_train::Config for Runtime {
     type ManagementBaseFeeCap = ManagementBaseFeeCap;
     type EngineerOrigin = pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>;
     type WeightInfo = pallet_bullet_train::weights::SubstrateWeight<Runtime>;
+    type Proposal = Call;
+    type Voting = Voting;
+    type VotingOrigin = pallet_voting::EnsureVotingGroup<AccountId>;
 }
 
 parameter_types! {
@@ -1175,6 +1192,7 @@ construct_runtime!(
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         // spanner added pallets
         BulletTrain: pallet_bullet_train::{Module, Call, Storage, Event<T>},
+        Voting: pallet_voting::{Module, Call, Storage, Event<T>, Origin<T>},
         Dex: pallet_dex::{Module, Call, Storage, Event<T>, Config<T>},
         Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
         Currencies: orml_currencies::{Module, Call, Event<T>},
@@ -1391,13 +1409,13 @@ impl_runtime_apis! {
     // impl pallet_bullet_train_rpc_runtime_api::BulletTrainApi<Block, AccountId> for Runtime {
     //     fn get_travel_cabins_of_account(
     //         origin: AccountId,
-    //     ) -> Vec<(pallet_bullet_train_primitives::TravelCabinIndex, pallet_bullet_train_primitives::TravelCabinInventoryIndex)> {
+    //     ) -> Vec<(pallet_support::TravelCabinIndex, pallet_support::TravelCabinInventoryIndex)> {
     //         BulletTrain::get_travel_cabins_of_account(&origin)
     //     }
     //
     //     fn get_dpos_of_account(
     //         origin: AccountId,
-    //     ) -> Vec<pallet_bullet_train_primitives::DpoIndex> {
+    //     ) -> Vec<pallet_support::DpoIndex> {
     //         BulletTrain::get_dpos_of_account(origin)
     //     }
     // }

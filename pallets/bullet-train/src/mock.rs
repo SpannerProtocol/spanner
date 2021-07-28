@@ -3,6 +3,7 @@ use crate as pallet_bullet_train;
 use frame_support::ord_parameter_types;
 use frame_support::{construct_runtime, parameter_types, weights::Weight};
 use frame_system::EnsureSignedBy;
+use pallet_voting::EnsureVotingGroup;
 use orml_currencies::BasicCurrencyAdapter;
 use orml_traits::parameter_type_with_key;
 use primitives::{Amount, TokenSymbol};
@@ -105,7 +106,17 @@ impl orml_tokens::Config for Test {
 }
 
 ord_parameter_types! {
-    pub const Alice: AccountId = 0;
+	pub const Alice: AccountId = 0;
+	pub const MaxProposals: ProposalIndex = 10;
+	pub const MaxMembers: MemberCount = 100;
+}
+impl pallet_voting::Config for Test {
+    type Origin = Origin;
+    type Event = Event;
+    type Proposal = Call;
+    type MaxProposals = MaxProposals;
+    type MaxMembers = MaxMembers;
+    type WeightInfo = pallet_voting::weights::SubstrateWeight<Test>;
 }
 
 parameter_types! {
@@ -143,6 +154,9 @@ impl Config for Test {
     type ManagementBaseFeeCap = ManagementBaseFeeCap;
     type EngineerOrigin = EnsureSignedBy<Alice, AccountId>;
     type WeightInfo = weights::SubstrateWeight<Test>;
+    type Proposal = Call;
+    type Voting = Voting;
+    type VotingOrigin = EnsureVotingGroup<AccountId>;
 }
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;

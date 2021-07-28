@@ -48,6 +48,7 @@ use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
+use pallet_support::{MemberCount, ProposalIndex};
 pub use pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 use sp_api::impl_runtime_apis;
@@ -1082,6 +1083,19 @@ impl pallet_collective::Config<BulletTrainEngineerCollective> for Runtime {
 }
 
 parameter_types! {
+    pub const VotingMaxProposals: ProposalIndex = 10;
+    pub const VotingMaxMembers: MemberCount = 100;
+}
+impl pallet_voting::Config for Runtime {
+    type Origin = Origin;
+    type Event = Event;
+    type Proposal = Call;
+    type MaxProposals = VotingMaxProposals;
+    type MaxMembers = VotingMaxMembers;
+    type WeightInfo = pallet_voting::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
     pub const ReleaseYieldGracePeriod: BlockNumber = 7 * DAYS;
     pub const DpoMakePurchaseGracePeriod: BlockNumber = 7 * DAYS;
     pub const MilestoneRewardMinimum: Balance = 10_000_000_000;
@@ -1115,6 +1129,9 @@ impl pallet_bullet_train::Config for Runtime {
     type ManagementBaseFeeCap = ManagementBaseFeeCap;
     type EngineerOrigin = pallet_collective::EnsureMember<AccountId, BulletTrainEngineerCollective>;
     type WeightInfo = pallet_bullet_train::weights::SubstrateWeight<Runtime>;
+    type Proposal = Call;
+    type Voting = Voting;
+    type VotingOrigin = pallet_voting::EnsureVotingGroup<AccountId>;
 }
 
 parameter_types! {
@@ -1178,6 +1195,7 @@ construct_runtime!(
         Lottery: pallet_lottery::{Module, Call, Storage, Event<T>},
         // spanner added pallets
         BulletTrain: pallet_bullet_train::{Module, Call, Storage, Event<T>},
+        Voting: pallet_voting::{Origin<T>, Module, Call, Storage, Event<T>},
         Dex: pallet_dex::{Module, Call, Storage, Event<T>, Config<T>},
         Tokens: orml_tokens::{Module, Storage, Event<T>, Config<T>},
         Currencies: orml_currencies::{Module, Call, Event<T>},
@@ -1394,13 +1412,13 @@ impl_runtime_apis! {
     // impl pallet_bullet_train_rpc_runtime_api::BulletTrainApi<Block, AccountId> for Runtime {
     //     fn get_travel_cabins_of_account(
     //         origin: AccountId,
-    //     ) -> Vec<(pallet_bullet_train_primitives::TravelCabinIndex, pallet_bullet_train_primitives::TravelCabinInventoryIndex)> {
+    //     ) -> Vec<(pallet_support::TravelCabinIndex, pallet_support::TravelCabinInventoryIndex)> {
     //         BulletTrain::get_travel_cabins_of_account(&origin)
     //     }
     //
     //     fn get_dpos_of_account(
     //         origin: AccountId,
-    //     ) -> Vec<pallet_bullet_train_primitives::DpoIndex> {
+    //     ) -> Vec<pallet_support::DpoIndex> {
     //         BulletTrain::get_dpos_of_account(origin)
     //     }
     // }
@@ -1515,6 +1533,7 @@ impl_runtime_apis! {
             // add_benchmark!(params, batches, pallet_utility, Utility);
             // add_benchmark!(params, batches, pallet_vesting, Vesting);
 
+            add_benchmark!(params, batches, pallet_voting, Voting);
             add_benchmark!(params, batches, pallet_bullet_train, BulletTrain);
             add_benchmark!(params, batches, pallet_dex, Dex);
             orml_add_benchmark!(params, batches, orml_currencies, benchmarking::currencies);

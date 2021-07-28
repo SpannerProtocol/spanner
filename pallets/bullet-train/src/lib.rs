@@ -58,7 +58,8 @@ use frame_support::{
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use orml_traits::{MultiCurrency, MultiCurrencyExtended};
-use pallet_bullet_train_primitives::*;
+use pallet_support::traits::VotingActions;
+use pallet_support::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{Balance, CurrencyId};
 #[cfg(feature = "std")]
@@ -275,6 +276,7 @@ pub use module::*;
 #[frame_support::pallet]
 pub mod module {
     use super::*;
+    use frame_support::dispatch::Dispatchable;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -331,6 +333,15 @@ pub mod module {
         type EngineerOrigin: EnsureOrigin<Self::Origin, Success=Self::AccountId>;
 
         type WeightInfo: WeightInfo;
+
+        type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
+
+        type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::Hash, Self::BlockNumber>;
+
+        type VotingOrigin: EnsureOrigin<
+            Self::Origin,
+            Success = (VotingSectionIndex, VotingGroupIndex),
+        >;
     }
 
     #[pallet::error]
@@ -1126,6 +1137,20 @@ pub mod module {
             Self::do_release_bonus_from_dpo(who, &mut dpo)?;
             //update to dpo storage
             Dpos::<T>::insert(dpo_idx, &dpo);
+            Ok(().into())
+        }
+
+        //can only be called by voting
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn test_voting(
+            origin: OriginFor<T>,
+            section_idx: VotingSectionIndex,
+            group_idx: VotingGroupIndex,
+        ) -> DispatchResultWithPostInfo {
+            let (s, g) = T::VotingOrigin::ensure_origin(origin)?;
+            ensure!(s == section_idx, Error::<T>::InvalidIndex);
+            ensure!(g == group_idx, Error::<T>::InvalidIndex);
             Ok(().into())
         }
     }
