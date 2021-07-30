@@ -62,7 +62,7 @@ fn close_voting_group() {
             Voting::votes((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                threshold: 3,
+                approval_threshold: 3,
                 ayes: vec![1],
                 nays: vec![],
                 end: 3
@@ -218,7 +218,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             Voting::votes((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                threshold: 3,
+                approval_threshold: 3,
                 ayes: vec![1, 2],
                 nays: vec![],
                 end
@@ -235,7 +235,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             Voting::votes((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                threshold: 3,
+                approval_threshold: 3,
                 ayes: vec![2],
                 nays: vec![],
                 end
@@ -266,7 +266,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             Voting::votes((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 1,
-                threshold: 2,
+                approval_threshold: 2,
                 ayes: vec![2],
                 nays: vec![3],
                 end
@@ -283,7 +283,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             Voting::votes((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 1,
-                threshold: 2,
+                approval_threshold: 2,
                 ayes: vec![2],
                 nays: vec![],
                 end
@@ -327,7 +327,7 @@ fn propose_works() {
             Voting::votes((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                threshold: 3,
+                approval_threshold: 3,
                 ayes: vec![1],
                 nays: vec![],
                 end
@@ -571,7 +571,7 @@ fn motions_revoting_works() {
             Voting::votes((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                threshold: 2,
+                approval_threshold: 2,
                 ayes: vec![1],
                 nays: vec![],
                 end
@@ -600,7 +600,7 @@ fn motions_revoting_works() {
             Voting::votes((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                threshold: 2,
+                approval_threshold: 2,
                 ayes: vec![],
                 nays: vec![1],
                 end

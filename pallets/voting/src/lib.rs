@@ -10,11 +10,12 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use pallet_support::{
-    traits::{VotingActions, VotingChangeMembers},
-    MemberCount, ProposalIndex, VotingGroupIndex, VotingSectionIndex,
+    traits::{VotingActions, VotingChangeMembers}, MemberCount, ProposalIndex,
+    VotingGroupIndex, VotingSectionIndex, Votes, percentage_from_num_tuple
 };
 use sp_io::storage;
 use sp_std::prelude::*;
+use sp_runtime::{FixedPointNumber};
 
 #[cfg(test)]
 mod mock;
@@ -34,24 +35,39 @@ pub struct VotingSectionInfo {
 }
 
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, RuntimeDebug)]
-pub struct VotingGroupInfo<Hash, AccountId> {
-    members: Vec<AccountId>,
+pub struct VotingGroupInfo<Hash, Votes> {
     proposals: Vec<Hash>,
+    /// the total votes of all members of this group
+    total_votes: Votes,
+    member_count: MemberCount,
+}
+
+#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, RuntimeDebug)]
+pub struct VotingGroupMember<AccountId, Votes> {
+    account: AccountId,
+    /// how many votes that member has
+    votes: Votes
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug)]
 /// Info for keeping track of a motion being voted on.
-pub struct VotesInfo<AccountId, BlockNumber> {
+pub struct VotesInfo<AccountId, Votes, BlockNumber> {
     /// The proposal's unique index.
     index: ProposalIndex,
-    /// The number of approval votes that are needed to pass the motion.
-    threshold: MemberCount,
+    /// The percentage of approval votes that are needed to pass the motion.
+    approval_threshold: (Votes, Votes),
+    /// The percentage of disapproval votes
+    disapproval_threshold: (Votes, Votes),
     /// The current set of voters that approved it.
     ayes: Vec<AccountId>,
+    yes_votes: Votes,
     /// The current set of voters that rejected it.
     nays: Vec<AccountId>,
+    no_votes: Votes,
     /// The hard end time of this vote.
     end: BlockNumber,
+    /// the default vote behavior in case of absentations.
+    default_option: bool,
 }
 
 /// Origin for the collective module.
@@ -142,7 +158,19 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         (VotingSectionIndex, VotingGroupIndex),
-        VotingGroupInfo<T::Hash, T::AccountId>,
+        VotingGroupInfo<T::Hash, Votes>,
+        OptionQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn voting_group_members)]
+    pub type VotingGroupMembers<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        (VotingSectionIndex, VotingGroupIndex),
+        Blake2_128Concat,
+        T::AccountId,
+        VotingGroupMember<T::AccountId, Votes>,
         OptionQuery,
     >;
 
@@ -172,14 +200,14 @@ pub mod pallet {
     pub type ProposalCount<T> = StorageValue<_, ProposalIndex, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn votes)]
-    pub type Votes<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn votes_of)]
+    pub type VotesOf<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         (VotingSectionIndex, VotingGroupIndex),
         Identity,
         T::Hash,
-        VotesInfo<T::AccountId, T::BlockNumber>,
+        VotesInfo<T::AccountId, Votes, T::BlockNumber>,
         OptionQuery,
     >;
 
@@ -193,7 +221,8 @@ pub mod pallet {
             VotingGroupIndex,
             ProposalIndex,
             T::Hash,
-            MemberCount,
+            (Votes, Votes),
+            (Votes, Votes),
         ),
         Voted(
             T::AccountId,
@@ -201,15 +230,15 @@ pub mod pallet {
             VotingGroupIndex,
             T::Hash,
             bool,
-            MemberCount,
-            MemberCount,
+            Votes,
+            Votes,
         ),
         Closed(
             VotingSectionIndex,
             VotingGroupIndex,
             T::Hash,
-            MemberCount,
-            MemberCount,
+            Votes,
+            Votes,
         ),
         Approved(VotingSectionIndex, VotingGroupIndex, T::Hash),
         Disapproved(VotingSectionIndex, VotingGroupIndex, T::Hash),
@@ -235,6 +264,7 @@ pub mod pallet {
         WrongProposalWeight,
         TooEarly,
         ExceedMaxMembersAllowed,
+        InvalidMemberSize,
     }
 
     #[pallet::hooks]
@@ -259,23 +289,44 @@ pub mod pallet {
             origin: OriginFor<T>,
             section_idx: VotingSectionIndex,
             members: Vec<T::AccountId>,
+            votes: Vec<Votes>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::do_new_group(section_idx, members)?;
+            Self::do_new_group(section_idx, members, votes)?;
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::set_members(*_old_count, new_members.len() as u32, T::MaxProposals::get()))]
+        /// reset all member and votes of all proposals
+        /// TODO: weights
+        #[pallet::weight(0)]
         #[transactional]
-        pub fn set_members(
+        pub fn reset_members(
             origin: OriginFor<T>,
             section_idx: VotingSectionIndex,
             group_idx: VotingGroupIndex,
             new_members: Vec<T::AccountId>,
-            _old_count: MemberCount,
+            votes: Vec<Votes>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::do_set_members(section_idx, group_idx, new_members)?;
+            Self::do_reset_members(section_idx, group_idx, new_members, votes)?;
+            Ok(().into())
+        }
+
+        /// insert new members, update and delete existing members incrementally.
+        /// A number of members `incoming` just joined the set. If any of them already existed,
+        /// then update its `votes`. And a number of members `outgoing` were removed if existed.
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn change_members(
+            origin: OriginFor<T>,
+            section_idx: VotingSectionIndex,
+            group_idx: VotingGroupIndex,
+            incoming: Vec<T::AccountId>,
+            votes: Vec<Votes>,
+            outgoing: Vec<T::AccountId>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::do_change_members(section_idx, group_idx, incoming, votes, outgoing)?;
             Ok(().into())
         }
 
@@ -286,9 +337,11 @@ pub mod pallet {
             section_idx: VotingSectionIndex,
             group_idx: VotingGroupIndex,
             proposal: Box<T::Proposal>,
-            threshold: MemberCount,
+            approval_threshold: (Votes, Votes),
+            disapproval_threshold: (Votes, Votes),
             duration: T::BlockNumber,
             length_bound: u32,
+            default_option: bool,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             Self::do_propose(
@@ -296,9 +349,11 @@ pub mod pallet {
                 section_idx,
                 group_idx,
                 proposal,
-                threshold,
+                approval_threshold,
+                disapproval_threshold,
                 duration,
                 length_bound,
+                default_option
             )?;
             Ok(().into())
         }
@@ -314,10 +369,10 @@ pub mod pallet {
             approve: bool,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            let vg = Self::get_voting_group(section_idx, group_idx)?;
-            ensure!(vg.members.contains(&who), Error::<T>::NotMember);
+            Self::get_voting_group(section_idx, group_idx)?;
+            let member = Self::voting_group_members((section_idx, group_idx), who.clone()).ok_or(Error::<T>::NotMember)?;
 
-            let mut votes = Self::votes((section_idx, group_idx), &proposal)
+            let mut votes = Self::votes_of((section_idx, group_idx), &proposal)
                 .ok_or(Error::<T>::ProposalMissing)?;
             ensure!(votes.index == index, Error::<T>::WrongProposalIndex);
 
@@ -327,36 +382,40 @@ pub mod pallet {
             if approve {
                 if position_yes.is_none() {
                     votes.ayes.push(who.clone());
+                    votes.ayes.sort();
+                    votes.yes_votes = votes.yes_votes.saturating_add(member.votes);
                 } else {
                     Err(Error::<T>::DuplicateVote)?
                 }
                 if let Some(pos) = position_no {
                     votes.nays.swap_remove(pos);
+                    votes.no_votes = votes.no_votes.saturating_sub(member.votes);
                 }
             } else {
                 if position_no.is_none() {
                     votes.nays.push(who.clone());
+                    votes.ayes.sort();
+                    votes.no_votes = votes.no_votes.saturating_add(member.votes);
                 } else {
                     Err(Error::<T>::DuplicateVote)?
                 }
                 if let Some(pos) = position_yes {
                     votes.ayes.swap_remove(pos);
+                    votes.yes_votes = votes.yes_votes.saturating_sub(member.votes);
                 }
             }
 
-            let yes_votes = votes.ayes.len() as MemberCount;
-            let no_votes = votes.nays.len() as MemberCount;
             Self::deposit_event(Event::Voted(
                 who,
                 section_idx,
                 group_idx,
                 proposal,
                 approve,
-                yes_votes,
-                no_votes,
+                votes.yes_votes,
+                votes.no_votes,
             ));
 
-            Votes::<T>::insert((section_idx, group_idx), &proposal, votes);
+            VotesOf::<T>::insert((section_idx, group_idx), &proposal, votes);
 
             Ok(().into())
         }
@@ -388,50 +447,207 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn do_new_group(
+    fn init_group_members(
+        members: Vec<T::AccountId>,
+        votes: Vec<Votes>,
+    ) -> Result<Vec<VotingGroupMember<T::AccountId, Votes>>, DispatchError> {
+        ensure!(
+            members.len() == votes.len(),
+            Error::<T>::InvalidMemberSize
+        );
+        let mut new_members = vec![];
+        for i in 0..members.len() {
+            new_members.push(VotingGroupMember{
+                account: members.get(i).unwrap().clone(),
+                votes: *votes.get(i).unwrap(),
+            });
+        }
+        Ok(new_members)
+    }
+
+    fn do_new_group(
         section_idx: VotingGroupIndex,
         members: Vec<T::AccountId>,
+        votes: Vec<Votes>
     ) -> DispatchResult {
+        let size = members.len();
+        ensure!(
+            size <= T::MaxMembers::get() as usize,
+            Error::<T>::ExceedMaxMembersAllowed
+        );
         let index = Self::voting_group_count(section_idx).ok_or(Error::<T>::InvalidIndex)?;
+        let new_members = Self::init_group_members(members, votes)?;
         VotingGroupCount::<T>::insert(section_idx, index + 1);
+        let mut total_votes = 0 as Votes;
+        for m in new_members {
+            total_votes = total_votes.saturating_add(m.votes);
+            VotingGroupMembers::<T>::insert((section_idx, index), m.account.clone(), m);
+        }
         VotingGroup::<T>::insert(
             (section_idx, index),
             VotingGroupInfo {
-                members,
+                total_votes,
+                member_count: size as MemberCount,
                 ..Default::default()
             },
         );
         Ok(())
     }
 
-    pub fn do_set_members(
+    fn do_reset_members(
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
         new_members: Vec<T::AccountId>,
+        votes: Vec<Votes>,
     ) -> DispatchResult {
+        let size = new_members.len();
         ensure!(
-            new_members.len() <= T::MaxMembers::get() as usize,
+            size <= T::MaxMembers::get() as usize,
+            Error::<T>::ExceedMaxMembersAllowed
+        );
+        let new_members = Self::init_group_members(new_members, votes)?;
+        let mut vg = Self::voting_group((section_idx, group_idx)).ok_or(Error::<T>::InvalidIndex)?;
+        VotingGroupMembers::<T>::remove_prefix((section_idx, group_idx)); // remove old members
+        let mut total_votes = 0 as Votes;
+        for m in new_members {
+            total_votes = total_votes.saturating_add(m.votes);
+            VotingGroupMembers::<T>::insert((section_idx, group_idx), m.account.clone(), m);
+        }
+        vg.total_votes = total_votes;
+        vg.member_count = size as MemberCount;
+        VotingGroup::<T>::insert((section_idx, group_idx), vg.clone());
+
+        // update votes of proposal
+        for h in vg.proposals.into_iter() {
+            VotesOf::<T>::mutate((section_idx, group_idx), h, |v| {
+                if let Some(mut votes) = v.take() {
+                    votes.ayes = vec![];
+                    votes.yes_votes = 0;
+                    votes.nays = vec![];
+                    votes.no_votes = 0;
+                    *v = Some(votes);
+                }
+            })
+        }
+        Ok(())
+    }
+
+    fn do_change_members(
+        section_idx: VotingSectionIndex,
+        group_idx: VotingGroupIndex,
+        incoming: Vec<T::AccountId>,
+        votes: Vec<Votes>,
+        outgoing: Vec<T::AccountId>,
+    ) -> DispatchResult {
+        let mut vg = Self::voting_group((section_idx, group_idx)).ok_or(Error::<T>::InvalidIndex)?;
+        let incoming_members = Self::init_group_members(incoming, votes)?;
+
+        // insert new members and update members' votes and related proposal votes
+        for incoming_member in incoming_members {
+            let member = Self::voting_group_members((section_idx, group_idx), incoming_member.account.clone());
+            match member {
+                Some(old_member) if incoming_member.votes != old_member.votes => {
+                    if incoming_member.votes > old_member.votes { // increase votes
+                        let delta = incoming_member.votes - old_member.votes;
+                        vg.total_votes = vg.total_votes.saturating_add(delta);
+
+                        // update votes of proposal
+                        for h in vg.proposals.clone().into_iter() {
+                            VotesOf::<T>::mutate((section_idx, group_idx), h, |v| {
+                                if let Some(mut votes) = v.take() {
+                                    if votes.ayes.binary_search(&incoming_member.account).is_ok() {
+                                        votes.yes_votes = votes.yes_votes.saturating_add(delta);
+                                    }
+                                    if votes.nays.binary_search(&incoming_member.account).is_ok() {
+                                        votes.no_votes = votes.no_votes.saturating_add(delta);
+                                    }
+                                    *v = Some(votes);
+                                }
+                            })
+                        }
+                    } else { // decrease votes
+                        let delta = old_member.votes - incoming_member.votes;
+                        vg.total_votes = vg.total_votes.saturating_sub(delta);
+
+                        // update votes of proposal
+                        for h in vg.proposals.clone().into_iter() {
+                            VotesOf::<T>::mutate((section_idx, group_idx), h, |v| {
+                                if let Some(mut votes) = v.take() {
+                                    if votes.ayes.binary_search(&incoming_member.account).is_ok() {
+                                        votes.yes_votes = votes.yes_votes.saturating_sub(delta);
+                                    }
+                                    if votes.nays.binary_search(&incoming_member.account).is_ok() {
+                                        votes.no_votes = votes.no_votes.saturating_sub(delta);
+                                    }
+                                    *v = Some(votes);
+                                }
+                            })
+                        }
+                    }
+                    // update member
+                    VotingGroupMembers::<T>::insert(
+                        (section_idx, group_idx),
+                        incoming_member.account.clone(),
+                        incoming_member
+                    );
+                }
+                None => { // new member, insert it
+                    vg.member_count = vg.member_count.saturating_add(1);
+                    vg.total_votes = vg.total_votes.saturating_add(incoming_member.votes);
+                    VotingGroupMembers::<T>::insert(
+                        (section_idx, group_idx),
+                        incoming_member.account.clone(),
+                        incoming_member
+                    );
+                },
+                _ => {}
+            }
+        }
+
+        // delete members
+        for m in outgoing {
+            if let Some(member) = Self::voting_group_members((section_idx, group_idx), m.clone()) {
+                vg.member_count -= 1;
+                vg.total_votes = vg.total_votes.saturating_sub(member.votes);
+
+                // update votes of proposal
+                for h in vg.proposals.clone().into_iter() {
+                    VotesOf::<T>::mutate((section_idx, group_idx), h, |v| {
+                        if let Some(mut votes) = v.take() {
+                            let position_yes = votes.ayes.iter().position(|a| a == &m);
+                            let position_no = votes.nays.iter().position(|a| a == &m);
+                            if let Some(pos) = position_yes {
+                                votes.ayes.swap_remove(pos);
+                                votes.yes_votes = votes.yes_votes.saturating_sub(member.votes);
+                            }
+                            if let Some(pos) = position_no {
+                                votes.nays.swap_remove(pos);
+                                votes.no_votes = votes.no_votes.saturating_sub(member.votes);
+                            }
+                            *v = Some(votes);
+                        }
+                    })
+                }
+            }
+        }
+
+        ensure!(
+            vg.member_count <= T::MaxMembers::get(),
             Error::<T>::ExceedMaxMembersAllowed
         );
 
-        let vg = Self::voting_group((section_idx, group_idx)).ok_or(Error::<T>::InvalidIndex)?;
-        let old = vg.members;
-        let mut new_members = new_members;
-        new_members.sort();
-        <Self as VotingChangeMembers<T::AccountId>>::set_members_sorted(
-            section_idx,
-            group_idx,
-            &new_members,
-            &old,
-        );
+        // update voting group
+        VotingGroup::<T>::insert((section_idx, group_idx), vg);
         Ok(())
     }
+
 
     fn get_voting_group(
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
-    ) -> Result<VotingGroupInfo<T::Hash, T::AccountId>, DispatchError> {
-        let v = VotingGroup::<T>::get((section_idx, group_idx)).ok_or(Error::<T>::InvalidIndex)?;
+    ) -> Result<VotingGroupInfo<T::Hash, Votes>, DispatchError> {
+        let v = VotingGroup::<T>::get((section_idx, group_idx))
+            .ok_or(Error::<T>::InvalidIndex)?;
         return Ok(v);
     }
 
@@ -496,7 +712,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<u32, DispatchError> {
         // remove proposal and vote
         ProposalOf::<T>::remove((section_idx, group_idx), &proposal_hash);
-        Votes::<T>::remove((section_idx, group_idx), &proposal_hash);
+        VotesOf::<T>::remove((section_idx, group_idx), &proposal_hash);
         let mut vg = Self::get_voting_group(section_idx, group_idx)?;
         vg.proposals.retain(|h| h != &proposal_hash);
         let proposal_len = vg.proposals.len();
@@ -512,16 +728,21 @@ impl<T: Config> Pallet<T> {
         length_bound: u32,
         weight_bound: Weight,
     ) -> DispatchResult {
-        let votes = Self::votes((section_idx, group_idx), &proposal_hash)
+        let votes = Self::votes_of((section_idx, group_idx), &proposal_hash)
             .ok_or(Error::<T>::ProposalMissing)?;
         ensure!(votes.index == index, Error::<T>::WrongProposalIndex);
 
-        let mut no_votes = votes.nays.len() as MemberCount;
-        let yes_votes = votes.ayes.len() as MemberCount;
+        let mut no_votes = votes.no_votes;
+        let mut yes_votes = votes.yes_votes;
         let vg = Self::get_voting_group(section_idx, group_idx)?;
-        let seats = vg.members.len() as MemberCount;
-        let approved = yes_votes >= votes.threshold;
-        let disapproved = seats.saturating_sub(no_votes) < votes.threshold;
+        let total_votes = vg.total_votes;
+        let appro_thres_votes = percentage_from_num_tuple(votes.approval_threshold)
+            .saturating_mul_int(total_votes);
+        let disappro_thres_votes = percentage_from_num_tuple(votes.disapproval_threshold)
+            .saturating_mul_int(total_votes);
+
+        let approved = yes_votes >= appro_thres_votes;
+        let disapproved = no_votes >= disappro_thres_votes;
 
         // Allow (dis-)approving the proposal as soon as there are enough votes.
         if approved {
@@ -559,10 +780,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TooEarly
         );
 
-        let abstentions = seats - (yes_votes + no_votes);
-        //todo: handle abstentions better, currently assume no
-        no_votes += abstentions;
-        let approved = yes_votes >= votes.threshold;
+        let abstentions = total_votes - (yes_votes + no_votes);
+        if votes.default_option {
+            yes_votes += abstentions;
+        } else {
+            no_votes += abstentions;
+        }
+        let approved = yes_votes >= appro_thres_votes;
 
         if approved {
             let (proposal, _len) = Self::validate_and_get_proposal(
@@ -579,7 +803,7 @@ impl<T: Config> Pallet<T> {
                 yes_votes,
                 no_votes,
             ));
-            Self::do_approve_proposal(seats, group_idx, proposal_hash, proposal)?;
+            Self::do_approve_proposal(section_idx, group_idx, proposal_hash, proposal)?;
         } else {
             Self::deposit_event(Event::Closed(
                 section_idx,
@@ -599,12 +823,14 @@ impl<T: Config> Pallet<T> {
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
         proposal: Box<T::Proposal>,
-        threshold: MemberCount,
+        approval_threshold: (Votes, Votes),
+        disapproval_threshold: (Votes, Votes),
         duration: T::BlockNumber,
         length_bound: u32,
+        default_option: bool,
     ) -> DispatchResult {
         let mut vg = Self::get_voting_group(section_idx, group_idx)?;
-        ensure!(vg.members.contains(&who), Error::<T>::NotMember);
+        let member = Self::voting_group_members((section_idx, group_idx), who.clone()).ok_or(Error::<T>::NotMember)?;
 
         let proposal_len = proposal.using_encoded(|x| x.len());
         ensure!(
@@ -631,12 +857,16 @@ impl<T: Config> Pallet<T> {
         let end = <frame_system::Pallet<T>>::block_number() + duration;
         let votes = VotesInfo {
             index,
-            threshold,
+            approval_threshold,
+            disapproval_threshold,
             ayes: vec![who.clone()],
+            yes_votes: member.votes,
             nays: vec![],
+            no_votes: 0,
             end,
+            default_option
         };
-        Votes::<T>::insert((section_idx, group_idx), proposal_hash, votes);
+        VotesOf::<T>::insert((section_idx, group_idx), proposal_hash, votes);
 
         Self::deposit_event(Event::Proposed(
             who,
@@ -644,7 +874,8 @@ impl<T: Config> Pallet<T> {
             group_idx,
             index,
             proposal_hash,
-            threshold,
+            approval_threshold,
+            disapproval_threshold,
         ));
         Ok(())
     }
@@ -654,100 +885,82 @@ impl<T: Config> Pallet<T> {
         group_idx: VotingGroupIndex,
     ) -> DispatchResult {
         // 1. remove Votes
-        Votes::<T>::remove_prefix((section_idx, group_idx));
+        VotesOf::<T>::remove_prefix((section_idx, group_idx));
         // 2. remove Proposals
         ProposalOf::<T>::remove_prefix((section_idx, group_idx));
-        // 3. remove VotingGroupInfo
+        // 3. remove Members
+        VotingGroupMembers::<T>::remove_prefix((section_idx, group_idx));
+        // 4. remove VotingGroupInfo
         VotingGroup::<T>::remove((section_idx, group_idx));
         Ok(())
     }
 }
 
-impl<T: Config> VotingChangeMembers<T::AccountId> for Pallet<T> {
-    fn change_members_sorted(
-        section_idx: u32,
-        group_idx: u32,
-        _incoming: &[T::AccountId],
-        outgoing: &[T::AccountId],
-        sorted_new: &[T::AccountId],
-    ) {
-        let mut outgoing = outgoing.to_vec();
-        outgoing.sort();
-        match Self::get_voting_group(section_idx, group_idx) {
-            Ok(vg) => {
-                for h in vg.proposals.into_iter() {
-                    Votes::<T>::mutate((section_idx, group_idx), h, |v| {
-                        if let Some(mut votes) = v.take() {
-                            votes.ayes = votes
-                                .ayes
-                                .into_iter()
-                                .filter(|i| outgoing.binary_search(i).is_err())
-                                .collect();
-                            votes.nays = votes
-                                .nays
-                                .into_iter()
-                                .filter(|i| outgoing.binary_search(i).is_err())
-                                .collect();
-                            *v = Some(votes);
-                        }
-                    })
-                }
-                VotingGroup::<T>::mutate((section_idx, group_idx), |v| {
-                    if let Some(vg) = v {
-                        vg.members = sorted_new.to_vec();
-                    }
-                });
-            }
-            _ => {
-                log::error!(
-                    target: "runtime::pallet_voting",
-                    "Invalid voting index (section_idx, group_idx) => ({}, {})",
-                    section_idx,
-                    group_idx,
-                );
-            }
-        }
+impl<T: Config> VotingChangeMembers<T::AccountId, Votes> for Pallet<T> {
+    fn change_members(
+        section: VotingSectionIndex,
+        group: VotingGroupIndex,
+        incoming: Vec<T::AccountId>,
+        votes: Vec<Votes>,
+        outgoing: Vec<T::AccountId>,
+    ) -> DispatchResult {
+        Self::do_change_members(section, group, incoming, votes, outgoing)?;
+        Ok(())
     }
 }
 
-impl<T: Config> VotingActions<T::AccountId, T::Proposal, T::Hash, T::BlockNumber> for Pallet<T> {
-    fn new_group(section_idx: VotingSectionIndex, members: Vec<T::AccountId>) -> DispatchResult {
-        Self::do_new_group(section_idx, members)
+impl<T: Config> VotingActions<T::AccountId, T::Proposal, T::BlockNumber, Votes> for Pallet<T> {
+    fn new_group(
+        section_idx: VotingSectionIndex,
+        members: Vec<T::AccountId>,
+        votes: Vec<Votes>,
+    ) -> DispatchResult {
+        Self::do_new_group(section_idx, members, votes)
     }
 
-    fn set_members(
+    fn reset_members(
         section_idx: VotingSectionIndex,
         group_idx: VotingGroupIndex,
         new_members: Vec<T::AccountId>,
+        votes: Vec<Votes>,
     ) -> DispatchResult {
-        Self::do_set_members(section_idx, group_idx, new_members)
+        Self::do_reset_members(section_idx, group_idx, new_members, votes)
     }
 
     fn propose(
         who: T::AccountId,
-        section_idx: VotingSectionIndex,
-        group_idx: VotingGroupIndex,
-        proposal: Box<T::Proposal>,
-        threshold: MemberCount,
+        section: VotingSectionIndex,
+        group: VotingGroupIndex,
+        call: Box<T::Proposal>,
+        approval_threshold: (Votes, Votes),
+        disapproval_threshold: (Votes, Votes),
         duration: T::BlockNumber,
         length_bound: u32,
+        default_option: bool,
     ) -> DispatchResult {
         Self::do_propose(
             who,
-            section_idx,
-            group_idx,
-            proposal,
-            threshold,
+            section,
+            group,
+            call,
+            approval_threshold,
+            disapproval_threshold,
             duration,
             length_bound,
+            default_option
         )
     }
 
     fn members(
-        section_idx: VotingSectionIndex,
-        group_idx: VotingGroupIndex,
-    ) -> Result<Vec<T::AccountId>, DispatchError> {
-        let vg = Self::get_voting_group(section_idx, group_idx)?;
-        Ok(vg.members)
+        section: VotingSectionIndex,
+        group: VotingGroupIndex,
+    ) -> Result<(Vec<T::AccountId>, Vec<Votes>), DispatchError> {
+        let mut members = vec![];
+        let mut votes = vec![];
+        for m in VotingGroupMembers::<T>::iter_prefix_values((section, group)).into_iter() {
+            members.push(m.account);
+            votes.push(m.votes);
+        }
+        Ok((members, votes))
     }
 }

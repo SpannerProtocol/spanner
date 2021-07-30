@@ -282,8 +282,6 @@ where
     }
 }
 
-pub type Percentage = FixedU128;
-
 pub use module::*;
 
 #[frame_support::pallet]
@@ -349,7 +347,7 @@ pub mod module {
 
         type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
 
-        type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::Hash, Self::BlockNumber>;
+        type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::Hash, Self::BlockNumber, Votes>;
 
         type VotingOrigin: EnsureOrigin<
             Self::Origin,
@@ -1388,12 +1386,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn percentage_from_num_tuple<N: FixedPointOperand, D: FixedPointOperand>(
-        (numerator, denominator): (N, D),
-    ) -> Percentage {
-        Percentage::checked_from_rational(numerator, denominator).unwrap_or_default()
-    }
-
     /// dpo target's amount may be outdated if its target dpo changes the target.
     /// check if the target changed or not and refresh the target info
     fn refresh_dpo_target_info_if_needed(
@@ -1444,7 +1436,7 @@ impl<T: Config> Pallet<T> {
             // recompute fee
             let manager_info = Self::dpo_members(dpo.index, Buyer::Passenger(dpo.manager.clone()))
                 .ok_or(Error::<T>::InvalidIndex)?;
-            let manager_amount = Self::percentage_from_num_tuple(dpo.share_rate)
+            let manager_amount = percentage_from_num_tuple(dpo.share_rate)
                 .saturating_mul_int(manager_info.share);
             let fee = Self::calc_dpo_manager_fee(
                 dpo.base_fee,
@@ -1598,7 +1590,7 @@ impl<T: Config> Pallet<T> {
                         .ok_or(Error::<T>::InvalidIndex)?;
 
                     let latest_target_amount =
-                        Self::percentage_from_num_tuple(target_dpo.share_rate)
+                        percentage_from_num_tuple(target_dpo.share_rate)
                             .saturating_mul_int(member_dpo_info.share);
                     latest_target_amount
                 };
@@ -1723,15 +1715,15 @@ impl<T: Config> Pallet<T> {
     ) -> (Balance, Balance) {
         match buyer {
             Buyer::Dpo(_) => (
-                Self::percentage_from_num_tuple(T::DpoSharePercentMinimum::get())
+                percentage_from_num_tuple(T::DpoSharePercentMinimum::get())
                     .saturating_mul_int(target_dpo_amount),
-                Self::percentage_from_num_tuple(T::DpoSharePercentCap::get())
+                percentage_from_num_tuple(T::DpoSharePercentCap::get())
                     .saturating_mul_int(target_dpo_amount),
             ),
             Buyer::Passenger(_) => (
-                Self::percentage_from_num_tuple(T::PassengerSharePercentMinimum::get())
+                percentage_from_num_tuple(T::PassengerSharePercentMinimum::get())
                     .saturating_mul_int(target_dpo_amount),
-                Self::percentage_from_num_tuple(T::PassengerSharePercentCap::get())
+                percentage_from_num_tuple(T::PassengerSharePercentCap::get())
                     .saturating_mul_int(target_dpo_amount),
             ),
             Buyer::InvalidBuyer => (0, 0),
@@ -1745,7 +1737,7 @@ impl<T: Config> Pallet<T> {
         referrer_account: Option<T::AccountId>,
     ) -> DispatchResult {
         // update dpo total share, share = token / rate
-        let rate = Self::percentage_from_num_tuple(target_dpo.share_rate);
+        let rate = percentage_from_num_tuple(target_dpo.share_rate);
         let share = rate
             .reciprocal()
             .unwrap_or_default()
@@ -1806,7 +1798,7 @@ impl<T: Config> Pallet<T> {
             if Self::is_buyer_manager(dpo, &member_info.buyer) {
                 if is_lead_dpo {
                     // just wire manager's portion to him
-                    let mut manager_portion = Self::percentage_from_num_tuple((
+                    let mut manager_portion = percentage_from_num_tuple((
                         manager_info.share,
                         total_receivable_share,
                     ))
@@ -1843,7 +1835,7 @@ impl<T: Config> Pallet<T> {
                 let member_manager_info =
                     Self::dpo_members(member_dpo_idx, Buyer::Passenger(member_dpo.manager))
                         .ok_or(Error::<T>::InvalidIndex)?;
-                let reserve_bonus = Self::percentage_from_num_tuple((
+                let reserve_bonus = percentage_from_num_tuple((
                     member_dpo
                         .issued_shares
                         .saturating_sub(member_manager_info.share),
@@ -1977,7 +1969,7 @@ impl<T: Config> Pallet<T> {
             if Self::is_buyer_manager(dpo, &member_info.buyer) {
                 continue;
             };
-            let percent = Self::percentage_from_num_tuple((member_info.share, dpo.issued_shares));
+            let percent = percentage_from_num_tuple((member_info.share, dpo.issued_shares));
             let amount = percent.saturating_mul_int(total_amount);
             Self::dpo_outflow_to_member_account(dpo, member_info.buyer, amount, payment_type)?;
             remainder = remainder.saturating_sub(amount);
@@ -2281,7 +2273,7 @@ impl<T: Config> Pallet<T> {
                         .target_amount
                         .saturating_sub(target_dpo.total_fund);
                     let min_amount_require =
-                        Self::percentage_from_num_tuple(T::DpoPartialBuySharePercentMin::get())
+                        percentage_from_num_tuple(T::DpoPartialBuySharePercentMin::get())
                             .saturating_mul_int(target_dpo.target_amount);
                     // the amount of partial purchase should be more than minimum requirement (1%),
                     // unless the remaining shares of the original target is less than 1%
@@ -2377,7 +2369,7 @@ impl<T: Config> Pallet<T> {
                         let member = Self::dpo_members(target_dpo.index, buyer.clone());
                         let bought_amount = match member {
                             Some(member_info) => {
-                                Self::percentage_from_num_tuple(target_dpo.share_rate)
+                                percentage_from_num_tuple(target_dpo.share_rate)
                                     .saturating_mul_int(member_info.share)
                             }
                             None => 0,
