@@ -9,13 +9,10 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use pallet_support::{
-    traits::{VotingActions, VotingChangeMembers}, MemberCount, ProposalIndex,
-    VotingGroupIndex, VotingSectionIndex, Votes, percentage_from_num_tuple
-};
+use pallet_support::{traits::{VotingActions, VotingChangeMembers}, MemberCount, ProposalIndex, VotingGroupIndex, VotingSectionIndex, Votes, percentage_from_num_tuple, Percentage};
 use sp_io::storage;
 use sp_std::prelude::*;
-use sp_runtime::{FixedPointNumber};
+use sp_runtime::{FixedPointNumber, traits::Saturating};
 
 #[cfg(test)]
 mod mock;
@@ -57,7 +54,7 @@ pub struct VotesInfo<AccountId, Votes, BlockNumber> {
     /// The percentage of approval votes that are needed to pass the motion.
     approval_threshold: (Votes, Votes),
     /// The percentage of disapproval votes
-    disapproval_threshold: (Votes, Votes),
+    disapproval_threshold: Option<(Votes, Votes)>,
     /// The current set of voters that approved it.
     ayes: Vec<AccountId>,
     yes_votes: Votes,
@@ -222,7 +219,7 @@ pub mod pallet {
             ProposalIndex,
             T::Hash,
             (Votes, Votes),
-            (Votes, Votes),
+            Option<(Votes, Votes)>,
         ),
         Voted(
             T::AccountId,
@@ -265,6 +262,7 @@ pub mod pallet {
         TooEarly,
         ExceedMaxMembersAllowed,
         InvalidMemberSize,
+        InvalidThreshold,
     }
 
     #[pallet::hooks]
@@ -338,7 +336,7 @@ pub mod pallet {
             group_idx: VotingGroupIndex,
             proposal: Box<T::Proposal>,
             approval_threshold: (Votes, Votes),
-            disapproval_threshold: (Votes, Votes),
+            disapproval_threshold: Option<(Votes, Votes)>,
             duration: T::BlockNumber,
             length_bound: u32,
             default_option: bool,
@@ -638,6 +636,8 @@ impl<T: Config> Pallet<T> {
 
         // update voting group
         VotingGroup::<T>::insert((section_idx, group_idx), vg);
+
+        // TODO: event
         Ok(())
     }
 
@@ -738,11 +738,15 @@ impl<T: Config> Pallet<T> {
         let total_votes = vg.total_votes;
         let appro_thres_votes = percentage_from_num_tuple(votes.approval_threshold)
             .saturating_mul_int(total_votes);
-        let disappro_thres_votes = percentage_from_num_tuple(votes.disapproval_threshold)
-            .saturating_mul_int(total_votes);
 
         let approved = yes_votes >= appro_thres_votes;
-        let disapproved = no_votes >= disappro_thres_votes;
+        let disapproved = if let Some(disapproval_threshold) = votes.disapproval_threshold {
+            let disapproval_threshold_percent = percentage_from_num_tuple(disapproval_threshold);
+            let disappro_thres_votes = disapproval_threshold_percent.saturating_mul_int(total_votes);
+            no_votes >= disappro_thres_votes
+        } else {
+            vg.total_votes.saturating_sub(no_votes) < appro_thres_votes
+        };
 
         // Allow (dis-)approving the proposal as soon as there are enough votes.
         if approved {
@@ -824,7 +828,7 @@ impl<T: Config> Pallet<T> {
         group_idx: VotingGroupIndex,
         proposal: Box<T::Proposal>,
         approval_threshold: (Votes, Votes),
-        disapproval_threshold: (Votes, Votes),
+        disapproval_threshold: Option<(Votes, Votes)>,
         duration: T::BlockNumber,
         length_bound: u32,
         default_option: bool,
@@ -847,6 +851,23 @@ impl<T: Config> Pallet<T> {
             vg.proposals.len() < T::MaxProposals::get() as usize,
             Error::<T>::TooManyProposals
         );
+
+        // check threshold
+        let approval_threshold_percent = percentage_from_num_tuple(approval_threshold);
+        ensure!(
+            approval_threshold_percent.gt(&Percentage::zero()) && approval_threshold_percent.le(&Percentage::one()),
+            Error::<T>::InvalidThreshold
+        );
+        // when disapproval_threshold is none, it is equals to default value (1 - approval_threshold)
+        // otherwise, disapproval_threshold + approval_threshold < 1
+        if let Some(disapproval_threshold) = disapproval_threshold {
+            let disapproval_threshold_percent = percentage_from_num_tuple(disapproval_threshold);
+            ensure!(
+                disapproval_threshold_percent.saturating_add(approval_threshold_percent).lt(&Percentage::one()),
+                Error::<T>::InvalidThreshold
+            );
+        }
+
         vg.proposals.push(proposal_hash);
         VotingGroup::<T>::insert((section_idx, group_idx), vg);
 
@@ -933,7 +954,7 @@ impl<T: Config> VotingActions<T::AccountId, T::Proposal, T::BlockNumber, Votes> 
         group: VotingGroupIndex,
         call: Box<T::Proposal>,
         approval_threshold: (Votes, Votes),
-        disapproval_threshold: (Votes, Votes),
+        disapproval_threshold: Option<(Votes, Votes)>,
         duration: T::BlockNumber,
         length_bound: u32,
         default_option: bool,

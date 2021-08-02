@@ -22,7 +22,7 @@ pub trait VotingActions<AccountId, Proposal, BlockNumber, Votes> {
         group: VotingGroupIndex,
         call: Box<Proposal>,
         approval_threshold: (Votes, Votes),
-        disapproval_threshold: (Votes, Votes),
+        disapproval_threshold: Option<(Votes, Votes)>,
         duration: BlockNumber,
         length_bound: u32,
         default_option: bool,

@@ -17,13 +17,14 @@ fn make_proposal(value: u64) -> Call {
 fn new_voting_group() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         assert_eq!(
             Voting::voting_group((section_idx, group_idx)),
             Some(VotingGroupInfo {
-                members: vec![1, 2, 3],
-                proposals: Vec::<H256>::new()
+                proposals: Vec::<H256>::new(),
+                total_votes: 6,
+                member_count: 3,
             })
         );
     });
@@ -33,7 +34,7 @@ fn new_voting_group() {
 fn close_voting_group() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 1, 1]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -44,9 +45,11 @@ fn close_voting_group() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_eq!(
             Voting::voting_group((section_idx, group_idx))
@@ -59,20 +62,24 @@ fn close_voting_group() {
             Some(proposal)
         );
         assert_eq!(
-            Voting::votes((section_idx, group_idx), &hash),
+            Voting::votes_of((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                approval_threshold: 3,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
                 ayes: vec![1],
+                yes_votes: 1,
                 nays: vec![],
-                end: 3
+                no_votes: 0,
+                end: 3,
+                default_option: false,
             })
         );
 
         assert_ok!(Voting::_do_close_group(section_idx, group_idx));
         assert_eq!(Voting::voting_group((section_idx, group_idx)), None);
         assert_eq!(Voting::proposal_of((section_idx, group_idx), &hash), None);
-        assert_eq!(Voting::votes((section_idx, group_idx), &hash), None);
+        assert_eq!(Voting::votes_of((section_idx, group_idx), &hash), None);
     });
 }
 
@@ -81,7 +88,7 @@ fn close_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![3, 2, 1]));
         let (section_idx, group_idx) = (0, 0);
 
         let proposal = make_proposal(42);
@@ -94,9 +101,11 @@ fn close_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_noop!(
             Voting::vote(
@@ -157,7 +166,8 @@ fn close_works() {
                     group_idx,
                     0,
                     hash.clone(),
-                    3
+                    (1, 1),
+                    None,
                 ))),
                 record(Event::pallet_voting(crate::Event::Voted(
                     2,
@@ -165,14 +175,14 @@ fn close_works() {
                     group_idx,
                     hash.clone(),
                     true,
-                    2,
+                    5,
                     0
                 ))),
                 record(Event::pallet_voting(crate::Event::Closed(
                     section_idx,
                     group_idx,
                     hash.clone(),
-                    2,
+                    5,
                     1
                 ))),
                 record(Event::pallet_voting(crate::Event::Disapproved(
@@ -186,107 +196,145 @@ fn close_works() {
 }
 
 #[test]
-fn removal_of_old_voters_votes_works_with_set_members() {
+fn change_members_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
-        let proposal = make_proposal(42);
-        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-        let hash = BlakeTwo256::hash_of(&proposal);
+        let proposal1 = make_proposal(42);
+        let proposal1_len: u32 = proposal1.using_encoded(|p| p.len() as u32);
+        let hash1 = BlakeTwo256::hash_of(&proposal1);
         let end = 4;
 
         assert_ok!(Voting::propose(
             Origin::signed(1),
             section_idx,
             group_idx,
-            Box::new(proposal.clone()),
+            Box::new(proposal1.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal1_len,
+            false,
         ));
         assert_ok!(Voting::vote(
             Origin::signed(2),
             section_idx,
             group_idx,
-            hash.clone(),
+            hash1.clone(),
             0,
             true
         ));
         assert_eq!(
-            Voting::votes((section_idx, group_idx), &hash),
+            Voting::votes_of((section_idx, group_idx), &hash1),
             Some(VotesInfo {
                 index: 0,
-                approval_threshold: 3,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
                 ayes: vec![1, 2],
+                yes_votes: 3,
                 nays: vec![],
-                end
+                no_votes: 0,
+                end,
+                default_option: false
             })
         );
-        assert_ok!(Voting::set_members(
+        assert_ok!(Voting::change_members(
             Origin::root(),
             section_idx,
             group_idx,
-            vec![2, 3, 4],
-            3
+            vec![4],
+            vec![4],
+            vec![1],
         ));
         assert_eq!(
-            Voting::votes((section_idx, group_idx), &hash),
+            Voting::voting_group((section_idx, group_idx)),
+            Some(VotingGroupInfo {
+                proposals: vec![hash1.clone()],
+                total_votes: 9,
+                member_count: 3,
+            })
+        );
+        assert_eq!(
+            Voting::votes_of((section_idx, group_idx), &hash1),
             Some(VotesInfo {
                 index: 0,
-                approval_threshold: 3,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
                 ayes: vec![2],
+                yes_votes: 2,
                 nays: vec![],
-                end
+                no_votes: 0,
+                end,
+                default_option: false
             })
         );
 
-        let proposal = make_proposal(69);
-        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
-        let hash = BlakeTwo256::hash_of(&proposal);
+        let proposal2 = make_proposal(69);
+        let proposal2_len: u32 = proposal2.using_encoded(|p| p.len() as u32);
+        let hash2 = BlakeTwo256::hash_of(&proposal2);
         assert_ok!(Voting::propose(
             Origin::signed(2),
             section_idx,
             group_idx,
-            Box::new(proposal.clone()),
-            2,
+            Box::new(proposal2.clone()),
+            (1, 1),
+            None,
             3,
-            proposal_len
+            proposal2_len,
+            false,
         ));
         assert_ok!(Voting::vote(
             Origin::signed(3),
             section_idx,
             group_idx,
-            hash.clone(),
+            hash2.clone(),
             1,
             false
         ));
         assert_eq!(
-            Voting::votes((section_idx, group_idx), &hash),
+            Voting::votes_of((section_idx, group_idx), &hash2),
             Some(VotesInfo {
                 index: 1,
-                approval_threshold: 2,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
                 ayes: vec![2],
+                yes_votes: 2,
                 nays: vec![3],
-                end
+                no_votes: 3,
+                end,
+                default_option: false
             })
         );
-        assert_ok!(Voting::set_members(
+        assert_ok!(Voting::change_members(
             Origin::root(),
             section_idx,
             group_idx,
-            vec![2, 4],
-            3
+            vec![2], // change votes
+            vec![10],
+            vec![3], // remove
         ));
         assert_eq!(
-            Voting::votes((section_idx, group_idx), &hash),
+            Voting::voting_group((section_idx, group_idx)),
+            Some(VotingGroupInfo {
+                proposals: vec![hash1, hash2],
+                total_votes: 14, // 10 + 4
+                member_count: 2,
+            })
+        );
+        assert_eq!(
+            Voting::votes_of((section_idx, group_idx), &hash2),
             Some(VotesInfo {
                 index: 1,
-                approval_threshold: 2,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
                 ayes: vec![2],
+                yes_votes: 10,
                 nays: vec![],
-                end
+                no_votes: 0,
+                end,
+                default_option: false
             })
         );
     });
@@ -297,7 +345,7 @@ fn propose_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -309,9 +357,11 @@ fn propose_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_eq!(
             Voting::voting_group((section_idx, group_idx))
@@ -324,13 +374,17 @@ fn propose_works() {
             Some(proposal)
         );
         assert_eq!(
-            Voting::votes((section_idx, group_idx), &hash),
+            Voting::votes_of((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                approval_threshold: 3,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
                 ayes: vec![1],
+                yes_votes: 1,
                 nays: vec![],
-                end
+                no_votes: 0,
+                end,
+                default_option: false
             })
         );
 
@@ -344,7 +398,8 @@ fn propose_works() {
                     group_idx,
                     0,
                     hex!["68eea8f20b542ec656c6ac2d10435ae3bd1729efc34d1354ab85af840aad2d35"].into(),
-                    3
+                    (1, 1),
+                    None,
                 )),
                 topics: vec![],
             }]
@@ -357,7 +412,7 @@ fn propose_non_member_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -367,9 +422,11 @@ fn propose_non_member_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ), Error::<Test>::NotMember);
     });
 }
@@ -378,7 +435,7 @@ fn propose_non_member_works() {
 fn limit_active_proposals() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         //todo: dynamic max proposals
         for i in 0..10 {
@@ -389,9 +446,11 @@ fn limit_active_proposals() {
                 section_idx,
                 group_idx,
                 Box::new(proposal.clone()),
+                (1, 1),
+                None,
                 3,
-                3,
-                proposal_len
+                proposal_len,
+                false,
             ));
         }
         //todo: dynamic max proposals
@@ -403,9 +462,11 @@ fn limit_active_proposals() {
                 section_idx,
                 group_idx,
                 Box::new(proposal.clone()),
+                (1, 1),
+                None,
                 3,
-                3,
-                proposal_len
+                proposal_len,
+                false,
             ),
             Error::<Test>::TooManyProposals
         );
@@ -416,7 +477,7 @@ fn limit_active_proposals() {
 fn correct_validate_and_get_proposal() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -429,9 +490,11 @@ fn correct_validate_and_get_proposal() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false
         ));
         assert_noop!(
             Voting::validate_and_get_proposal(
@@ -461,7 +524,7 @@ fn correct_validate_and_get_proposal() {
 fn motions_ignoring_non_member_proposals_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -472,9 +535,11 @@ fn motions_ignoring_non_member_proposals_works() {
                 section_idx,
                 group_idx,
                 Box::new(proposal.clone()),
+                (1, 1),
+                None,
                 3,
-                3,
-                proposal_len
+                proposal_len,
+                false,
             ),
             Error::<Test>::NotMember
         );
@@ -485,7 +550,7 @@ fn motions_ignoring_non_member_proposals_works() {
 fn motions_ignoring_non_member_votes_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -496,9 +561,11 @@ fn motions_ignoring_non_member_votes_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_noop!(
             Voting::vote(
@@ -518,7 +585,7 @@ fn motions_ignoring_non_member_votes_works() {
 fn motions_ignoring_bad_index_member_vote_works() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -529,9 +596,11 @@ fn motions_ignoring_bad_index_member_vote_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_noop!(
             Voting::vote(
@@ -552,7 +621,7 @@ fn motions_revoting_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -563,18 +632,24 @@ fn motions_revoting_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
-            2,
+            (1, 1),
+            None,
             3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_eq!(
-            Voting::votes((section_idx, group_idx), &hash),
+            Voting::votes_of((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                approval_threshold: 2,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
                 ayes: vec![1],
+                yes_votes: 1,
                 nays: vec![],
-                end
+                no_votes: 0,
+                end,
+                default_option: false
             })
         );
         assert_noop!(
@@ -597,13 +672,17 @@ fn motions_revoting_works() {
             false
         ));
         assert_eq!(
-            Voting::votes((section_idx, group_idx), &hash),
+            Voting::votes_of((section_idx, group_idx), &hash),
             Some(VotesInfo {
                 index: 0,
-                approval_threshold: 2,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
                 ayes: vec![],
+                yes_votes: 0,
                 nays: vec![1],
-                end
+                no_votes: 1,
+                end,
+                default_option: false
             })
         );
         assert_noop!(
@@ -631,7 +710,8 @@ fn motions_revoting_works() {
                     group_idx,
                     0,
                     hex!["68eea8f20b542ec656c6ac2d10435ae3bd1729efc34d1354ab85af840aad2d35"].into(),
-                    2
+                    (1, 1),
+                    None,
                 ))),
                 record(Event::pallet_voting(crate::Event::Voted(
                     1,
@@ -652,7 +732,7 @@ fn motions_reproposing_disapproved_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -664,18 +744,13 @@ fn motions_reproposing_disapproved_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ));
-        assert_ok!(Voting::vote(
-            Origin::signed(2),
-            section_idx,
-            group_idx,
-            hash.clone(),
-            0,
-            false
-        ));
+        run_to_block(5);
         assert_ok!(Voting::close(
             Origin::signed(1),
             section_idx,
@@ -696,9 +771,11 @@ fn motions_reproposing_disapproved_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_eq!(
             Voting::voting_group((section_idx, group_idx))
@@ -714,7 +791,7 @@ fn motions_disapproval_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -726,9 +803,11 @@ fn motions_disapproval_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
+            (1, 1),
+            None,
             3,
-            3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_ok!(Voting::vote(
             Origin::signed(2),
@@ -762,7 +841,8 @@ fn motions_disapproval_works() {
                     group_idx,
                     0,
                     hash.clone(),
-                    3
+                    (1, 1),
+                    None,
                 ))),
                 record(Event::pallet_voting(crate::Event::Voted(
                     2,
@@ -771,14 +851,14 @@ fn motions_disapproval_works() {
                     hash.clone(),
                     false,
                     1,
-                    1
+                    2
                 ))),
                 record(Event::pallet_voting(crate::Event::Closed(
                     section_idx,
                     group_idx,
                     hash.clone(),
                     1,
-                    1
+                    2
                 ))),
                 record(Event::pallet_voting(crate::Event::Disapproved(
                     section_idx,
@@ -795,7 +875,7 @@ fn motions_approval_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -807,9 +887,11 @@ fn motions_approval_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
-            2,
+            (1, 2),
+            None,
             3,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_ok!(Voting::vote(
             Origin::signed(2),
@@ -843,7 +925,8 @@ fn motions_approval_works() {
                     group_idx,
                     0,
                     hash.clone(),
-                    2
+                    (1, 2),
+                    None,
                 ))),
                 record(Event::pallet_voting(crate::Event::Voted(
                     2,
@@ -851,14 +934,14 @@ fn motions_approval_works() {
                     group_idx,
                     hash.clone(),
                     true,
-                    2,
+                    3,
                     0
                 ))),
                 record(Event::pallet_voting(crate::Event::Closed(
                     section_idx,
                     group_idx,
                     hash.clone(),
-                    2,
+                    3,
                     0
                 ))),
                 record(Event::pallet_voting(crate::Event::Approved(
@@ -885,12 +968,12 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![3, 2, 1]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let hash = BlakeTwo256::hash_of(&proposal);
-        let threshold = 2;
+        let threshold = (2, 3);
         let duration = 3;
         assert_ok!(Voting::propose(
             Origin::signed(1),
@@ -898,8 +981,10 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
             group_idx,
             Box::new(proposal.clone()),
             threshold,
+            None,
             duration,
-            proposal_len
+            proposal_len,
+            false,
         ));
         // First we make the proposal succeed
         assert_ok!(Voting::vote(
@@ -959,13 +1044,13 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
 fn proposal_weight_limit_ignored_on_disapprove() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let proposal_weight = proposal.get_dispatch_info().weight;
         let hash = BlakeTwo256::hash_of(&proposal);
-        let threshold = 2;
+        let threshold = (1, 2);
         let duration = 3;
         assert_ok!(Voting::propose(
             Origin::signed(1),
@@ -973,8 +1058,10 @@ fn proposal_weight_limit_ignored_on_disapprove() {
             group_idx,
             Box::new(proposal.clone()),
             threshold,
+            None,
             duration,
-            proposal_len
+            proposal_len,
+            false,
         ));
         // No votes, this proposal wont pass
         run_to_block(4);
@@ -994,7 +1081,7 @@ fn proposal_weight_limit_ignored_on_disapprove() {
 fn proposal_weight_limit_works_on_approve() {
     new_test_ext().execute_with(|| {
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
         let (section_idx, group_idx) = (0, 0);
 
         let proposal = make_proposal(42);
@@ -1002,7 +1089,7 @@ fn proposal_weight_limit_works_on_approve() {
         let proposal_weight = proposal.get_dispatch_info().weight;
         let hash = BlakeTwo256::hash_of(&proposal);
 
-        let threshold = 1;
+        let threshold = (1, 3);
         let duration = 3;
         assert_ok!(Voting::propose(
             Origin::signed(1),
@@ -1010,8 +1097,10 @@ fn proposal_weight_limit_works_on_approve() {
             group_idx,
             Box::new(proposal.clone()),
             threshold,
+            None,
             duration,
-            proposal_len
+            proposal_len,
+            false,
         ));
         assert_noop!(
             Voting::close(
