@@ -468,7 +468,7 @@ impl<T: Config> Pallet<T> {
         section_idx: VotingGroupIndex,
         members: Vec<T::AccountId>,
         votes: Vec<Votes>
-    ) -> DispatchResult {
+    ) -> Result<VotingGroupIndex, DispatchError> {
         let size = members.len();
         ensure!(
             size <= T::MaxMembers::get() as usize,
@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
                 ..Default::default()
             },
         );
-        Ok(())
+        Ok(index)
     }
 
     fn do_reset_members(
@@ -937,7 +937,7 @@ impl<T: Config> VotingActions<T::AccountId, T::Proposal, T::BlockNumber, Votes> 
         section_idx: VotingSectionIndex,
         members: Vec<T::AccountId>,
         votes: Vec<Votes>,
-    ) -> DispatchResult {
+    ) -> Result<VotingGroupIndex, DispatchError> {
         Self::do_new_group(section_idx, members, votes)
     }
 

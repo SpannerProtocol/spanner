@@ -2,12 +2,12 @@ use crate::*;
 use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
-pub trait VotingActions<AccountId, Proposal, BlockNumber, Votes> {
+pub trait VotingActions<AccountId, Proposal, BlockNumber, Votes, Hash> {
     fn new_group(
         section: VotingSectionIndex,
         members: Vec<AccountId>,
         votes: Vec<Votes>,
-    ) -> DispatchResult;
+    ) -> Result<VotingGroupIndex, DispatchError>;
 
     fn reset_members(
         section: VotingSectionIndex,
@@ -32,6 +32,12 @@ pub trait VotingActions<AccountId, Proposal, BlockNumber, Votes> {
         section: VotingSectionIndex,
         group: VotingGroupIndex,
     ) -> Result<(Vec<AccountId>, Vec<Votes>), DispatchError>;
+
+    fn voting_progress_of_proposal(
+        section: VotingSectionIndex,
+        group: VotingGroupIndex,
+        hash: Hash,
+    ) -> Result<VotingProgress, DispatchError>;
 }
 
 /// Trait for type that can handle incremental changes to a set of account IDs.

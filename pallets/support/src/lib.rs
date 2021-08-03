@@ -18,6 +18,12 @@ pub type ProposalIndex = u32;
 pub type MemberCount = u32;
 pub type Votes = u128;
 
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum VotingProgress {
+    Voting,
+    Expired
+}
+
 // Dex
 pub type Price = FixedU128;
 pub type ExchangeRate = FixedU128;

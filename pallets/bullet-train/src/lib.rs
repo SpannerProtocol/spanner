@@ -58,7 +58,7 @@ use frame_support::{
 };
 use frame_system::{ensure_signed, pallet_prelude::*};
 use orml_traits::{MultiCurrency, MultiCurrencyExtended};
-use pallet_support::traits::VotingActions;
+use pallet_support::traits::{VotingActions, VotingChangeMembers};
 use pallet_support::*;
 use parity_scale_codec::{Decode, Encode};
 use primitives::{Balance, CurrencyId};
@@ -213,6 +213,11 @@ pub struct DpoInfo<Balance, BlockNumber, AccountId> {
     referrer: Option<AccountId>,
     fare_withdrawn: bool,
     direct_referral_rate: u32, // per thousand
+    //governance
+    voting_group_id: VotingGroupIndex,
+    proposed_target: Option<Target<Balance>>,
+    // TODO: proposal hash & index?
+
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Copy, Debug)]
@@ -341,13 +346,17 @@ pub mod module {
         #[pallet::constant]
         type ManagementBaseFeeCap: Get<u32>; //per thousand
 
+        #[pallet::constant]
+        type ChangingTargetSection: Get<VotingSectionIndex>;
+
         type EngineerOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 
         type WeightInfo: WeightInfo;
 
         type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
 
-        type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::BlockNumber, Votes>;
+        type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::BlockNumber, Votes>
+            + VotingChangeMembers<Self::AccountId, Votes>;
 
         type VotingOrigin: EnsureOrigin<
             Self::Origin,
@@ -873,6 +882,12 @@ pub mod module {
                 target_entity.target_amount(),
                 false,
             );
+            // new voting group
+            let group_idx = T::Voting::new_group(
+                T::ChangingTargetSection::get(),
+                vec![manager.clone()],
+                vec![manager_purchase_amount]
+            )?;
             let mut new_dpo = DpoInfo {
                 index: new_dpo_idx,
                 name,
@@ -984,6 +999,21 @@ pub mod module {
             let target = Target::Dpo(target_dpo_idx, amount);
             let buyer_dpo = Self::dpos(buyer_dpo_idx).ok_or(Error::<T>::InvalidIndex)?;
             Self::do_dpo_buy_a_target(signer, buyer_dpo, target)?;
+            Ok(().into())
+        }
+
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn dpo_propose_new_target(
+            origin: OriginFor<T>,
+            buyer_dpo_idx: DpoIndex,
+            new_target: Target<Balance>,
+        ) -> DispatchResultWithPostInfo {
+            // (a) check default target available
+            // (b) check voting progress of last proposal, can propose new one if expired
+            // or the target of the proposal is unavailable
+            // (c) close old proposal
+            // (d) new one
             Ok(().into())
         }
 
