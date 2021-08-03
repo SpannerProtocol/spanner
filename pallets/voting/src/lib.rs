@@ -63,7 +63,7 @@ pub struct VotesInfo<AccountId, Votes, BlockNumber> {
     no_votes: Votes,
     /// The hard end time of this vote.
     end: BlockNumber,
-    /// the default vote behavior in case of absentations.
+    /// the default vote behavior in case of abstentions.
     default_option: bool,
 }
 
@@ -295,7 +295,6 @@ pub mod pallet {
         }
 
         /// reset all member and votes of all proposals
-        /// TODO: weights
         #[pallet::weight(0)]
         #[transactional]
         pub fn reset_members(
@@ -328,6 +327,8 @@ pub mod pallet {
             Ok(().into())
         }
 
+        /// when disapproval_threshold is none, it is equals to default value (1 - approval_threshold)
+        /// otherwise, disapproval_threshold + approval_threshold < 1
         #[pallet::weight(<T as Config>::WeightInfo::propose(*length_bound, T::MaxMembers::get(), T::MaxProposals::get()))]
         #[transactional]
         pub fn propose(
