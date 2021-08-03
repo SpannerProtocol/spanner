@@ -210,6 +210,83 @@ fn close_works() {
 }
 
 #[test]
+fn reset_members_works() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
+        let (section_idx, group_idx) = (0, 0);
+        let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let hash = BlakeTwo256::hash_of(&proposal);
+
+        assert_ok!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            (1, 1),
+            None,
+            3,
+            proposal_len,
+            false,
+        ));
+        assert_ok!(Voting::vote(
+            Origin::signed(2),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            false,
+        ));
+
+        assert_ok!(Voting::reset_members(
+            Origin::root(),
+            section_idx,
+            group_idx,
+            vec![2, 3, 4, 5],
+            vec![2, 3, 4, 5],
+        ));
+        assert_eq!(
+            Voting::voting_group_members((section_idx, group_idx), 4),
+            Some(VotingGroupMember {
+                account: 4,
+                votes: 4,
+            })
+        );
+        assert_eq!(
+            Voting::voting_group_members((section_idx, group_idx), 5),
+            Some(VotingGroupMember {
+                account: 5,
+                votes: 5,
+            })
+        );
+        assert_eq!(Voting::voting_group_members((section_idx, group_idx), 1), None);
+        assert_eq!(
+            Voting::voting_group((section_idx, group_idx)),
+            Some(VotingGroupInfo {
+                proposals: vec![hash.clone()],
+                total_votes: 14,
+                member_count: 4,
+            })
+        );
+        assert_eq!(
+            Voting::votes_of((section_idx, group_idx), &hash),
+            Some(VotesInfo {
+                index: 0,
+                approval_threshold: (1, 1),
+                disapproval_threshold: None,
+                ayes: vec![],
+                yes_votes: 0,
+                nays: vec![],
+                no_votes: 0,
+                end: 3,
+                default_option: false
+            })
+        );
+    });
+}
+
+#[test]
 fn change_members_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
