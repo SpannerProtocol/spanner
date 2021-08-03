@@ -978,7 +978,7 @@ fn motions_disapproval_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
         assert_ok!(Voting::new_section(Origin::root()));
-        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3, 4], vec![1, 1, 1, 1]));
         let (section_idx, group_idx) = (0, 0);
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -990,11 +990,11 @@ fn motions_disapproval_works() {
             section_idx,
             group_idx,
             Box::new(proposal.clone()),
-            (1, 1),
-            None,
+            (1, 2),
+            Some((1, 4)), // at least one nay
             3,
             proposal_len,
-            false,
+            true,
         ));
         assert_ok!(Voting::vote(
             Origin::signed(2),
@@ -1028,8 +1028,8 @@ fn motions_disapproval_works() {
                     group_idx,
                     0,
                     hash.clone(),
-                    (1, 1),
-                    None,
+                    (1, 2),
+                    Some((1, 4)),
                 ))),
                 record(Event::pallet_voting(crate::Event::Voted(
                     2,
@@ -1038,14 +1038,14 @@ fn motions_disapproval_works() {
                     hash.clone(),
                     false,
                     1,
-                    2
+                    1
                 ))),
                 record(Event::pallet_voting(crate::Event::Closed(
                     section_idx,
                     group_idx,
                     hash.clone(),
                     1,
-                    2
+                    1
                 ))),
                 record(Event::pallet_voting(crate::Event::Disapproved(
                     section_idx,
