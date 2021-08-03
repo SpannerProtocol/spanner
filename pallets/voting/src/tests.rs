@@ -1312,3 +1312,78 @@ fn proposal_weight_limit_works_on_approve() {
         ));
     });
 }
+
+#[test]
+fn proposal_default_voting_behavior_for_abstentions_works() {
+    new_test_ext().execute_with(|| {
+        run_to_block(1);
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 1, 1]));
+        let (section_idx, group_idx) = (0, 0);
+
+        let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+        let proposal_weight = proposal.get_dispatch_info().weight;
+        let hash = BlakeTwo256::hash_of(&proposal);
+
+        assert_ok!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            (1, 1),
+            None,
+            3,
+            proposal_len,
+            true,
+        ));
+        run_to_block(4);
+        assert_ok!(Voting::close(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            hash.clone(),
+            0,
+            proposal_len,
+            proposal_weight
+        ));
+
+        let record = |event| EventRecord {
+            phase: Phase::Initialization,
+            event,
+            topics: vec![],
+        };
+        assert_eq!(
+            System::events(),
+            vec![
+                record(Event::pallet_voting(crate::Event::Proposed(
+                    1,
+                    section_idx,
+                    group_idx,
+                    0,
+                    hash.clone(),
+                    (1, 1),
+                    None,
+                ))),
+                record(Event::pallet_voting(crate::Event::Closed(
+                    section_idx,
+                    group_idx,
+                    hash.clone(),
+                    3,
+                    0
+                ))),
+                record(Event::pallet_voting(crate::Event::Approved(
+                    section_idx,
+                    group_idx,
+                    hash.clone()
+                ))),
+                record(Event::pallet_voting(crate::Event::Executed(
+                    section_idx,
+                    group_idx,
+                    hash.clone(),
+                    Err(DispatchError::BadOrigin),
+                )))
+            ]
+        );
+    });
+}
