@@ -604,29 +604,32 @@ impl<T: Config> Pallet<T> {
 
         // delete members
         for m in outgoing {
-            if let Some(member) = Self::voting_group_members((section_idx, group_idx), m.clone()) {
-                vg.member_count -= 1;
-                vg.total_votes = vg.total_votes.saturating_sub(member.votes);
+            VotingGroupMembers::<T>::mutate_exists((section_idx, group_idx), m.clone(), |v| {
+                if let Some(member) = v {
+                    vg.member_count -= 1;
+                    vg.total_votes = vg.total_votes.saturating_sub(member.votes);
 
-                // update votes of proposal
-                for h in vg.proposals.clone().into_iter() {
-                    VotesOf::<T>::mutate((section_idx, group_idx), h, |v| {
-                        if let Some(mut votes) = v.take() {
-                            let position_yes = votes.ayes.iter().position(|a| a == &m);
-                            let position_no = votes.nays.iter().position(|a| a == &m);
-                            if let Some(pos) = position_yes {
-                                votes.ayes.swap_remove(pos);
-                                votes.yes_votes = votes.yes_votes.saturating_sub(member.votes);
+                    // update votes of proposal
+                    for h in vg.proposals.clone().into_iter() {
+                        VotesOf::<T>::mutate((section_idx, group_idx), h, |v| {
+                            if let Some(mut votes) = v.take() {
+                                let position_yes = votes.ayes.iter().position(|a| a == &m);
+                                let position_no = votes.nays.iter().position(|a| a == &m);
+                                if let Some(pos) = position_yes {
+                                    votes.ayes.swap_remove(pos);
+                                    votes.yes_votes = votes.yes_votes.saturating_sub(member.votes);
+                                }
+                                if let Some(pos) = position_no {
+                                    votes.nays.swap_remove(pos);
+                                    votes.no_votes = votes.no_votes.saturating_sub(member.votes);
+                                }
+                                *v = Some(votes);
                             }
-                            if let Some(pos) = position_no {
-                                votes.nays.swap_remove(pos);
-                                votes.no_votes = votes.no_votes.saturating_sub(member.votes);
-                            }
-                            *v = Some(votes);
-                        }
-                    })
+                        })
+                    }
+                    *v = None; // delete member
                 }
-            }
+            });
         }
 
         ensure!(

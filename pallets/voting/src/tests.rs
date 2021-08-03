@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, VotesInfo, VotingGroupInfo};
+use crate::{mock::*, Error, VotesInfo, VotingGroupInfo, VotingGroupMember};
 use frame_support::dispatch::DispatchError;
 use frame_support::sp_runtime::traits::{BlakeTwo256, Hash};
 use frame_support::weights::GetDispatchInfo;
@@ -25,6 +25,20 @@ fn new_voting_group() {
                 proposals: Vec::<H256>::new(),
                 total_votes: 6,
                 member_count: 3,
+            })
+        );
+        assert_eq!(
+            Voting::voting_group_members((section_idx, group_idx), 2),
+            Some(VotingGroupMember {
+                account: 2,
+                votes: 2,
+            })
+        );
+        assert_eq!(
+            Voting::voting_group_members((section_idx, group_idx), 3),
+            Some(VotingGroupMember {
+                account: 3,
+                votes: 3,
             })
         );
     });
@@ -249,6 +263,14 @@ fn change_members_works() {
             vec![1],
         ));
         assert_eq!(
+            Voting::voting_group_members((section_idx, group_idx), 4),
+            Some(VotingGroupMember {
+                account: 4,
+                votes: 4,
+            })
+        );
+        assert_eq!(Voting::voting_group_members((section_idx, group_idx), 1), None);
+        assert_eq!(
             Voting::voting_group((section_idx, group_idx)),
             Some(VotingGroupInfo {
                 proposals: vec![hash1.clone()],
@@ -315,6 +337,14 @@ fn change_members_works() {
             vec![10],
             vec![3], // remove
         ));
+        assert_eq!(
+            Voting::voting_group_members((section_idx, group_idx), 2),
+            Some(VotingGroupMember {
+                account: 2,
+                votes: 10,
+            })
+        );
+        assert_eq!(Voting::voting_group_members((section_idx, group_idx), 3), None);
         assert_eq!(
             Voting::voting_group((section_idx, group_idx)),
             Some(VotingGroupInfo {
