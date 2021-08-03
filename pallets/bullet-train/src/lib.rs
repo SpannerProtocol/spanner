@@ -530,7 +530,7 @@ pub mod module {
         /// will be given to all passengers by their paid ticket fair.
         /// dpo will then distribute to its members just like Yield
         #[pallet::weight(< T as Config >::WeightInfo::create_milestone_reward())]
-        #[transactional]
+        #[transactional]new_group
         pub fn create_milestone_reward(
             origin: OriginFor<T>,
             token_id: CurrencyId,

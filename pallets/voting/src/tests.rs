@@ -448,6 +448,38 @@ fn change_members_works() {
 }
 
 #[test]
+fn limit_max_members_works() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_noop!(Voting::new_group(
+            Origin::root(),
+            0,
+            (1..102).collect(), // 101 > max 100
+            (1..102).collect(),
+        ), Error::<Test>::ExceedMaxMembersAllowed);
+        assert_ok!(Voting::new_group(Origin::root(), 0, (1..101).collect(), (1..101).collect()));
+        let (section_idx, group_idx) = (0, 0);
+
+        assert_noop!(Voting::change_members(
+            Origin::root(),
+            section_idx,
+            group_idx,
+            vec![100, 101, 102],
+            vec![100, 101, 102],
+            vec![99],
+        ), Error::<Test>::ExceedMaxMembersAllowed);
+
+        assert_noop!(Voting::reset_members(
+            Origin::root(),
+            section_idx,
+            group_idx,
+            (1..102).collect(), // 101 > max 100
+            (1..102).collect(),
+        ), Error::<Test>::ExceedMaxMembersAllowed);
+    });
+}
+
+#[test]
 fn propose_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);
