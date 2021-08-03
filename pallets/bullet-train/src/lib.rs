@@ -67,7 +67,7 @@ use serde::{Deserialize, Serialize};
 use sp_arithmetic::Percent;
 use sp_runtime::{
     traits::{AccountIdConversion, UniqueSaturatedInto, Zero},
-    DispatchError, FixedPointNumber, FixedPointOperand, FixedU128, ModuleId, Permill,
+    DispatchError, FixedPointNumber, ModuleId, Permill,
 };
 use sp_std::prelude::*;
 
@@ -347,7 +347,7 @@ pub mod module {
 
         type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
 
-        type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::Hash, Self::BlockNumber, Votes>;
+        type Voting: VotingActions<Self::AccountId, Self::Proposal, Self::BlockNumber, Votes>;
 
         type VotingOrigin: EnsureOrigin<
             Self::Origin,
@@ -530,7 +530,7 @@ pub mod module {
         /// will be given to all passengers by their paid ticket fair.
         /// dpo will then distribute to its members just like Yield
         #[pallet::weight(< T as Config >::WeightInfo::create_milestone_reward())]
-        #[transactional]new_group
+        #[transactional]
         pub fn create_milestone_reward(
             origin: OriginFor<T>,
             token_id: CurrencyId,
