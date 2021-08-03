@@ -408,6 +408,54 @@ fn propose_works() {
 }
 
 #[test]
+fn propose_invalid_threshold_works() {
+    new_test_ext().execute_with(|| {
+        run_to_block(1);
+        assert_ok!(Voting::new_section(Origin::root()));
+        assert_ok!(Voting::new_group(Origin::root(), 0, vec![1, 2, 3], vec![1, 2, 3]));
+        let (section_idx, group_idx) = (0, 0);
+        let proposal = make_proposal(42);
+        let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
+
+        assert_noop!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            (0, 1), // <= 0
+            None,
+            3,
+            proposal_len,
+            false,
+        ), Error::<Test>::InvalidThreshold);
+
+        assert_noop!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            (2, 1), // > 1
+            None,
+            3,
+            proposal_len,
+            false,
+        ), Error::<Test>::InvalidThreshold);
+
+        assert_noop!(Voting::propose(
+            Origin::signed(1),
+            section_idx,
+            group_idx,
+            Box::new(proposal.clone()),
+            (1, 2),
+            Some((1, 2)), // 1/2 + 1/2 = 1
+            3,
+            proposal_len,
+            false,
+        ), Error::<Test>::InvalidThreshold);
+    });
+}
+
+#[test]
 fn propose_non_member_works() {
     new_test_ext().execute_with(|| {
         run_to_block(1);

@@ -636,8 +636,6 @@ impl<T: Config> Pallet<T> {
 
         // update voting group
         VotingGroup::<T>::insert((section_idx, group_idx), vg);
-
-        // TODO: event
         Ok(())
     }
 
